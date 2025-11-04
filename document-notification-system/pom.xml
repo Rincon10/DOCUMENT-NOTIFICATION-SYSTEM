@@ -11,6 +11,7 @@
 
     <modules>
         <module>document-service</module>
+        <module>infraestructure</module>
     </modules>
 
     <parent>
