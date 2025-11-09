@@ -11,5 +11,8 @@
 
     <artifactId>infrastructure</artifactId>
     <packaging>pom</packaging>
+    <modules>
+        <module>outbox</module>
+    </modules>
 
 </project>
