@@ -55,9 +55,10 @@ El proyecto está guiado por varias prácticas y patrones de arquitectura limpia
 
 ## Cómo empezar (resumen)
 1. Clona el repositorio:
+```
    git clone https://github.com/Rincon10/DOCUMENT-NOTIFICATION-SYSTEM.git
-
-2.
+```
+3.
 ## Buenas prácticas y recomendaciones
 - Mantiene la lógica de negocio en el dominio y los casos de uso; evita lógica de negocio en controladores o adaptadores.
 - Prefiere pruebas unitarias en el dominio y pruebas de integración atómicas para adaptadores.
