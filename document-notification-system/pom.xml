@@ -12,6 +12,7 @@
     <modules>
         <module>document-service</module>
         <module>infraestructure</module>
+        <module>common</module>
     </modules>
 
     <parent>
