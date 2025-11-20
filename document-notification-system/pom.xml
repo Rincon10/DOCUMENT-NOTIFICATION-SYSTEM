@@ -55,6 +55,11 @@
                 <artifactId>document-dataaccess</artifactId>
                 <version>${project.version}</version>
             </dependency>
+            <dependency>
+                <groupId>com.document.notification.system</groupId>
+                <artifactId>common-application-api</artifactId>
+                <version>${project.version}</version>
+            </dependency>
         </dependencies>
     </dependencyManagement>
 
