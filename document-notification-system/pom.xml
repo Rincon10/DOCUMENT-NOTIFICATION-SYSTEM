@@ -37,7 +37,17 @@
         <dependencies>
             <dependency>
                 <groupId>com.document.notification.system</groupId>
+                <artifactId>document-domain-core</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>com.document.notification.system</groupId>
                 <artifactId>common-domain</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>com.document.notification.system</groupId>
+                <artifactId>document-application-service</artifactId>
                 <version>${project.version}</version>
             </dependency>
         </dependencies>
