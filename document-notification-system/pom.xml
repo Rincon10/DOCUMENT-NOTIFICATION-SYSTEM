@@ -50,6 +50,11 @@
                 <artifactId>document-application-service</artifactId>
                 <version>${project.version}</version>
             </dependency>
+            <dependency>
+                <groupId>com.document.notification.system</groupId>
+                <artifactId>document-dataaccess</artifactId>
+                <version>${project.version}</version>
+            </dependency>
         </dependencies>
     </dependencyManagement>
 
