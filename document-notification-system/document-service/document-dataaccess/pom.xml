@@ -15,7 +15,10 @@
     </properties>
 
     <dependencies>
-
+        <dependency>
+            <groupId>com.document.notification.system</groupId>
+            <artifactId>document-application-service</artifactId>
+        </dependency>
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-data-jpa</artifactId>
