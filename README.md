@@ -6,7 +6,23 @@ Un sistema de notificaciones distribuido orientado a documentos, diseñado con p
 Este repositorio contiene el código fuente y la estructura para un sistema que produce, enruta y entrega notificaciones relacionadas con documentos (por ejemplo: creación, actualización, expiración, aprobaciones). Está pensado para ser desplegado de forma distribuida, integrándose con brokers de mensajería, colas y/o eventos y exponiendo adaptadores (API, webhook, colas) según las necesidades.
 
 ## Arquitectura del componente Document Service
-A continuación se muestra la arquitectura de alto nivel del componente Document Service, que ilustra la organización de capas, flujos de comunicación y separación de responsabilidades siguiendo los principios de arquitectura hexagonal:
+El componente Document Service representa el núcleo del sistema de gestión de documentos, implementando una arquitectura hexagonal (Ports & Adapters) que garantiza la separación clara entre la lógica de negocio y los detalles de infraestructura.
+
+El diagrama a continuación ilustra la arquitectura de alto nivel del componente, destacando:
+
+- **Capa de Dominio (Core)**: Entidades, agregados, value objects y reglas de negocio puras relacionadas con la gestión de documentos. Esta capa es independiente de frameworks y tecnologías externas.
+
+- **Capa de Aplicación**: Casos de uso y servicios de aplicación que orquestan las operaciones del dominio, coordinando el flujo de datos entre adaptadores y el dominio.
+
+- **Puertos (Interfaces)**: Contratos abstractos que definen cómo el núcleo se comunica con el exterior, tanto para entradas (puertos primarios) como para salidas (puertos secundarios).
+
+- **Adaptadores**: Implementaciones concretas de los puertos que conectan con tecnologías específicas:
+  - *Adaptadores de entrada*: API REST, controladores, listeners de eventos
+  - *Adaptadores de salida*: Repositorios de base de datos, clientes de mensajería, servicios externos
+
+- **Flujos de comunicación**: Muestra cómo las peticiones fluyen desde los adaptadores de entrada, atraviesan los casos de uso, interactúan con el dominio y se comunican con sistemas externos mediante adaptadores de salida.
+
+Esta organización permite sustituir cualquier tecnología de infraestructura sin afectar la lógica de negocio, facilitando la mantenibilidad, testabilidad y evolución del sistema.
 
 ![Arquitectura del componente Document Service](docs/01-arquitectura-componente-document.png)
 
