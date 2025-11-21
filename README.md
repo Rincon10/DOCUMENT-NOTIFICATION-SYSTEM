@@ -5,6 +5,11 @@ Un sistema de notificaciones distribuido orientado a documentos, diseñado con p
 ## Visión general
 Este repositorio contiene el código fuente y la estructura para un sistema que produce, enruta y entrega notificaciones relacionadas con documentos (por ejemplo: creación, actualización, expiración, aprobaciones). Está pensado para ser desplegado de forma distribuida, integrándose con brokers de mensajería, colas y/o eventos y exponiendo adaptadores (API, webhook, colas) según las necesidades.
 
+## Arquitectura del componente Document Service
+A continuación se muestra la arquitectura de alto nivel del componente Document Service, que ilustra la organización de capas, flujos de comunicación y separación de responsabilidades siguiendo los principios de arquitectura hexagonal:
+
+![Arquitectura del componente Document Service](docs/01-arquitectura-componente-document.png)
+
 ## Principios arquitectónicos aplicados
 El proyecto está guiado por varias prácticas y patrones de arquitectura limpia, entre los que destacan:
 
