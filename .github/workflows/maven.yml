@@ -30,7 +30,6 @@ jobs:
 
     - name: move to the folder
       run:
-        # 1. Mueve la carpeta (por ejemplo, 'old_path' a 'new_path/')
         git mv document-notification-system/
     - name: Build with Maven
       run: mvn -B package --file pom.xml
