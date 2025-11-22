@@ -7,4 +7,7 @@ package com.document.notification.system.domain.constants;
  */
 public class ResponseConstants {
     public static final String CUSTOMER_CREATED_SUCCESSFULLY = "Customer created successfully.";
+
+    private ResponseConstants() {
+    }
 }

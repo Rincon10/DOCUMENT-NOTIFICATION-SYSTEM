@@ -11,6 +11,9 @@ import java.time.ZonedDateTime;
 public class DateUtils {
     public static final String ZONE_ID_UTC = "UTC";
 
+    private DateUtils() {
+    }
+
     public static ZonedDateTime getZoneDateTimeByZoneId(String zoneId) {
         return ZonedDateTime.now(ZoneId.of(zoneId));
     }
