@@ -1,6 +1,7 @@
 package com.document.notification.system.document.entity;
 
 
+import com.document.notification.system.domain.valueobject.DocumentStatus;
 import jakarta.persistence.*;
 import lombok.*;
 
@@ -52,6 +53,11 @@ public class DocumentEntity {
     private LocalDateTime createdAt;
 
     private LocalDateTime updatedAt;
+
+    @Enumerated(EnumType.STRING)
+    private DocumentStatus documentStatus;
+
+    private String failureMessages;
 
     @OneToOne(mappedBy = "document", cascade = CascadeType.ALL)
     private DocumentAddressEntity address;
