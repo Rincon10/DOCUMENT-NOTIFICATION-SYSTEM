@@ -1,6 +1,6 @@
-package com.document.notification.system.repository;
+package com.document.notification.system.document.repository;
 
-import com.document.notification.system.entity.DocumentEntity;
+import com.document.notification.system.document.entity.DocumentEntity;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
 
