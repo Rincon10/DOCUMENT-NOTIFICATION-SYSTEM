@@ -68,7 +68,7 @@
 
             <dependency>
                 <groupId>com.document.notification.system</groupId>
-                <artifactId>customer-domain</artifactId>
+                <artifactId>customer-domain-core</artifactId>
                 <version>${project.version}</version>
             </dependency>
             <dependency>
