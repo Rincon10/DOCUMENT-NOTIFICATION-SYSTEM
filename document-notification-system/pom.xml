@@ -90,6 +90,11 @@
 
             <!--            infraestructure for messaging kafka-->
 
+            <dependency>
+                <groupId>com.document.notification.system</groupId>
+                <artifactId>kafka-config-data</artifactId>
+                <version>${project.version}</version>
+            </dependency>
         </dependencies>
 
 
