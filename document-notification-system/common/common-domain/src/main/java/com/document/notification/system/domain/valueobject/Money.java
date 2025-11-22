@@ -14,8 +14,8 @@ import java.math.RoundingMode;
 public class Money {
     private final BigDecimal amount;
 
-    public boolean isGreaterThanZero() {
-        return this.amount != null && this.amount.compareTo(BigDecimal.ZERO) > 0;
+    public boolean isGreaterOrEqualToZero() {
+        return this.amount != null && this.amount.compareTo(BigDecimal.ZERO) >= 0;
     }
 
     public boolean isGreaterThan(Money money) {
