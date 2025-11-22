@@ -1,5 +1,6 @@
 package com.document.notification.system.customer.service.dataaccess.customer.adapter;
 
+import com.document.notification.system.customer.service.dataaccess.customer.entity.CustomerEntity;
 import com.document.notification.system.customer.service.dataaccess.customer.mapper.CustomerDataAccessMapper;
 import com.document.notification.system.customer.service.dataaccess.customer.repository.CustomerJpaRepository;
 import com.document.notification.system.customer.service.entity.Customer;
@@ -23,7 +24,8 @@ public class CustomerRepositoryImpl implements CustomerRepository {
 
     @Override
     public Customer createCustomer(Customer customer) {
-        throw new UnsupportedOperationException("Not implemented yet");
-
+        CustomerEntity customerEntity = customerDataAccessMapper.customerToCustomerEntity(customer);
+        CustomerEntity savedEntity = customerJpaRepository.save(customerEntity);
+        return customerDataAccessMapper.customerEntityToCustomer(savedEntity);
     }
 }
