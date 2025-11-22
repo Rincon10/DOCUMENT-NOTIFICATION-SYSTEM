@@ -1,4 +1,4 @@
-package com.document.notification.system.entity;
+package com.document.notification.system.document.service.domain.entity;
 
 import com.document.notification.system.domain.entity.AggregateRoot;
 import com.document.notification.system.domain.valueobject.CustomerId;

@@ -1,10 +1,13 @@
 package com.document.notification.system.document.entity;
 
-import jakarta.persistence.Entity;
-import jakarta.persistence.Id;
-import jakarta.persistence.Table;
+
+import jakarta.persistence.*;
 import lombok.*;
 
+import java.math.BigDecimal;
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.util.List;
 import java.util.UUID;
 
 /**
@@ -22,4 +25,39 @@ import java.util.UUID;
 public class DocumentEntity {
     @Id
     private UUID id;
+
+    private UUID customerId;
+
+    private UUID accountId;
+
+    private String fileName;
+
+    private String filePath;
+
+    @Column(nullable = false)
+    private LocalDate periodStartDate;
+
+    @Column(nullable = false)
+    private LocalDate periodEndDate;
+
+    private BigDecimal totalLateInterest;
+
+    private BigDecimal totalRegularInterest;
+
+    private BigDecimal totalAmount;
+
+    private String createdBy;
+
+    @Column( nullable = false)
+    private LocalDateTime createdAt;
+
+    private LocalDateTime updatedAt;
+
+    @OneToOne(mappedBy = "document", cascade = CascadeType.ALL)
+    private DocumentAddressEntity address;
+
+    @OneToMany(mappedBy = "document", cascade = CascadeType.ALL)
+    private List<DocumentItemEntity> items;
+
+
 }
