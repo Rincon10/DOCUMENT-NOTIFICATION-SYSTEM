@@ -1,8 +1,8 @@
-package com.document.notification.system.document.adapter;
+package com.document.notification.system.document.service.dataaccess.adapter;
 
-import com.document.notification.system.document.entity.DocumentEntity;
-import com.document.notification.system.document.mapper.DocumentDataAccessMapperI;
-import com.document.notification.system.document.repository.DocumentJpaRepository;
+import com.document.notification.system.document.service.dataaccess.entity.DocumentEntity;
+import com.document.notification.system.document.service.dataaccess.mapper.DocumentDataAccessMapperI;
+import com.document.notification.system.document.service.dataaccess.repository.DocumentJpaRepository;
 import com.document.notification.system.domain.valueobject.DocumentId;
 import com.document.notification.system.document.service.domain.entity.Document;
 import com.document.notification.system.ports.output.repository.DocumentRepository;
