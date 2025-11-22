@@ -1,4 +1,4 @@
-package com.document.notification.system.entity;
+package com.document.notification.system.document.entity;
 
 import jakarta.persistence.Entity;
 import jakarta.persistence.Id;
