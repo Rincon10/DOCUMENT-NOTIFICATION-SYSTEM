@@ -13,6 +13,7 @@
     <packaging>pom</packaging>
     <modules>
         <module>customer-domain-core</module>
+        <module>customer-application-service</module>
     </modules>
 
     <properties>

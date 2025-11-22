@@ -73,6 +73,11 @@
             </dependency>
             <dependency>
                 <groupId>com.document.notification.system</groupId>
+                <artifactId>customer-application-service</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>com.document.notification.system</groupId>
                 <artifactId>customer-application-api</artifactId>
                 <version>${project.version}</version>
             </dependency>
