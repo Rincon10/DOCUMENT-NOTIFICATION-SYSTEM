@@ -12,6 +12,10 @@ public class DateUtils {
     public static final String ZONE_ID_UTC = "UTC";
 
     public static ZonedDateTime getZoneDateTimeByZoneId(String zoneId) {
-        return ZonedDateTime.now(ZoneId.of(ZONE_ID_UTC));
+        return ZonedDateTime.now(ZoneId.of(zoneId));
+    }
+
+    public static ZonedDateTime getZoneDateTimeByUTCZoneId() {
+        return getZoneDateTimeByZoneId(ZONE_ID_UTC);
     }
 }
