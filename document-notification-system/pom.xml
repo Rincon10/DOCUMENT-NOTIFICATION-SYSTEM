@@ -14,6 +14,7 @@
         <module>common</module>
         <module>document-service</module>
         <module>generator-service</module>
+        <module>customer-service</module>
     </modules>
 
     <parent>
@@ -35,6 +36,8 @@
 
     <dependencyManagement>
         <dependencies>
+            <!--            document dependencies-->
+
             <dependency>
                 <groupId>com.document.notification.system</groupId>
                 <artifactId>document-domain-core</artifactId>
@@ -60,7 +63,22 @@
                 <artifactId>common-application-api</artifactId>
                 <version>${project.version}</version>
             </dependency>
+
+            <!--            Customer dependencies-->
+
+            <dependency>
+                <groupId>com.document.notification.system</groupId>
+                <artifactId>customer-domain</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>com.document.notification.system</groupId>
+                <artifactId>customer-application-api</artifactId>
+                <version>${project.version}</version>
+            </dependency>
         </dependencies>
+
+
     </dependencyManagement>
 
 
