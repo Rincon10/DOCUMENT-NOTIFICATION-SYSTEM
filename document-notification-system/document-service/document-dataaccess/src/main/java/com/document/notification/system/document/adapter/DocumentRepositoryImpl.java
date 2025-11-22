@@ -4,7 +4,7 @@ import com.document.notification.system.document.entity.DocumentEntity;
 import com.document.notification.system.document.mapper.DocumentDataAccessMapperI;
 import com.document.notification.system.document.repository.DocumentJpaRepository;
 import com.document.notification.system.domain.valueobject.DocumentId;
-import com.document.notification.system.entity.Document;
+import com.document.notification.system.document.service.domain.entity.Document;
 import com.document.notification.system.ports.output.repository.DocumentRepository;
 import org.springframework.stereotype.Component;
 

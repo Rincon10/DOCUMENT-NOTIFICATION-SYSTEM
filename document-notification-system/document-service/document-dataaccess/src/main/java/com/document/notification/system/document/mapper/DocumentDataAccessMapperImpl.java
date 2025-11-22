@@ -1,7 +1,7 @@
 package com.document.notification.system.document.mapper;
 
 import com.document.notification.system.document.entity.DocumentEntity;
-import com.document.notification.system.entity.Document;
+import com.document.notification.system.document.service.domain.entity.Document;
 import org.springframework.stereotype.Component;
 
 /**
