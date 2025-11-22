@@ -11,6 +11,9 @@
 
     <artifactId>kafka</artifactId>
     <packaging>pom</packaging>
+    <modules>
+        <module>kafka-config-data</module>
+    </modules>
     <properties>
     </properties>
 
