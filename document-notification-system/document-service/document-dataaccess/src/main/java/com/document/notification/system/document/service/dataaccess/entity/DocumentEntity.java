@@ -1,4 +1,4 @@
-package com.document.notification.system.document.entity;
+package com.document.notification.system.document.service.dataaccess.entity;
 
 
 import com.document.notification.system.domain.valueobject.DocumentStatus;

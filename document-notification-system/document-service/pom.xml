@@ -16,6 +16,7 @@
         <module>document-domain</module>
         <module>document-messaging</module>
         <module>document-dataaccess</module>
+        <module>document-container</module>
     </modules>
 
     <properties>
