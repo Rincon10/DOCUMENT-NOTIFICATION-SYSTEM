@@ -3,9 +3,9 @@ package com.document.notification.system.document.service.dataaccess.adapter;
 import com.document.notification.system.document.service.dataaccess.entity.DocumentEntity;
 import com.document.notification.system.document.service.dataaccess.mapper.DocumentDataAccessMapperI;
 import com.document.notification.system.document.service.dataaccess.repository.DocumentJpaRepository;
-import com.document.notification.system.domain.valueobject.DocumentId;
 import com.document.notification.system.document.service.domain.entity.Document;
-import com.document.notification.system.ports.output.repository.DocumentRepository;
+import com.document.notification.system.domain.valueobject.DocumentId;
+import com.document.notification.system.ports.output.repository.IDocumentRepository;
 import org.springframework.stereotype.Component;
 
 import java.util.Optional;
@@ -16,7 +16,7 @@ import java.util.Optional;
  * @since 19/11/2025
  */
 @Component
-public class DocumentRepositoryImpl implements DocumentRepository {
+public class DocumentRepositoryImpl implements IDocumentRepository {
 
     private final DocumentJpaRepository documentJpaRepository;
     private final DocumentDataAccessMapperI documentDataAccessMapper;

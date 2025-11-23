@@ -8,5 +8,5 @@ import lombok.extern.slf4j.Slf4j;
  * @since 22/11/2025
  */
 @Slf4j
-public class DocumentDomainServiceImpl implements DocumentDomainServiceI {
+public class DocumentDomainServiceImpl implements IDocumentDomainService {
 }

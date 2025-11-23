@@ -6,7 +6,6 @@ import com.document.notification.system.domain.valueobject.CustomerId;
 import com.document.notification.system.domain.valueobject.DocumentId;
 import com.document.notification.system.domain.valueobject.DocumentStatus;
 import com.document.notification.system.domain.valueobject.DocumentType;
-import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Getter;
 

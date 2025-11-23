@@ -5,5 +5,5 @@ import com.document.notification.system.dto.create.CreateDocumentCommand;
 
 public interface IDocumentCreateHelper {
 
-    public DocumentCreatedEvent persistOrder(CreateDocumentCommand createOrderCommand);
+    DocumentCreatedEvent persistDocument(CreateDocumentCommand createDocumentCommand);
 }

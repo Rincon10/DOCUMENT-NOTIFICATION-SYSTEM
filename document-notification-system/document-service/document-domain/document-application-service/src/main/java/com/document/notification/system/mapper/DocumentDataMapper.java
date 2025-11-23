@@ -7,7 +7,6 @@ import com.document.notification.system.document.service.domain.valueobject.Stre
 import com.document.notification.system.domain.valueobject.CustomerId;
 import com.document.notification.system.domain.valueobject.Money;
 import com.document.notification.system.dto.create.*;
-
 import org.springframework.stereotype.Component;
 
 import java.util.List;
