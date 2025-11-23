@@ -3,13 +3,13 @@ server:
 
 logging:
   level:
-    com.food.ordering.system: DEBUG
+    com.document.notification.system: DEBUG
 
 spring:
   jpa:
     show-sql: true
   datasource:
-    url: jdbc:postgresql://localhost:5434/postgres?currentSchema=order&binaryTransfer=true&reWriteBatchedInserts=true&stringtype=unspecified
+    url: jdbc:postgresql://localhost:5434/postgres?currentSchema=document&binaryTransfer=true&reWriteBatchedInserts=true&stringtype=unspecified
     username: postgres
     password: admin
     driver-class-name: org.postgresql.Driver
