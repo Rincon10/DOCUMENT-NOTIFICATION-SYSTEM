@@ -28,8 +28,9 @@ public class DocumentItemEntity {
     private DocumentEntity document;
 
     private UUID itemId;
-    private BigDecimal value;
-    private Integer quantity;
+
+    private BigDecimal lateInterest;
+    private BigDecimal regularInterest;
     private BigDecimal subTotal;
 
 

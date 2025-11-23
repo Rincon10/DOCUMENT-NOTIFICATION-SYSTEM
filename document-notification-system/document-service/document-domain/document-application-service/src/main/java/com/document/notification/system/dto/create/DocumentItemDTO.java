@@ -1,34 +1,27 @@
 package com.document.notification.system.dto.create;
 
-import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.NotNull;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Getter;
 
+import java.util.UUID;
+
 /**
  * @author Ivan Camilo Rincon Saavedra
  * @version 1.0
- * @since 22/11/2025
+ * @since 23/11/2025
  */
-
 @Getter
 @Builder
 @AllArgsConstructor
-public class DocumentAddress {
+public class DocumentItemDTO {
     @NotNull
-    @Max(value = 20)
-    private final String postalCode;
-
+    private final UUID itemId;
     @NotNull
-    @Max(value = 200)
-    private final String street;
-
+    private final Integer quantity;
     @NotNull
-    @Max(value = 50)
-    private final String city;
-
+    private final BigDecimal price;
     @NotNull
-    @Max(value = 50)
-    private final String country;
+    private final BigDecimal subTotal;
 }

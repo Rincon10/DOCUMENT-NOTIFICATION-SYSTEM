@@ -21,8 +21,8 @@ public class CreateDocumentCommand {
     @NotNull
     private final UUID customerId;
     @NotNull
-    private final List<DocumentItem> labels;
+    private final List<DocumentItemDTO> labels;
     @NotNull
-    private final DocumentInformation documentInformation;
+    private final DocumentInformationDTO documentInformation;
 
 }
