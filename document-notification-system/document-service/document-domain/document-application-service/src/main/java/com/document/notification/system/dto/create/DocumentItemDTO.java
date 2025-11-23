@@ -5,6 +5,7 @@ import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Getter;
 
+import java.math.BigDecimal;
 import java.util.UUID;
 
 /**
@@ -18,10 +19,12 @@ import java.util.UUID;
 public class DocumentItemDTO {
     @NotNull
     private final UUID itemId;
-    @NotNull
-    private final Integer quantity;
-    @NotNull
-    private final BigDecimal price;
-    @NotNull
-    private final BigDecimal subTotal;
+
+    private final BigDecimal amount;
+    
+    private BigDecimal lateInterest;
+
+    private BigDecimal regularInterest;
+
+    private BigDecimal subTotal;
 }

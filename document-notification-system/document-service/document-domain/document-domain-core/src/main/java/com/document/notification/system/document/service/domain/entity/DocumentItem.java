@@ -16,10 +16,8 @@ import java.math.BigDecimal;
  */
 @Data
 public class DocumentItem extends BaseEntity<DocumentItemId> {
-    private DocumentId documentId;
-
     private final Item item;
-
+    private DocumentId documentId;
     private Money lateInterest;
     private Money regularInterest;
     private Money subTotal;
