@@ -36,4 +36,10 @@ public class Document extends AggregateRoot<DocumentId> {
         this.documentItems = documentItems;
         this.documentStatus = documentStatus;
     }
+
+    public void validateDocument() {
+    }
+
+    public void initializeDocument() {
+    }
 }
