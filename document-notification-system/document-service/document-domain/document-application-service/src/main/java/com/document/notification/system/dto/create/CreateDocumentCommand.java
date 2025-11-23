@@ -1,6 +1,5 @@
 package com.document.notification.system.dto.create;
 
-import com.document.notification.system.document.service.domain.entity.DocumentItem;
 import jakarta.validation.constraints.NotNull;
 import lombok.AllArgsConstructor;
 import lombok.Builder;

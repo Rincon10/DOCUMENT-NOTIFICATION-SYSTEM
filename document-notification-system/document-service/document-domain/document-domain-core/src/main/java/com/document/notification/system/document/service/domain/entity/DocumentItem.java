@@ -7,8 +7,6 @@ import com.document.notification.system.domain.valueobject.Money;
 import lombok.Builder;
 import lombok.Data;
 
-import java.math.BigDecimal;
-
 /**
  * @author Ivan Camilo Rincon Saavedra
  * @version 1.0

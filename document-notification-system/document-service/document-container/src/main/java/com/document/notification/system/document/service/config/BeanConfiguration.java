@@ -1,7 +1,7 @@
 package com.document.notification.system.document.service.config;
 
-import com.document.notification.system.document.service.domain.service.DocumentDomainServiceI;
 import com.document.notification.system.document.service.domain.service.DocumentDomainServiceImpl;
+import com.document.notification.system.document.service.domain.service.IDocumentDomainService;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
@@ -14,7 +14,7 @@ import org.springframework.context.annotation.Configuration;
 public class BeanConfiguration {
 
     @Bean
-    public DocumentDomainServiceI documentDomainServiceI() {
+    public IDocumentDomainService documentDomainServiceI() {
         return new DocumentDomainServiceImpl();
     }
 }

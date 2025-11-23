@@ -2,7 +2,10 @@ package com.document.notification.system.document.service.domain.entity;
 
 import com.document.notification.system.domain.entity.AggregateRoot;
 import com.document.notification.system.domain.valueobject.CustomerId;
-import lombok.*;
+import lombok.AllArgsConstructor;
+import lombok.Builder;
+import lombok.Getter;
+import lombok.Setter;
 
 /**
  * @author Ivan Camilo Rincon Saavedra
