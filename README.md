@@ -5,6 +5,11 @@ Un sistema de notificaciones distribuido orientado a documentos, diseñado con p
 ## Visión general
 Este repositorio contiene el código fuente y la estructura para un sistema que produce, enruta y entrega notificaciones relacionadas con documentos (por ejemplo: creación, actualización, expiración, aprobaciones). Está pensado para ser desplegado de forma distribuida, integrándose con brokers de mensajería, colas y/o eventos y exponiendo adaptadores (API, webhook, colas) según las necesidades.
 
+## Arquitectura general del sistema
+El siguiente diagrama muestra el flujo general de la arquitectura del sistema, ilustrando cómo los diferentes componentes interactúan entre sí en un entorno distribuido. Se puede observar la separación de responsabilidades, la comunicación entre servicios, y cómo fluyen los datos desde la entrada hasta la entrega de notificaciones.
+
+![Flujo general de la arquitectura](docs/00-flujo-generarl-arquitectura.png)
+
 ## Arquitectura del componente Document Service
 El componente Document Service representa el núcleo del sistema de gestión de documentos, implementando una arquitectura hexagonal (Ports & Adapters) que garantiza la separación clara entre la lógica de negocio y los detalles de infraestructura.
 
@@ -48,6 +53,11 @@ El proyecto está guiado por varias prácticas y patrones de arquitectura limpia
 - Resiliencia y distribución
   - Diseño para eventual consistency, idempotencia y manejo de fallos transitorios.
   - Estrategias de reintento, circuit breaking y compensaciones cuando aplica.
+
+### Arquitectura basada en Domain-Driven Design
+El siguiente diagrama ilustra la aplicación de los principios de Domain-Driven Design (DDD) en el sistema, mostrando cómo se organizan las capas, bounded contexts, entidades, agregados y value objects. Esta estructura garantiza que el dominio permanezca en el centro de la arquitectura, con las dependencias apuntando hacia el núcleo del negocio.
+
+![Arquitectura DDD](docs/00-arquitectura-DDD.png)
 
 ## Estructura típica del repositorio
 (La estructura concreta puede diferir según la implementación; aquí se muestran capas conceptuales)
