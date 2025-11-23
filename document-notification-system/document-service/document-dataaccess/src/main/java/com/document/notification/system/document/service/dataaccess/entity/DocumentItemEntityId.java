@@ -15,7 +15,7 @@ import java.io.Serializable;
 @NoArgsConstructor
 @AllArgsConstructor
 public class DocumentItemEntityId implements Serializable {
-    private Long documentId;
+    private Long id;
     private DocumentEntity document;
 
 }
