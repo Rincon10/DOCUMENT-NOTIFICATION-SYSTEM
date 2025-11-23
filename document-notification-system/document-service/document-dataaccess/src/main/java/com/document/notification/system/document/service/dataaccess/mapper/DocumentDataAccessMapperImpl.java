@@ -1,0 +1,23 @@
+package com.document.notification.system.document.service.dataaccess.mapper;
+
+import com.document.notification.system.document.service.dataaccess.entity.DocumentEntity;
+import com.document.notification.system.document.service.domain.entity.Document;
+import org.springframework.stereotype.Component;
+
+/**
+ * @author Ivan Camilo Rincon Saavedra
+ * @version 1.0
+ * @since 21/11/2025
+ */
+@Component
+public class DocumentDataAccessMapperImpl implements DocumentDataAccessMapperI {
+    @Override
+    public DocumentEntity documentToDocumentEntity(Document document) {
+        return null;
+    }
+
+    @Override
+    public Document documentEntityToDocument(DocumentEntity documentEntity) {
+        return null;
+    }
+}
