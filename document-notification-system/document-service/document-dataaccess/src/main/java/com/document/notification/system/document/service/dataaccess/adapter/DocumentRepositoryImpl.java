@@ -34,10 +34,10 @@ public class DocumentRepositoryImpl implements IDocumentRepository {
     }
 
     @Override
-    public Optional<Document> findById(DocumentId orderId) {
+    public Optional<Document> findById(DocumentId documentId) {
         Optional<Document> optionalDocument = Optional.empty();
 
-        Optional<DocumentEntity> documentEntity = documentJpaRepository.findById(orderId.getValue());
+        Optional<DocumentEntity> documentEntity = documentJpaRepository.findById(documentId.getValue());
         if (documentEntity.isPresent()) {
             Document document = documentDataAccessMapper.documentEntityToDocument(documentEntity.get());
             return Optional.of(document);
