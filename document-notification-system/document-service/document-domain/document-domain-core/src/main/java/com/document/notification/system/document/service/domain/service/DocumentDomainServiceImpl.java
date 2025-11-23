@@ -1,5 +1,7 @@
 package com.document.notification.system.document.service.domain.service;
 
+import com.document.notification.system.document.service.domain.entity.Document;
+import com.document.notification.system.document.service.domain.event.DocumentCreatedEvent;
 import lombok.extern.slf4j.Slf4j;
 
 /**
@@ -9,4 +11,8 @@ import lombok.extern.slf4j.Slf4j;
  */
 @Slf4j
 public class DocumentDomainServiceImpl implements IDocumentDomainService {
+    @Override
+    public DocumentCreatedEvent validateAndInitiateDocument(Document document) {
+        throw new UnsupportedOperationException("Not implemented yet");
+    }
 }

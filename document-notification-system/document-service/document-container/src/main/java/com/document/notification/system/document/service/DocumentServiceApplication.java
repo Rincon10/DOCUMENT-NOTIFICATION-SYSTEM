@@ -10,8 +10,12 @@ import org.springframework.data.jpa.repository.config.EnableJpaRepositories;
  * @version 1.0
  * @since 22/11/2025
  */
-@EnableJpaRepositories(basePackages = {"com.document.notification.system.document.service.dataaccess"})
-@EntityScan(basePackages = {"com.document.notification.system.document.service.dataaccess"})
+@EnableJpaRepositories(basePackages = {
+        "com.document.notification.system.document.service.dataaccess",
+        "com.document.notification.system.customer.service.dataaccess"})
+@EntityScan(basePackages = {
+        "com.document.notification.system.document.service.dataaccess",
+        "com.document.notification.system.customer.service.dataaccess"})
 @SpringBootApplication(scanBasePackages = "com.document.notification.system")
 public class DocumentServiceApplication {
     public static void main(String[] args) {
