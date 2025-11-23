@@ -1,5 +1,6 @@
 package com.document.notification.system.dto.create;
 
+import com.document.notification.system.domain.valueobject.DocumentType;
 import jakarta.validation.constraints.NotNull;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -16,20 +17,16 @@ import java.time.LocalDate;
 @Getter
 @Builder
 @AllArgsConstructor
-public class DocumentInformation {
+public class DocumentInformationDTO {
 
+    @NotNull
+    private final DocumentAddressDTO address;
     @NotNull
     private LocalDate periodStartDate;
-
     @NotNull
     private LocalDate periodEndDate;
-
     private BigDecimal totalLateInterest;
-
     private BigDecimal totalRegularInterest;
-
     private BigDecimal totalAmount;
-
-    @NotNull
-    private final DocumentAddress address;
+    private DocumentType documentType;
 }

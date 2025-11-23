@@ -17,15 +17,19 @@ public class StreetAddress {
     private final String postalCode;
     private final String street;
     private final String city;
+    private final String state;
+    private final String zipCode;
 
     private final String country;
 
     @Builder
-    public StreetAddress(UUID id, String postalCode, String street, String city, String country) {
+    public StreetAddress(UUID id, String postalCode, String street, String city, String state, String zipCode, String country) {
         this.id = id;
         this.postalCode = postalCode;
         this.street = street;
         this.city = city;
+        this.state = state;
+        this.zipCode = zipCode;
         this.country = country;
     }
 }

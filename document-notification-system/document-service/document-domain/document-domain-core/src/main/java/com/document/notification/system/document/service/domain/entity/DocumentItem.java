@@ -7,6 +7,8 @@ import com.document.notification.system.domain.valueobject.Money;
 import lombok.Builder;
 import lombok.Data;
 
+import java.math.BigDecimal;
+
 /**
  * @author Ivan Camilo Rincon Saavedra
  * @version 1.0
@@ -17,17 +19,18 @@ public class DocumentItem extends BaseEntity<DocumentItemId> {
     private DocumentId documentId;
 
     private final Item item;
-    private final int quantity;
-    private final Money amount;
-    private final Money subtotal;
+
+    private Money lateInterest;
+    private Money regularInterest;
+    private Money subTotal;
 
     @Builder
-    public DocumentItem(DocumentId documentId, Item item, int quantity, Money amount, Money subtotal) {
+    public DocumentItem(DocumentId documentId, Item item, Money lateInterest, Money regularInterest, Money subTotal) {
         this.documentId = documentId;
         this.item = item;
-        this.quantity = quantity;
-        this.amount = amount;
-        this.subtotal = subtotal;
+        this.lateInterest = lateInterest;
+        this.regularInterest = regularInterest;
+        this.subTotal = subTotal;
     }
 
     void initializeDocumentItem(DocumentId documentId, DocumentItemId documentItemId) {
@@ -35,9 +38,7 @@ public class DocumentItem extends BaseEntity<DocumentItemId> {
         this.documentId = documentId;
     }
 
-    boolean isPriceValid() {
-        return amount.isGreaterOrEqualToZero() &&
-                amount.equals(item.getAmount()) &&
-                amount.multiply(quantity).equals(subtotal);
+    boolean isValidInterest() {
+        return regularInterest.isGreaterOrEqualToZero() && lateInterest.isGreaterOrEqualToZero();
     }
 }
