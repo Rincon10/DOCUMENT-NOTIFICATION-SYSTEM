@@ -42,4 +42,4 @@ DROP trigger IF EXISTS refresh_document_customer_m_view ON customer.customers;
 CREATE trigger refresh_document_customer_m_view
 after INSERT OR UPDATE OR DELETE OR truncate
 ON customer.customers FOR each statement
-EXECUTE PROCEDURE customer.refresh_order_customer_m_view();
+EXECUTE PROCEDURE customer.refresh_document_customer_m_view();
