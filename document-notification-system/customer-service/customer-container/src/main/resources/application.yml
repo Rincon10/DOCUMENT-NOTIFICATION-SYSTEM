@@ -1,0 +1,21 @@
+server:
+  port: 8184
+
+logging:
+  level:
+    com.document.notification.system: DEBUG
+
+spring:
+  jpa:
+    show-sql: true
+  datasource:
+    url: jdbc:postgresql://localhost:5434/postgres?currentSchema=customer&binaryTransfer=true&reWriteBatchedInserts=true&stringtype=unspecified
+    username: postgres
+    password: admin
+    driver-class-name: org.postgresql.Driver
+    platform: postgres
+  sql:
+    init:
+      ##schema-locations: classpath:init-schema.sql
+      #data-locations: classpath:init-data.sql # Opcional si también necesitas insertar datos
+      mode: always # Siempre ejecuta los scripts al iniciar
