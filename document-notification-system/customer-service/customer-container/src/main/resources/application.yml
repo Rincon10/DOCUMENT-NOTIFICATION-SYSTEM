@@ -16,6 +16,6 @@ spring:
     platform: postgres
   sql:
     init:
-      ##schema-locations: classpath:init-schema.sql
-      #data-locations: classpath:init-data.sql # Opcional si también necesitas insertar datos
+      schema-locations: classpath:init-schema.sql
+      data-locations: classpath:init-data.sql # Opcional si también necesitas insertar datos
       mode: always # Siempre ejecuta los scripts al iniciar
