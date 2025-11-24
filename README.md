@@ -38,9 +38,12 @@ ahora ejecutaremos el siguiente comando de mvn
 
 ```bash
 mvn com.github.ferstl:depgraph-maven-plugin:graph
-
+```
+o el siguiente comando
+```bash
 mvn com.github.ferstl:depgraph-maven-plugin:aggregate -DcreateImage=true -DreduceEdges=false -Dscope=compile "-Dincludes=com.document.notification.system*:*"
 ```
+
 
 el cual debio crear una imagen en la carpeta target, con el grafico de dependencias
 
