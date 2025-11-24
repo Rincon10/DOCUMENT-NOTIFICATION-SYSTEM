@@ -27,6 +27,26 @@ El siguiente diagrama muestra el flujo general de la arquitectura del sistema, i
 
 ![Flujo general de la arquitectura](docs/00-flujo-generarl-arquitectura.png)
 
+
+### Arquitectura de dependencias
+
+para revisar que nuestro proyecto quedara bien configurado, usaremos el siguiente [plugin](https://github.com/ferstl/depgraph-maven-plugin)
+
+y con ayuda del software [graphviz](https://graphviz.org/download/)
+
+ahora ejecutaremos el siguiente comando de mvn
+
+```bash
+mvn com.github.ferstl:depgraph-maven-plugin:graph
+
+mvn com.github.ferstl:depgraph-maven-plugin:aggregate -DcreateImage=true -DreduceEdges=false -Dscope=compile "-Dincludes=com.document.notification.system*:*"
+```
+
+el cual debio crear una imagen en la carpeta target, con el grafico de dependencias
+
+![alt text](docs/02-dependency-graph.png)
+
+
 ## Arquitectura del componente Document Service
 El componente Document Service representa el núcleo del sistema de gestión de documentos, implementando una arquitectura hexagonal (Ports & Adapters) que garantiza la separación clara entre la lógica de negocio y los detalles de infraestructura.
 
