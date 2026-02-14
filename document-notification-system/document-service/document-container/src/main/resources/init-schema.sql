@@ -4,7 +4,7 @@ CREATE SCHEMA "document";
 
 CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 
-DROP TYPE IF EXISTS order_status;
+DROP TYPE IF EXISTS document_status;
 CREATE TYPE order_status AS ENUM ('PENDING', 'GENERATED', 'SENT', 'CANCELLED', 'CANCELLING');
 
 DROP TABLE IF EXISTS "document".documents CASCADE;
