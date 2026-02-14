@@ -27,6 +27,66 @@ El siguiente diagrama muestra el flujo general de la arquitectura del sistema, i
 
 ![Flujo general de la arquitectura](docs/00-flujo-generarl-arquitectura.png)
 
+
+### Arquitectura de dependencias
+
+Una característica fundamental de **Domain-Driven Design (DDD)** y **Clean Architecture** es la **Regla de Dependencia**: las dependencias del código fuente deben apuntar únicamente hacia adentro, hacia las capas de más alto nivel (el dominio). Esto significa que:
+
+- El **dominio (domain-core)** no conoce ni depende de ninguna otra capa
+- La **capa de aplicación (application-service)** depende únicamente del dominio
+- Los **adaptadores (dataaccess, application-api, messaging)** dependen de las capas internas, nunca al revés
+- El **contenedor (container)** orquesta todas las dependencias pero el dominio permanece agnóstico de infraestructura
+
+#### Estructura de módulos y aplicación de DDD
+
+El proyecto está organizado en **Bounded Contexts** independientes (document-service, customer-service, generator-service), cada uno siguiendo la misma estructura de capas:
+
+```
+bounded-context/
+├── domain/
+│   ├── domain-core/        → Entidades, Agregados, Value Objects, Eventos de Dominio
+│   └── application-service/ → Casos de Uso, Puertos (Interfaces), DTOs, Command Handlers
+├── dataaccess/             → Adaptadores de salida (Repositorios JPA, Mappers de persistencia)
+├── application-api/        → Adaptadores de entrada (Controllers REST, Exception Handlers)
+├── messaging/              → Adaptadores de mensajería (Kafka producers/consumers)
+└── container/              → Configuración Spring Boot, composición de dependencias
+```
+
+Esta estructura garantiza que:
+- Las **reglas de negocio** están encapsuladas en `domain-core` sin dependencias externas
+- Los **casos de uso** en `application-service` orquestan el dominio y definen puertos abstractos
+- Los **adaptadores** implementan los puertos sin contaminar la lógica de negocio
+- El **principio de inversión de dependencias** se cumple: las capas externas dependen de abstracciones definidas por las capas internas
+
+#### Validación del grafo de dependencias
+
+Para verificar que la arquitectura respeta estas reglas y que las dependencias fluyen correctamente hacia el dominio, utilizamos el [depgraph-maven-plugin](https://github.com/ferstl/depgraph-maven-plugin).
+
+**Requisitos:**
+- [Graphviz](https://graphviz.org/download/) instalado en el sistema
+
+**Comandos para generar el grafo:**
+
+```bash
+# Genera un grafo individual por módulo
+mvn com.github.ferstl:depgraph-maven-plugin:graph
+```
+
+```bash
+# Genera un grafo agregado de todo el proyecto
+mvn com.github.ferstl:depgraph-maven-plugin:aggregate -DcreateImage=true -DreduceEdges=false -Dscope=compile "-Dincludes=com.document.notification.system*:*"
+```
+
+El grafo resultante (ubicado en la carpeta `target/`) debe mostrar que:
+- `domain-core` no tiene flechas salientes hacia otros módulos del sistema
+- `application-service` solo depende de `domain-core` y `common-domain`
+- Los módulos de infraestructura (`dataaccess`, `application-api`) dependen de las capas internas
+
+![Grafo de dependencias del proyecto](docs/02-dependency-graph.png)
+
+> **Nota:** Si el grafo muestra dependencias incorrectas (por ejemplo, `domain-core` dependiendo de `dataaccess`), es señal de una violación arquitectónica que debe corregirse para mantener la integridad del diseño DDD.
+
+
 ## Arquitectura del componente Document Service
 El componente Document Service representa el núcleo del sistema de gestión de documentos, implementando una arquitectura hexagonal (Ports & Adapters) que garantiza la separación clara entre la lógica de negocio y los detalles de infraestructura.
 

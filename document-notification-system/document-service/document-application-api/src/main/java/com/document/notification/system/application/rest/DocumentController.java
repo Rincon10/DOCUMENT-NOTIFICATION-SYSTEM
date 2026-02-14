@@ -20,7 +20,7 @@ import org.springframework.web.bind.annotation.RestController;
 @Slf4j
 @RestController
 @RequestMapping(value = "/documents", produces = "application/vnd.api.v1+json")
-public class DocumentController {
+public class DocumentController implements IDocumentController {
 
     private final DocumentApplicationService documentApplicationService;
 
@@ -29,7 +29,7 @@ public class DocumentController {
     }
 
     @PostMapping
-    public ResponseEntity<CreateDocumentResponse> createOrder(@RequestBody CreateDocumentCommand createDocumentCommand) {
+    public ResponseEntity<CreateDocumentResponse> createDocument(@RequestBody CreateDocumentCommand createDocumentCommand) {
         final DocumentInformationDTO documentInformation = createDocumentCommand.getDocumentInformation();
         String startDate = DateUtils.formatDate(documentInformation.getPeriodStartDate());
         String endDate = DateUtils.formatDate(documentInformation.getPeriodEndDate());

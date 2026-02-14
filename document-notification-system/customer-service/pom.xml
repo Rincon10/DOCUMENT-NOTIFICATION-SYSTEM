@@ -15,7 +15,8 @@
         <module>customer-application-api</module>
         <module>customer-domain</module>
         <module>customer-dataaccess</module>
-        <module>customer-messaging</module>
+<!--        <module>customer-messaging</module>-->
+        <module>customer-container</module>
     </modules>
 
     <properties>

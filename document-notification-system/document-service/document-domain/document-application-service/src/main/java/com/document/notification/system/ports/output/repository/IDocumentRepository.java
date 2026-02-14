@@ -8,6 +8,6 @@ import java.util.Optional;
 public interface IDocumentRepository {
     Document save(Document document);
 
-    Optional<Document> findById(DocumentId orderId);
+    Optional<Document> findById(DocumentId documentId);
 
 }
