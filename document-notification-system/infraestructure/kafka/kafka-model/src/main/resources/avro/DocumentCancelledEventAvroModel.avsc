@@ -1,0 +1,59 @@
+{
+  "namespace": "com.document.notification.system.kafka.document.avro.model",
+  "type": "record",
+  "name": "DocumentCancelledEventAvroModel",
+  "doc": "Event published when a document has been cancelled",
+  "fields": [
+    {
+      "name": "id",
+      "type": {
+        "type": "string",
+        "logicalType": "uuid"
+      },
+      "doc": "Unique identifier for the document"
+    },
+    {
+      "name": "customerId",
+      "type": {
+        "type": "string",
+        "logicalType": "uuid"
+      },
+      "doc": "Customer identifier"
+    },
+    {
+      "name": "accountId",
+      "type": [
+        "null",
+        {
+          "type": "string",
+          "logicalType": "uuid"
+        }
+      ],
+      "default": null,
+      "doc": "Account identifier"
+    },
+    {
+      "name": "documentStatus",
+      "type": "string",
+      "doc": "Current status of the document (should be CANCELLED)"
+    },
+    {
+      "name": "failureMessages",
+      "type": {
+        "type": "array",
+        "items": "string"
+      },
+      "doc": "List of failure/cancellation reasons"
+    },
+    {
+      "name": "cancelledAt",
+      "type": {
+        "type": "long",
+        "logicalType": "timestamp-millis"
+      },
+      "doc": "Timestamp when the document was cancelled"
+    }
+  ]
+}
+
+
