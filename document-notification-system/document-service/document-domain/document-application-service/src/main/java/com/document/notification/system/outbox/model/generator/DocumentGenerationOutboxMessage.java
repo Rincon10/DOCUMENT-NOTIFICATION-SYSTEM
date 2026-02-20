@@ -1,6 +1,7 @@
 package com.document.notification.system.outbox.model.generator;
 
 import com.document.notification.system.domain.valueobject.DocumentStatus;
+import com.document.notification.system.outbox.OutboxStatus;
 import com.document.notification.system.saga.SagaStatus;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
