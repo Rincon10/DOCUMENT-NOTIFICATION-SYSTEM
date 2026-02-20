@@ -13,6 +13,10 @@
     <dependencies>
         <dependency>
             <groupId>com.document.notification.system</groupId>
+            <artifactId>outbox</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>com.document.notification.system</groupId>
             <artifactId>kafka-config-data</artifactId>
         </dependency>
         <dependency>
@@ -26,6 +30,10 @@
         <dependency>
             <groupId>io.confluent</groupId>
             <artifactId>kafka-avro-serializer</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>com.document.notification.system</groupId>
+            <artifactId>document-domain-core</artifactId>
         </dependency>
     </dependencies>
 </project>

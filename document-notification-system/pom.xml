@@ -113,7 +113,22 @@
                 <artifactId>kafka-consumer</artifactId>
                 <version>${project.version}</version>
             </dependency>
+
+            <dependency>
+                <groupId>com.document.notification.system</groupId>
+                <artifactId>kafka-producer</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+
+            <!--        Outbox dependencies-->
+            <dependency>
+                <groupId>com.document.notification.system</groupId>
+                <artifactId>outbox</artifactId>
+                <version>${project.version}</version>
+            </dependency>
         </dependencies>
+
+
 
 
     </dependencyManagement>
