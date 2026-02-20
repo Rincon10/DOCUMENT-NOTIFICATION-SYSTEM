@@ -155,7 +155,7 @@ Controlled by: `spring.sql.init.mode=always` in `application.yml`
 - **Package structure**: Follow existing `com.document.notification.system.{service}.{layer}` pattern
 - **Author tags**: Include Javadoc with `@author`, `@version`, `@since`
 - **Logging**: Use Lombok's `@Slf4j`, log key business events (document created, saved)
-- **Exception handling**: 
+- **Exception handling**:
   - Domain exceptions in `*-domain-core/exception/*DomainException.java`
   - Global exception handler in `*-application-api/exception/handler/`
 - **DTO naming**: `Create*Command`, `Create*Response`, `*DTO`
@@ -168,3 +168,4 @@ Controlled by: `spring.sql.init.mode=always` in `application.yml`
 - REST API versioning: `produces = "application/vnd.api.v1+json"`
 - Commands reference file: `commands/01-document-service.txt` for Docker commands
 
+- Javadocs include `@author`, `@version`, `@since`.
