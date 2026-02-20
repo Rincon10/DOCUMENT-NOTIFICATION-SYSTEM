@@ -1,0 +1,66 @@
+{
+  "namespace": "com.document.notification.system.kafka.document.avro.model",
+  "type": "record",
+  "name": "GeneratorResponseAvroModel",
+  "fields": [
+    {
+      "name": "id",
+      "type": {
+        "type": "string",
+        "logicalType": "uuid"
+      }
+    },
+    {
+      "name": "sagaId",
+      "type": {
+        "type": "string",
+        "logicalType": "uuid"
+      }
+    },
+    {
+      "name": "generatorId",
+      "type": {
+        "type": "string",
+        "logicalType": "uuid"
+      }
+    },
+    {
+      "name": "customerId",
+      "type": {
+        "type": "string",
+        "logicalType": "uuid"
+      }
+    },
+    {
+      "name": "documentId",
+      "type": {
+        "type": "string",
+        "logicalType": "uuid"
+      }
+    },
+    {
+      "name": "createdAt",
+      "type": {
+        "type": "long",
+        "logicalType": "timestamp-millis"
+      }
+    },
+    {
+      "name": "generationStatus",
+      "type": {
+        "type": "enum",
+        "name": "GenerationStatus",
+        "symbols": ["GENERATION_COMPLETED", "GENERATION_CANCELLED", "GENERATION_FAILED"]
+      }
+    },
+    {
+      "name": "failureMessages",
+      "type": {
+        "type": "array",
+        "items":{
+          "type":"string"
+        }
+      }
+    }
+  ]
+}

@@ -28,7 +28,7 @@ public class Document extends AggregateRoot<DocumentId> {
     private final StreetAddress deliveryAddress;
     private final DocumentType documentType;
     private final List<DocumentItem> documentItems;
-    private  DocumentStatus documentStatus;
+    private DocumentStatus documentStatus;
     private List<String> failureMessages;
 
     @Builder
