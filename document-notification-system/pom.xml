@@ -129,6 +129,7 @@
             <dependency>
                 <groupId>com.document.notification.system</groupId>
                 <artifactId>saga</artifactId>
+                <version>${project.version}</version>
             </dependency>
         </dependencies>
 
