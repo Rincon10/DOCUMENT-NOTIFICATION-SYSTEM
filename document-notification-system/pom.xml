@@ -126,6 +126,10 @@
                 <artifactId>outbox</artifactId>
                 <version>${project.version}</version>
             </dependency>
+            <dependency>
+                <groupId>com.document.notification.system</groupId>
+                <artifactId>saga</artifactId>
+            </dependency>
         </dependencies>
 
 
