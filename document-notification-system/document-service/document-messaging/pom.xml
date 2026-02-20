@@ -14,7 +14,7 @@
     <dependencies>
         <dependency>
             <groupId>com.document.notification.system</groupId>
-            <artifactId>customer-application-service</artifactId>
+            <artifactId>kafka-consumer</artifactId>
         </dependency>
         <dependency>
             <groupId>com.document.notification.system</groupId>

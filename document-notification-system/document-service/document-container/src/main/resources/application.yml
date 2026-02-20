@@ -5,6 +5,16 @@ logging:
   level:
     com.document.notification.system: DEBUG
 
+
+document-service:
+  generator-request-topic-name: generator-request
+  generator-response-topic-name: generator-response
+  notification-request-topic-name: notification-request
+  notification-response-topic-name: notification-response
+  customer-topic-name: customer
+  outbox-scheduler-fixed-rate: 10000
+  outbox-scheduler-initial-delay: 10000
+
 spring:
   jpa:
     show-sql: true
@@ -19,3 +29,40 @@ spring:
       ##schema-locations: classpath:init-schema.sql
       #data-locations: classpath:init-data.sql # Opcional si también necesitas insertar datos
       mode: always # Siempre ejecuta los scripts al iniciar
+  kafka-config:
+    bootstrap-servers: localhost:19092, localhost:29092, localhost:39092
+    schema-registry-url-key: schema.registry.url
+    schema-registry-url: http://localhost:8081
+    num-of-partitions: 3
+    replication-factor: 3
+
+  kafka-producer-config:
+    key-serializer-class: org.apache.kafka.common.serialization.StringSerializer
+    value-serializer-class: io.confluent.kafka.serializers.KafkaAvroSerializer
+    compression-type: none
+    acks: all
+    batch-size: 16384
+    batch-size-boost-factor: 100
+    linger-ms: 5
+    request-timeout-ms: 60000
+    retry-count: 5
+
+  kafka-consumer-config:
+    key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+    value-deserializer: io.confluent.kafka.serializers.KafkaAvroDeserializer
+    generator-consumer-group-id: generator-topic-consumer
+    notification-consumer-group-id: notification-topic-consumer
+    customer-group-id: customer-topic-consumer
+    auto-offset-reset: earliest
+    specific-avro-reader-key: specific.avro.reader
+    specific-avro-reader: true
+    batch-listener: true
+    auto-startup: true
+    concurrency-level: 3
+    session-timeout-ms: 10000
+    heartbeat-interval-ms: 3000
+    max-poll-interval-ms: 300000
+    max-poll-records: 500
+    max-partition-fetch-bytes-default: 1048576
+    max-partition-fetch-bytes-boost-factor: 1
+    poll-timeout-ms: 150
