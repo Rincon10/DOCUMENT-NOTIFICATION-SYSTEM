@@ -6,7 +6,6 @@ import com.document.notification.system.saga.SagaStatus;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Getter;
-import org.apache.kafka.common.protocol.types.Field;
 
 import java.time.ZonedDateTime;
 import java.util.UUID;
@@ -21,7 +20,7 @@ import java.util.UUID;
 @AllArgsConstructor
 public class DocumentGenerationOutboxMessage {
     private UUID id;
-    private Field.UUID sagaId;
+    private UUID sagaId;
     private ZonedDateTime createdAt;
     private ZonedDateTime processedAt;
     private String type;

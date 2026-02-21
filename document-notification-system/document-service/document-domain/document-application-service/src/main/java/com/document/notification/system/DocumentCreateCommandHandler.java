@@ -5,6 +5,7 @@ import com.document.notification.system.dto.create.CreateDocumentCommand;
 import com.document.notification.system.dto.create.CreateDocumentResponse;
 import com.document.notification.system.helper.IDocumentCreateHelper;
 import com.document.notification.system.mapper.IDocumentDataMapper;
+import com.document.notification.system.outbox.scheduler.generator.GeneratorOutboxHelper;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
@@ -19,10 +20,12 @@ import org.springframework.transaction.annotation.Transactional;
 public class DocumentCreateCommandHandler {
     private final IDocumentCreateHelper documentCreateHelper;
     private final IDocumentDataMapper documentDataMapper;
+    private final GeneratorOutboxHelper generatorOutboxHelper;
 
-    public DocumentCreateCommandHandler(IDocumentCreateHelper documentCreateHelper, IDocumentDataMapper documentDataMapper) {
+    public DocumentCreateCommandHandler(IDocumentCreateHelper documentCreateHelper, IDocumentDataMapper documentDataMapper, GeneratorOutboxHelper generatorOutboxHelper) {
         this.documentCreateHelper = documentCreateHelper;
         this.documentDataMapper = documentDataMapper;
+        this.generatorOutboxHelper = generatorOutboxHelper;
     }
 
     @Transactional
@@ -31,6 +34,8 @@ public class DocumentCreateCommandHandler {
         log.info("Document summary is created with id: {}", documentCreatedEvent.getDocument().getId().getValue());
 
         CreateDocumentResponse createDocumentResponse = documentDataMapper.documentToCreateDocumentResponse(documentCreatedEvent.getDocument(), "Document created successfully");
+
+
 
         log.info("CreateDocumentResponse: {}", createDocumentResponse);
         return createDocumentResponse;
