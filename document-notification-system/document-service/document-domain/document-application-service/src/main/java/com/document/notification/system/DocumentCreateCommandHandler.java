@@ -50,9 +50,9 @@ public class DocumentCreateCommandHandler {
         // SAVING ON OUTBOX PATTERN
         generatorOutboxHelper.saveGenerationOutboxMessage(documentGenerationEventPayload,
                 documentCreatedEvent.getDocument().getDocumentStatus(),
-                        sagaStatus,
-                        OutboxStatus.STARTED,
-                        UUID.randomUUID());
+                sagaStatus,
+                OutboxStatus.STARTED,
+                UUID.randomUUID());
 
 
         log.info("CreateDocumentResponse: {}", createDocumentResponse);

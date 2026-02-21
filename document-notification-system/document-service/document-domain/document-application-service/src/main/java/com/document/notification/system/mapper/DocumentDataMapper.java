@@ -8,6 +8,7 @@ import com.document.notification.system.document.service.domain.valueobject.Stre
 import com.document.notification.system.domain.valueobject.CustomerId;
 import com.document.notification.system.domain.valueobject.Money;
 import com.document.notification.system.dto.create.*;
+import com.document.notification.system.outbox.model.generator.DocumentGenerationEventPayload;
 import com.document.notification.system.outbox.model.generator.DocumentGenerationOutboxMessage;
 import org.springframework.stereotype.Component;
 
@@ -69,7 +70,7 @@ public class DocumentDataMapper implements IDocumentDataMapper {
     }
 
     @Override
-    public DocumentGenerationOutboxMessage documentCreatedEventToDocumentGenerationEventPayload(DocumentCreatedEvent documentCreatedEvent) {
+    public DocumentGenerationEventPayload documentCreatedEventToDocumentGenerationEventPayload(DocumentCreatedEvent documentCreatedEvent) {
         throw new UnsupportedOperationException("Not implemented yet");
     }
 }
