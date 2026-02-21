@@ -1,9 +1,9 @@
-package com.document.notification.system.helper;
+package com.document.notification.system.domain.utils;
 
-import com.document.notification.system.document.service.domain.exception.DocumentDomainException;
+
+import com.document.notification.system.domain.exceptions.DomainException;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import lombok.AllArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
 /**
@@ -24,14 +24,14 @@ public class JsonSerializationUtil {
      * @param object the object to serialize
      * @param <T>    the generic type of the object
      * @return the JSON string representation of the object
-     * @throws DocumentDomainException if serialization fails
+     * @throws DomainException if serialization fails
      */
     public static <T> String toJson(T object) {
         try {
             return objectMapper.writeValueAsString(object);
         } catch (JsonProcessingException e) {
             log.error("Could not serialize object to JSON: {}", object.getClass().getName(), e);
-            throw new DocumentDomainException(
+            throw new DomainException(
                     String.format("Could not serialize %s to JSON", object.getClass().getSimpleName()),
                     e
             );
@@ -45,14 +45,14 @@ public class JsonSerializationUtil {
      * @param errorMessage the custom error message to use if serialization fails
      * @param <T>          the generic type of the object
      * @return the JSON string representation of the object
-     * @throws DocumentDomainException if serialization fails
+     * @throws DomainException if serialization fails
      */
     public static <T> String toJson(T object, String errorMessage) {
         try {
             return objectMapper.writeValueAsString(object);
         } catch (JsonProcessingException e) {
             log.error("Could not serialize object to JSON: {}", errorMessage, e);
-            throw new DocumentDomainException(errorMessage, e);
+            throw new DomainException(errorMessage, e);
         }
     }
 
@@ -63,14 +63,14 @@ public class JsonSerializationUtil {
      * @param valueType  the class type to deserialize to
      * @param <T>        the generic type of the object
      * @return the deserialized object
-     * @throws DocumentDomainException if deserialization fails
+     * @throws DomainException if deserialization fails
      */
     public static <T> T fromJson(String jsonString, Class<T> valueType) {
         try {
             return objectMapper.readValue(jsonString, valueType);
         } catch (JsonProcessingException e) {
             log.error("Could not deserialize JSON to {}: {}", valueType.getSimpleName(), jsonString, e);
-            throw new DocumentDomainException(
+            throw new DomainException(
                     String.format("Could not deserialize JSON to %s", valueType.getSimpleName()),
                     e
             );
@@ -85,14 +85,14 @@ public class JsonSerializationUtil {
      * @param errorMessage the custom error message to use if deserialization fails
      * @param <T>          the generic type of the object
      * @return the deserialized object
-     * @throws DocumentDomainException if deserialization fails
+     * @throws DomainException if deserialization fails
      */
     public static <T> T fromJson(String jsonString, Class<T> valueType, String errorMessage) {
         try {
             return objectMapper.readValue(jsonString, valueType);
         } catch (JsonProcessingException e) {
             log.error("Could not deserialize JSON to {}: {}", errorMessage, jsonString, e);
-            throw new DocumentDomainException(errorMessage, e);
+            throw new DomainException(errorMessage, e);
         }
     }
 }
