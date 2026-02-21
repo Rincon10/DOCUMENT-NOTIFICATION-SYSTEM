@@ -3,10 +3,12 @@ package com.document.notification.system.mapper;
 import com.document.notification.system.document.service.domain.entity.Document;
 import com.document.notification.system.document.service.domain.entity.DocumentItem;
 import com.document.notification.system.document.service.domain.entity.Item;
+import com.document.notification.system.document.service.domain.event.DocumentCreatedEvent;
 import com.document.notification.system.document.service.domain.valueobject.StreetAddress;
 import com.document.notification.system.domain.valueobject.CustomerId;
 import com.document.notification.system.domain.valueobject.Money;
 import com.document.notification.system.dto.create.*;
+import com.document.notification.system.outbox.model.generator.DocumentGenerationOutboxMessage;
 import org.springframework.stereotype.Component;
 
 import java.util.List;
@@ -64,5 +66,10 @@ public class DocumentDataMapper implements IDocumentDataMapper {
     public CreateDocumentResponse documentToCreateDocumentResponse(Document document, String message) {
         throw new UnsupportedOperationException("Not implemented yet");
 
+    }
+
+    @Override
+    public DocumentGenerationOutboxMessage documentCreatedEventToDocumentGenerationEventPayload(DocumentCreatedEvent documentCreatedEvent) {
+        throw new UnsupportedOperationException("Not implemented yet");
     }
 }
