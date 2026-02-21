@@ -1,4 +1,4 @@
-package com.document.notification.system.domain.utils;
+package com.document.notification.system.utils;
 
 
 import com.document.notification.system.domain.exceptions.DomainException;

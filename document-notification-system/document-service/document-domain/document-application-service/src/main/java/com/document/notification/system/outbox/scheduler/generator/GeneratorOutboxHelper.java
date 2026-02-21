@@ -2,7 +2,7 @@ package com.document.notification.system.outbox.scheduler.generator;
 
 import com.document.notification.system.document.service.domain.exception.DocumentDomainException;
 import com.document.notification.system.domain.valueobject.DocumentStatus;
-import com.document.notification.system.domain.utils.JsonSerializationUtil;
+import com.document.notification.system.utils.JsonSerializationUtil;
 import com.document.notification.system.outbox.OutboxStatus;
 import com.document.notification.system.outbox.model.generator.DocumentGenerationEventPayload;
 import com.document.notification.system.outbox.model.generator.DocumentGenerationOutboxMessage;
