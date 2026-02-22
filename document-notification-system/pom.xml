@@ -119,6 +119,11 @@
                 <artifactId>customer-dataaccess</artifactId>
                 <version>${project.version}</version>
             </dependency>
+            <dependency>
+                <groupId>com.document.notification.system</groupId>
+                <artifactId>customer-messaging</artifactId>
+                <version>${project.version}</version>
+            </dependency>
 
             <!--            infraestructure for messaging kafka-->
 
