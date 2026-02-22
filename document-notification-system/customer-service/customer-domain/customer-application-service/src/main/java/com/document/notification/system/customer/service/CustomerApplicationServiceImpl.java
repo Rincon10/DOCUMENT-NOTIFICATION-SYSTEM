@@ -5,6 +5,7 @@ import com.document.notification.system.customer.service.create.CreateCustomerRe
 import com.document.notification.system.customer.service.event.CustomerCreatedEvent;
 import com.document.notification.system.customer.service.mapper.CustomerDataMapper;
 import com.document.notification.system.customer.service.ports.input.service.CustomerApplicationService;
+import com.document.notification.system.customer.service.ports.output.message.publisher.CustomerMessagePublisher;
 import com.document.notification.system.domain.constants.ResponseConstants;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -24,12 +25,15 @@ public class CustomerApplicationServiceImpl implements CustomerApplicationServic
 
     private final CustomerDataMapper customerDataMapper;
 
-    public CustomerApplicationServiceImpl(CustomerCreateCommandHandler customerCreateCommandHandler, CustomerDataMapper customerDataMapper) {
+    private final CustomerMessagePublisher customerMessagePublisher;
+
+    public CustomerApplicationServiceImpl(CustomerCreateCommandHandler customerCreateCommandHandler, CustomerDataMapper customerDataMapper, CustomerMessagePublisher customerMessagePublisher) {
         this.customerCreateCommandHandler = customerCreateCommandHandler;
         this.customerDataMapper = customerDataMapper;
+        this.customerMessagePublisher = customerMessagePublisher;
     }
 
-//    private final CustomerMessagePublisher customerMessagePublisher;
+
 
 
 
@@ -37,7 +41,7 @@ public class CustomerApplicationServiceImpl implements CustomerApplicationServic
     @Override
     public CreateCustomerResponse createCustomer(CreateCustomerCommand createCustomerCommand) {
         CustomerCreatedEvent customerCreatedEvent = customerCreateCommandHandler.createCustomer(createCustomerCommand);
-//        customerMessagePublisher.publish(customerCreatedEvent);
+        customerMessagePublisher.publish(customerCreatedEvent);
 
         CreateCustomerResponse createCustomerResponse = customerDataMapper.customerToCreateCustomerResponse(customerCreatedEvent.getCustomer(), ResponseConstants.CUSTOMER_CREATED_SUCCESSFULLY);
         return createCustomerResponse;
