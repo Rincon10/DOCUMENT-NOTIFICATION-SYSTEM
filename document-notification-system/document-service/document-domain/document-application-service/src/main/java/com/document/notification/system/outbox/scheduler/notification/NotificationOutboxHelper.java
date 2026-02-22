@@ -21,7 +21,7 @@ import java.util.UUID;
 @AllArgsConstructor
 public class NotificationOutboxHelper {
 
-    private final NotificationOutboxRepository notificationOutboxRepository;
+    //private final NotificationOutboxRepository notificationOutboxRepository;
 
     public void saveNotificationOutboxMessage(DocumentNotificationEventPayload documentNotificationEventPayload,
                                               DocumentStatus documentStatus,
