@@ -48,3 +48,47 @@ zookeeper:2181
 ```
 
 save/view cluster
+
+## Create Document
+
+```
+curl --request POST \
+  --url http://localhost:8181/documents \
+  --header 'Content-Type: application/json' \
+  --cookie JSESSIONID=92634E8E640A5C12037D8775B05AF65A \
+  --data '{
+  "customerId": "550e8400-e29b-41d4-a716-446655440000",
+  "labels": [
+    {
+      "itemId": "123e4567-e89b-12d3-a456-426614174001",
+      "amount": 1500.00,
+      "lateInterest": 45.00,
+      "regularInterest": 30.00,
+      "subTotal": 1575.00
+    },
+    {
+      "itemId": "123e4567-e89b-12d3-a456-426614174002",
+      "amount": 850.50,
+      "lateInterest": 25.50,
+      "regularInterest": 17.00,
+      "subTotal": 893.00
+    }
+  ],
+  "documentInformation": {
+    "address": {
+      "postalCode": "10001",
+      "street": "123 Main Street",
+      "city": "New York",
+      "state": "NY",
+      "zipCode": "10001",
+      "country": "USA"
+    },
+    "periodStartDate": "2026-01-01",
+    "periodEndDate": "2026-01-31",
+    "totalLateInterest": 70.50,
+    "totalRegularInterest": 47.00,
+    "totalAmount": 2468.00,
+    "documentType": "PDF"
+  }
+}'
+```
