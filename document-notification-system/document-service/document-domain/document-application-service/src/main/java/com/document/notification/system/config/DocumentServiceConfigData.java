@@ -14,4 +14,5 @@ import org.springframework.context.annotation.Configuration;
 @ConfigurationProperties(prefix = "document-service")
 public class DocumentServiceConfigData {
     // topics a los cual deberia publicar
+    private String generationRequestTopicName;
 }
