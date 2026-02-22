@@ -5,7 +5,7 @@ CREATE SCHEMA "document";
 CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 
 DROP TYPE IF EXISTS document_status;
-CREATE TYPE order_status AS ENUM ('PENDING', 'GENERATED', 'SENT', 'CANCELLED', 'CANCELLING');
+CREATE TYPE document_status AS ENUM ('PENDING', 'GENERATED', 'SENT', 'CANCELLED', 'CANCELLING');
 
 DROP TABLE IF EXISTS "document".documents CASCADE;
 
@@ -27,7 +27,21 @@ CREATE TABLE documents (
     created_at TIMESTAMP NOT NULL,
     updated_at TIMESTAMP,
 
-    document_status order_status NOT NULL,
+    document_status document_status NOT NULL,
     failure_messages character varying COLLATE pg_catalog."default",
     CONSTRAINT documents_pkey PRIMARY KEY (id)
+);
+
+
+DROP TABLE IF EXISTS document_items CASCADE;
+
+CREATE TABLE document_items
+(
+    id bigint NOT NULL,
+    document_id uuid NOT NULL,
+    item_id uuid NOT NULL,
+    lateInterest numeric(10,2) NOT NULL,
+    regularInterest integer NOT NULL,
+    sub_total numeric(10,2) NOT NULL,
+    CONSTRAINT document_items_pkey PRIMARY KEY (id, document_id)
 );
