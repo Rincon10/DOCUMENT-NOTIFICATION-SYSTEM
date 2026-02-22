@@ -13,11 +13,24 @@ services:
       cub kafka-ready -b kafka-broker-1:9092 1 20;
       
       echo 'Deleting kafka topics';
+      kafka-topics --bootstrap-server kafka-broker-1:9092 --topic customer --delete --if-exists
+      
+      kafka-topics --bootstrap-server kafka-broker-1:9092 --topic generator-request --delete --if-exists
+      kafka-topics --bootstrap-server kafka-broker-1:9092 --topic generator-response --delete --if-exists
+      
+      kafka-topics --bootstrap-server kafka-broker-1:9092 --topic notification-request --delete --if-exists
+      kafka-topics --bootstrap-server kafka-broker-1:9092 --topic notification-response --delete --if-exists
       
       
       echo 'Creating topics...';
-      kafka-topics --create --topic document-events --partitions 3 --replication-factor 3 --if-not-exists --bootstrap-server kafka-broker-1:9092;
-      kafka-topics --create --topic notification-events --partitions 3 --replication-factor 3 --if-not-exists --bootstrap-server kafka-broker-1:9092;
+      kafka-topics --bootstrap-server kafka-broker-1:9092 --create --if-not-exists --topic customer --replication-factor 3 --partitions 3
+      
+      kafka-topics --bootstrap-server kafka-broker-1:9092 --create --if-not-exists --topic generator-request --replication-factor 3 --partitions 3
+      kafka-topics --bootstrap-server kafka-broker-1:9092 --create --if-not-exists --topic generator-response --replication-factor 3 --partitions 3
+      
+      kafka-topics --bootstrap-server kafka-broker-1:9092 --create --if-not-exists --topic notification-request --replication-factor 3 --partitions 3
+      kafka-topics --bootstrap-server kafka-broker-1:9092 --create --if-not-exists --topic notification-response --replication-factor 3 --partitions 3
+      
       echo 'Topics created.';
       "
     networks:
