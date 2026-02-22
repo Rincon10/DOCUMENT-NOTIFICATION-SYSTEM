@@ -5,7 +5,7 @@ import com.document.notification.system.document.service.domain.event.DocumentCr
 import com.document.notification.system.dto.create.CreateDocumentCommand;
 import com.document.notification.system.dto.create.CreateDocumentResponse;
 import com.document.notification.system.outbox.model.generator.DocumentGenerationEventPayload;
-import com.document.notification.system.outbox.model.generator.DocumentGenerationOutboxMessage;
+import com.document.notification.system.outbox.model.notification.DocumentNotificationEventPayload;
 
 public interface IDocumentDataMapper {
     Document createDocumentCommandToDocument(CreateDocumentCommand createDocumentCommand);
@@ -13,4 +13,6 @@ public interface IDocumentDataMapper {
     CreateDocumentResponse documentToCreateDocumentResponse(Document document, String message);
 
     DocumentGenerationEventPayload documentCreatedEventToDocumentGenerationEventPayload(DocumentCreatedEvent documentCreatedEvent);
+
+    DocumentNotificationEventPayload documentCreatedEventToDocumentNotificationEventPayload(DocumentCreatedEvent documentCreatedEvent);
 }

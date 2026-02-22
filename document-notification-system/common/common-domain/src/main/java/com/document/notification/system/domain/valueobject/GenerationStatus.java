@@ -10,21 +10,34 @@ package com.document.notification.system.domain.valueobject;
  */
 public enum GenerationStatus {
 
-
     /**
      * Document generation completed successfully
      */
-    GENERATION_COMPLETED,
+    GENERATION_COMPLETED(true),
 
     /**
      * Document generation failed, compensation is initiated
      */
-    GENERATION_FAILED,
-
+    GENERATION_FAILED(false),
 
     /**
      * Document generation cancelled by user
      */
-    GENERATION_CANCELLED
+    GENERATION_CANCELLED(false);
+
+    private final boolean isSuccessful;
+
+    GenerationStatus(boolean isSuccessful) {
+        this.isSuccessful = isSuccessful;
+    }
+
+    /**
+     * Returns whether this generation status represents a successful outcome.
+     *
+     * @return true if generation was successful, false otherwise
+     */
+    public boolean isSuccessful() {
+        return isSuccessful;
+    }
 }
 

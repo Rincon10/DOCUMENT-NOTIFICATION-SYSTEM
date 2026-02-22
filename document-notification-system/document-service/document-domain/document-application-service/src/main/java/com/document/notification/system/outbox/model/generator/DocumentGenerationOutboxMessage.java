@@ -6,6 +6,7 @@ import com.document.notification.system.saga.SagaStatus;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Getter;
+import lombok.Setter;
 
 import java.time.ZonedDateTime;
 import java.util.UUID;
@@ -21,11 +22,15 @@ import java.util.UUID;
 public class DocumentGenerationOutboxMessage {
     private UUID id;
     private UUID sagaId;
+
     private ZonedDateTime createdAt;
+    @Setter
     private ZonedDateTime processedAt;
     private String type;
     private String payload;
+    @Setter
     private SagaStatus sagaStatus;
+    @Setter
     private DocumentStatus documentStatus;
     private OutboxStatus outboxStatus;
     private int version;

@@ -14,6 +14,10 @@
     <dependencies>
         <dependency>
             <groupId>com.document.notification.system</groupId>
+            <artifactId>document-application-service</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>com.document.notification.system</groupId>
             <artifactId>kafka-consumer</artifactId>
         </dependency>
         <dependency>
