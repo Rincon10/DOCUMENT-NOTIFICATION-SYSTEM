@@ -13,11 +13,11 @@ import org.springframework.stereotype.Component;
 public class DocumentDataAccessMapperImpl implements DocumentDataAccessMapperI {
     @Override
     public DocumentEntity documentToDocumentEntity(Document document) {
-        return null;
+        throw new RuntimeException("Not implemntede yet");
     }
 
     @Override
     public Document documentEntityToDocument(DocumentEntity documentEntity) {
-        return null;
+        throw new RuntimeException("Not implemntede yet");
     }
 }
