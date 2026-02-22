@@ -63,7 +63,11 @@
                 <artifactId>document-application-api</artifactId>
                 <version>${project.version}</version>
             </dependency>
-            <!--            common dependencies-->
+            <dependency>
+                <groupId>com.document.notification.system</groupId>
+                <artifactId>document-messaging</artifactId>
+                <version>${project.version}</version>
+            </dependency><!--            common dependencies-->
             <dependency>
                 <groupId>com.document.notification.system</groupId>
                 <artifactId>common-application-api</artifactId>

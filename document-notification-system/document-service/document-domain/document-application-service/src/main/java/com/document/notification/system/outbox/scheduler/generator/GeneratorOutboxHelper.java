@@ -2,19 +2,20 @@ package com.document.notification.system.outbox.scheduler.generator;
 
 import com.document.notification.system.document.service.domain.exception.DocumentDomainException;
 import com.document.notification.system.domain.valueobject.DocumentStatus;
-import com.document.notification.system.utils.JsonSerializationUtil;
 import com.document.notification.system.outbox.OutboxStatus;
 import com.document.notification.system.outbox.model.generator.DocumentGenerationEventPayload;
 import com.document.notification.system.outbox.model.generator.DocumentGenerationOutboxMessage;
 import com.document.notification.system.ports.output.repository.GeneratorOutboxRepository;
 import com.document.notification.system.saga.SagaStatus;
 import com.document.notification.system.saga.constants.SagaConstants;
+import com.document.notification.system.utils.JsonSerializationUtil;
 import lombok.AllArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.Objects;
+import java.util.Optional;
 import java.util.UUID;
 
 
@@ -29,6 +30,10 @@ import java.util.UUID;
 public class GeneratorOutboxHelper {
     private final GeneratorOutboxRepository generatorOutboxRepository;
 
+    @Transactional(readOnly = true)
+    public Optional<DocumentGenerationOutboxMessage> getDocumentGenerationOutboxMessageBySagaIdAndSagaStatus(UUID sagaId, SagaStatus sagaStatus) {
+        return generatorOutboxRepository.findByTypeAndSagaIdAndSagaStatus(SagaConstants.SAGA_NAME, sagaId, sagaStatus);
+    }
 
     @Transactional
     public void saveGenerationOutboxMessage(DocumentGenerationEventPayload documentGenerationEventPayload,
