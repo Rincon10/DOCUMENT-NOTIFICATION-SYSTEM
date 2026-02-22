@@ -74,6 +74,28 @@
                 <version>${project.version}</version>
             </dependency>
 
+            <!--            Generation dependencies-->
+
+            <dependency>
+                <groupId>com.document.notification.system</groupId>
+                <artifactId>generator-domain</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>com.document.notification.system</groupId>
+                <artifactId>generator-container</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>com.document.notification.system</groupId>
+                <artifactId>generator-messaging</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>com.document.notification.system</groupId>
+                <artifactId>generator-dataaaccess</artifactId>
+                <version>${project.version}</version>
+            </dependency>
             <!--            Customer dependencies-->
 
             <dependency>
@@ -136,8 +158,6 @@
                 <version>${project.version}</version>
             </dependency>
         </dependencies>
-
-
 
 
     </dependencyManagement>
