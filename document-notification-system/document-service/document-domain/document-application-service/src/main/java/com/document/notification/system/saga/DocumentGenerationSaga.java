@@ -71,10 +71,12 @@ public class DocumentGenerationSaga implements SagaStep<GenerationResponse> {
         DocumentNotificationEventPayload documentNotificationEventPayload = documentDataMapper.documentCreatedEventToDocumentNotificationEventPayload(documentCreatedEvent);
 
         notificationOutboxHelper.saveNotificationOutboxMessage(documentNotificationEventPayload,
-        documentCreatedEvent.getDocument().getDocumentStatus(),
+                documentCreatedEvent.getDocument().getDocumentStatus(),
                 sagaStatus,
                 OutboxStatus.STARTED,
                 generationResponse.getSagaId());
+
+        log.info("Document with id: {} is generated", documentCreatedEvent.getDocument().getId().getValue());
 
     }
 
