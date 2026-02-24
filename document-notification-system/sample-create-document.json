@@ -1,0 +1,42 @@
+{
+  "customerId": "550e8400-e29b-41d4-a716-446655440000",
+  "labels": [
+    {
+      "itemId": "123e4567-e89b-12d3-a456-426614174001",
+      "amount": 1500.00,
+      "lateInterest": 45.00,
+      "regularInterest": 30.00,
+      "subTotal": 1575.00
+    },
+    {
+      "itemId": "123e4567-e89b-12d3-a456-426614174002",
+      "amount": 850.50,
+      "lateInterest": 25.50,
+      "regularInterest": 17.00,
+      "subTotal": 893.00
+    },
+    {
+      "itemId": "123e4567-e89b-12d3-a456-426614174003",
+      "amount": 2250.75,
+      "lateInterest": 67.50,
+      "regularInterest": 45.00,
+      "subTotal": 2363.25
+    }
+  ],
+  "documentInformation": {
+    "address": {
+      "street": "123 Main Street",
+      "city": "San Francisco",
+      "state": "CA",
+      "zipCode": "94102",
+      "country": "USA"
+    },
+    "periodStartDate": "2024-01-01",
+    "periodEndDate": "2024-12-31",
+    "totalLateInterest": 138.00,
+    "totalRegularInterest": 92.00,
+    "totalAmount": 4696.75,
+    "documentType": "INVOICE"
+  }
+}
+

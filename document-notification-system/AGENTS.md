@@ -147,7 +147,7 @@ Docker Compose files in `infraestructure/docker-compose/`:
 Network: `document-notification-system` bridge network
 
 ### Database Schema Initialization
-SQL init scripts: `*-container/src/main/resources/init-schema.sql`
+SQL init scripts: `*-container/src/main/resources/init-init-schema.sql`
 Controlled by: `spring.sql.init.mode=always` in `application.yml`
 
 ## Code Quality Conventions

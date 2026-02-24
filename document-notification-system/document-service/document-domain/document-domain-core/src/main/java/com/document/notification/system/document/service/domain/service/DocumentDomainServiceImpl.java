@@ -16,6 +16,9 @@ public class DocumentDomainServiceImpl implements IDocumentDomainService {
     public DocumentCreatedEvent validateAndInitiateDocument(Document document) {
         document.validateDocument();
         document.initializeDocument();
+
+        log.info("Document with id: {} is initiated", document.getId().getValue());
+
         return new DocumentCreatedEvent(document, DateUtils.getZoneDateTimeByUTCZoneId());
     }
 }

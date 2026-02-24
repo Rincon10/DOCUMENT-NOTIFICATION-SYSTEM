@@ -6,6 +6,7 @@ import com.document.notification.system.document.service.domain.entity.Item;
 import com.document.notification.system.document.service.domain.event.DocumentCreatedEvent;
 import com.document.notification.system.document.service.domain.valueobject.StreetAddress;
 import com.document.notification.system.domain.valueobject.CustomerId;
+import com.document.notification.system.domain.valueobject.DocumentGenerationStatus;
 import com.document.notification.system.domain.valueobject.Money;
 import com.document.notification.system.dto.create.*;
 import com.document.notification.system.outbox.model.generator.DocumentGenerationEventPayload;
@@ -66,13 +67,22 @@ public class DocumentDataMapper implements IDocumentDataMapper {
 
     @Override
     public CreateDocumentResponse documentToCreateDocumentResponse(Document document, String message) {
-        throw new UnsupportedOperationException("Not implemented yet");
+        return CreateDocumentResponse.builder()
+                .accountId(document.getCustomerId().getValue())
+                .documentStatus(document.getDocumentStatus())
+                .message(message)
+                .build();
 
     }
 
     @Override
     public DocumentGenerationEventPayload documentCreatedEventToDocumentGenerationEventPayload(DocumentCreatedEvent documentCreatedEvent) {
-        throw new UnsupportedOperationException("Not implemented yet");
+        return DocumentGenerationEventPayload.builder()
+                .documentId(documentCreatedEvent.getDocument().getId().getValue().toString())
+                .customerId(documentCreatedEvent.getDocument().getCustomerId().getValue().toString())
+                .createdAt(documentCreatedEvent.getCreatedAt())
+                .documentGenerationStatus(DocumentGenerationStatus.PENDING.name())
+                .build();
     }
 
     @Override
