@@ -1,5 +1,6 @@
 package com.document.notification.system.outbox.model.generator;
 
+import com.document.notification.system.domain.valueobject.DocumentGenerationStatus;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -22,6 +23,8 @@ public class DocumentGenerationEventPayload {
     private String customerId;
     @JsonProperty
     private ZonedDateTime createdAt;
+    @JsonProperty
+    private String documentGenerationStatus;
 
 
 }
