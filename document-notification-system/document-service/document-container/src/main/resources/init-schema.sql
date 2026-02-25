@@ -73,7 +73,7 @@ DROP TABLE IF EXISTS "document".documents CASCADE;
 CREATE TABLE "document".documents (
                                       id UUID NOT NULL,
                                       customer_id UUID NOT NULL,
-                                      account_id UUID,
+                                      generation_id UUID,
                                       file_name VARCHAR(255),
                                       file_path VARCHAR(500),
                                       period_start_date DATE NOT NULL,
@@ -106,6 +106,7 @@ DROP TABLE IF EXISTS "document".document_address CASCADE;
 CREATE TABLE "document".document_address (
                                              id UUID NOT NULL,
                                              document_id UUID NOT NULL,
+                                             state VARCHAR(20),
                                              postal_code VARCHAR(20),
                                              address_line VARCHAR(255),
                                              city VARCHAR(100),
@@ -198,9 +199,9 @@ CREATE INDEX idx_notification_outbox_created_at ON "document".notification_outbo
 -- ===================================================================
 
 -- Materialized View for Customer Data in Document Schema
-DROP MATERIALIZED VIEW IF EXISTS "document".document_customer_m_view CASCADE;
+DROP MATERIALIZED VIEW IF EXISTS "document".customers CASCADE;
 
-CREATE MATERIALIZED VIEW "document".document_customer_m_view
+CREATE MATERIALIZED VIEW "document".customers
 TABLESPACE pg_default
 AS
 SELECT
@@ -212,7 +213,7 @@ FROM customer.customers c
     WITH DATA;
 
 -- Create UNIQUE Index on materialized view for CONCURRENT refresh
-CREATE UNIQUE INDEX idx_document_customer_m_view_id_unique ON "document".document_customer_m_view(id);
+CREATE UNIQUE INDEX idx_document_customer_m_view_id_unique ON "document".customers(id);
 
 -- ===================================================================
 -- 8. TRIGGERS FOR MATERIALIZED VIEW REFRESH
@@ -224,7 +225,7 @@ DROP FUNCTION IF EXISTS customer.refresh_document_customer_m_view() CASCADE;
 CREATE OR REPLACE FUNCTION customer.refresh_document_customer_m_view()
 RETURNS TRIGGER AS $$
 BEGIN
-    REFRESH MATERIALIZED VIEW CONCURRENTLY "document".document_customer_m_view;
+    REFRESH MATERIALIZED VIEW CONCURRENTLY "document".customers;
 RETURN NULL;
 END;
 $$ LANGUAGE plpgsql;
@@ -256,7 +257,7 @@ VALUES
     ON CONFLICT (id) DO NOTHING;
 
 -- Refresh the materialized view with initial data
-REFRESH MATERIALIZED VIEW "document".document_customer_m_view;
+REFRESH MATERIALIZED VIEW "document".customers;
 
 
 

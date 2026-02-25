@@ -61,6 +61,8 @@ public class DocumentDataMapper implements IDocumentDataMapper {
                 .deliveryAddress(documentAddressToStreetAddress(documentInformation.getAddress()))
                 .documentType(documentInformation.getDocumentType())
                 .documentItems(documentItemDTOtoDocumentItemList(createDocumentCommand.getLabels()))
+                .periodStartDate(documentInformation.getPeriodStartDate())
+                .periodEndDate(documentInformation.getPeriodEndDate())
                 .build();
     }
 
