@@ -4,6 +4,8 @@ package com.document.notification.system.utils;
 import com.document.notification.system.domain.exceptions.DomainException;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.SerializationFeature;
+import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import lombok.extern.slf4j.Slf4j;
 
 /**
@@ -16,7 +18,24 @@ import lombok.extern.slf4j.Slf4j;
  */
 @Slf4j
 public class JsonSerializationUtil {
-    private static final ObjectMapper objectMapper = new ObjectMapper();
+    private static final ObjectMapper objectMapper = createObjectMapper();
+
+    /**
+     * Creates and configures an ObjectMapper with Java 8 date/time support.
+     *
+     * @return configured ObjectMapper instance
+     */
+    private static ObjectMapper createObjectMapper() {
+        ObjectMapper mapper = new ObjectMapper();
+
+
+        mapper.registerModule(new JavaTimeModule());
+
+        // Disable writing dates as timestamps (use ISO-8601 format instead)
+        mapper.disable(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS);
+
+        return mapper;
+    }
 
     /**
      * Converts an object to a JSON string.
