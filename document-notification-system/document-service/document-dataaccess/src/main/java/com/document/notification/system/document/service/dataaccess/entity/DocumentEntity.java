@@ -29,7 +29,7 @@ public class DocumentEntity {
 
     private UUID customerId;
 
-    private UUID accountId;
+    private UUID generationId;
 
     private String fileName;
 

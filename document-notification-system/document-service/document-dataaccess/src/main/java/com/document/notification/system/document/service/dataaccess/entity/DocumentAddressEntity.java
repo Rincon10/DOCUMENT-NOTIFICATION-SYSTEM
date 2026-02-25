@@ -21,10 +21,11 @@ public class DocumentAddressEntity {
     @Id
     private UUID id;
 
-    @OneToOne(cascade = CascadeType.ALL)
-    @JoinColumn(name = "DOCUMENT_ID")
+    @OneToOne(cascade = CascadeType.ALL, optional = true)
+    @JoinColumn(name = "DOCUMENT_ID", nullable = true)
     public DocumentEntity document;
 
+    private String state;
     private String postalCode;
     private String addressLine;
     private String city;

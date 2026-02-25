@@ -34,4 +34,13 @@ public class DateUtils {
         return date.format(formatter);
 
     }
+
+    public static LocalDate parseStringDatetoLocalDate(String date) {
+        if (Objects.isNull(date) || date.isBlank()) {
+            return null;
+        }
+
+        DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd");
+        return LocalDate.parse(date, formatter);
+    }
 }

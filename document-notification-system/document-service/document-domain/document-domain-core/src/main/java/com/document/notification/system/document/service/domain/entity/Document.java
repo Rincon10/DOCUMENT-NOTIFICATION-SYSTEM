@@ -10,6 +10,7 @@ import com.document.notification.system.domain.valueobject.DocumentType;
 import lombok.Builder;
 import lombok.Getter;
 
+import java.time.LocalDate;
 import java.util.List;
 import java.util.Objects;
 import java.util.UUID;
@@ -30,15 +31,19 @@ public class Document extends AggregateRoot<DocumentId> {
     private final List<DocumentItem> documentItems;
     private DocumentStatus documentStatus;
     private List<String> failureMessages;
+    private LocalDate periodStartDate;
+    private LocalDate periodEndDate;
 
     @Builder
-    public Document(DocumentId documentId, CustomerId customerId, StreetAddress deliveryAddress, DocumentType documentType, List<DocumentItem> documentItems, DocumentStatus documentStatus) {
+    public Document(DocumentId documentId, CustomerId customerId, StreetAddress deliveryAddress, DocumentType documentType, List<DocumentItem> documentItems, DocumentStatus documentStatus,LocalDate periodStartDate,LocalDate periodEndDate) {
         setId(documentId);
         this.customerId = customerId;
         this.deliveryAddress = deliveryAddress;
         this.documentType = documentType;
         this.documentItems = documentItems;
         this.documentStatus = documentStatus;
+        this.periodStartDate = periodStartDate;
+        this.periodEndDate = periodEndDate;
     }
 
     public void initializeDocument() {
