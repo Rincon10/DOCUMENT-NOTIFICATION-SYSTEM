@@ -23,7 +23,7 @@ public class DocumentItemEntity {
     @Id
     private Long id;
     @Id
-    @ManyToOne(cascade = CascadeType.ALL)
+    @ManyToOne
     @JoinColumn(name = "DOCUMENT_ID")
     private DocumentEntity document;
 

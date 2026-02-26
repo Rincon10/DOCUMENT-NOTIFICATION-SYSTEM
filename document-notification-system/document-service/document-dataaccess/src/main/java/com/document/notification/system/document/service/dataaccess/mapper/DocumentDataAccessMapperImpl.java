@@ -67,7 +67,6 @@ public class DocumentDataAccessMapperImpl implements DocumentDataAccessMapperI {
                 .failureMessages(failuresMessages)
                 .build();
 
-        // Establecer relaciones bidireccionales
         DocumentAddressEntity addressEntity = streetAddressToAddress(document.getDeliveryAddress(), documentEntity);
         documentEntity.setAddress(addressEntity);
 
@@ -151,10 +150,11 @@ public class DocumentDataAccessMapperImpl implements DocumentDataAccessMapperI {
             return Collections.emptyList();
         }
 
-        long index = 1;
-        return items.stream()
-                .map(item -> documentItemToDocumentItemEntity(item, documentEntity, index++))
-                .collect(Collectors.toList());
+        List<DocumentItemEntity> itemEntities = new java.util.ArrayList<>();
+        for (int i = 0; i < items.size(); i++) {
+            itemEntities.add(documentItemToDocumentItemEntity(items.get(i), documentEntity, (long) (i + 1)));
+        }
+        return itemEntities;
     }
 
     private DocumentItemEntity documentItemToDocumentItemEntity(DocumentItem documentItem, DocumentEntity documentEntity, long index) {
@@ -162,7 +162,7 @@ public class DocumentDataAccessMapperImpl implements DocumentDataAccessMapperI {
                 .id(index)
                 .document(documentEntity)
                 .itemId(UUID.fromString(documentItem.getItem().getName()))
-                .subTotal(documentItem.getSubTotal().getAmount())
+                //.subTotal(documentItem.getSubTotal().getAmount())
                 .lateInterest(documentItem.getLateInterest().getAmount())
                 .regularInterest(documentItem.getRegularInterest().getAmount())
                 .build();
