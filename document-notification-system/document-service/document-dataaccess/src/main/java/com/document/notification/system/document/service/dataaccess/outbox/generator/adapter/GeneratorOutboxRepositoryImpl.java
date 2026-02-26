@@ -1,5 +1,7 @@
 package com.document.notification.system.document.service.dataaccess.outbox.generator.adapter;
 
+import com.document.notification.system.document.service.dataaccess.outbox.generator.GenerationOutboxDataAccessMapperI;
+import com.document.notification.system.document.service.dataaccess.outbox.generator.entity.GenerationOutboxEntity;
 import com.document.notification.system.document.service.dataaccess.outbox.generator.repository.GeneratorOutboxJpaRepository;
 import com.document.notification.system.outbox.OutboxStatus;
 import com.document.notification.system.outbox.model.generator.DocumentGenerationOutboxMessage;
@@ -22,10 +24,14 @@ import java.util.UUID;
 public class GeneratorOutboxRepositoryImpl implements GeneratorOutboxRepository {
 
     private final GeneratorOutboxJpaRepository jpaRepository;
+    private final GenerationOutboxDataAccessMapperI generationOutboxDataAccessMapper;
 
     @Override
     public DocumentGenerationOutboxMessage save(DocumentGenerationOutboxMessage documentGenerationOutboxMessage) {
-        return null;
+
+        GenerationOutboxEntity outboxEntity = generationOutboxDataAccessMapper.mapDocumentGenerationOutboxMessageToGenerationOutboxEntity(documentGenerationOutboxMessage);
+        GenerationOutboxEntity savedOutboxEntity = jpaRepository.save(outboxEntity);
+        return generationOutboxDataAccessMapper.mapGenerationOutboxEntityToDocumentGenerationOutboxMessage(savedOutboxEntity);
     }
 
     @Override

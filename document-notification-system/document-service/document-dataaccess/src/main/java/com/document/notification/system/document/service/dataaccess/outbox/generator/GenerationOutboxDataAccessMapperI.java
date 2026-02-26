@@ -1,0 +1,10 @@
+package com.document.notification.system.document.service.dataaccess.outbox.generator;
+
+import com.document.notification.system.document.service.dataaccess.outbox.generator.entity.GenerationOutboxEntity;
+import com.document.notification.system.outbox.model.generator.DocumentGenerationOutboxMessage;
+
+public interface GenerationOutboxDataAccessMapperI {
+    GenerationOutboxEntity mapDocumentGenerationOutboxMessageToGenerationOutboxEntity(DocumentGenerationOutboxMessage documentGenerationOutboxMessage);
+
+    DocumentGenerationOutboxMessage mapGenerationOutboxEntityToDocumentGenerationOutboxMessage(GenerationOutboxEntity generationOutboxEntity);
+}

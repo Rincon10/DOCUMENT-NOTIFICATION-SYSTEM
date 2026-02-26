@@ -23,8 +23,6 @@ import java.util.UUID;
  */
 @Getter
 public class Document extends AggregateRoot<DocumentId> {
-
-    public static final String FAILURE_MESSAGE_DELIMITER = ",";
     private final CustomerId customerId;
 
     private final StreetAddress deliveryAddress;
@@ -35,6 +33,7 @@ public class Document extends AggregateRoot<DocumentId> {
     private List<String> failureMessages;
     private LocalDate periodStartDate;
     private LocalDate periodEndDate;
+
 
     @Builder
     public Document(DocumentId documentId, CustomerId customerId, StreetAddress deliveryAddress, DocumentType documentType, List<DocumentItem> documentItems, DocumentStatus documentStatus,LocalDate periodStartDate,LocalDate periodEndDate,List<String> failureMessages) {

@@ -8,12 +8,14 @@ import com.document.notification.system.document.service.domain.entity.DocumentI
 import com.document.notification.system.document.service.domain.entity.Item;
 import com.document.notification.system.document.service.domain.valueobject.StreetAddress;
 import com.document.notification.system.domain.constants.GlobalConstants;
+import com.document.notification.system.domain.utils.DateUtils;
 import com.document.notification.system.domain.valueobject.CustomerId;
 import com.document.notification.system.domain.valueobject.DocumentId;
 import com.document.notification.system.domain.valueobject.Money;
 import org.springframework.stereotype.Component;
 
 import java.math.BigDecimal;
+import java.time.LocalDateTime;
 import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
@@ -52,18 +54,27 @@ public class DocumentDataAccessMapperImpl implements DocumentDataAccessMapperI {
         BigDecimal totalRegularInterest = totalRegularInterest(items);
         BigDecimal totalLateInterest = totalLateInterest(items);
 
-        return DocumentEntity.builder()
+        DocumentEntity documentEntity = DocumentEntity.builder()
                 .id(document.getId().getValue())
                 .customerId(document.getCustomerId().getValue())
-                .address(streetAddressToAddress(document.getDeliveryAddress()))
                 .documentStatus(document.getDocumentStatus())
                 .totalLateInterest(totalLateInterest)
-                .totalRegularInterest(totalLateInterest)
+                .totalRegularInterest(totalRegularInterest)
                 .periodStartDate(document.getPeriodStartDate())
+                .createdAt(DateUtils.getZoneDateTimeByUTCZoneId().toLocalDateTime())
                 .periodEndDate(document.getPeriodEndDate())
                 .totalAmount(totalRegularInterest.add(totalLateInterest))
                 .failureMessages(failuresMessages)
                 .build();
+
+        // Establecer relaciones bidireccionales
+        DocumentAddressEntity addressEntity = streetAddressToAddress(document.getDeliveryAddress(), documentEntity);
+        documentEntity.setAddress(addressEntity);
+
+        List<DocumentItemEntity> itemEntities = documentItemsToDocumentItemEntities(items, documentEntity);
+        documentEntity.setItems(itemEntities);
+
+        return documentEntity;
     }
 
     @Override
@@ -121,16 +132,39 @@ public class DocumentDataAccessMapperImpl implements DocumentDataAccessMapperI {
     }
 
 
-    private DocumentAddressEntity streetAddressToAddress(StreetAddress streetAddress) {
+    private DocumentAddressEntity streetAddressToAddress(StreetAddress streetAddress, DocumentEntity documentEntity) {
         if (streetAddress == null) {
             return null;
         }
         return DocumentAddressEntity.builder()
                 .id(streetAddress.getId())
+                .document(documentEntity)
                 .addressLine(streetAddress.getStreet())
                 .city(streetAddress.getCity())
                 .state(streetAddress.getState())
                 .postalCode(streetAddress.getZipCode())
+                .build();
+    }
+
+    private List<DocumentItemEntity> documentItemsToDocumentItemEntities(List<DocumentItem> items, DocumentEntity documentEntity) {
+        if (items == null || items.isEmpty()) {
+            return Collections.emptyList();
+        }
+
+        long index = 1;
+        return items.stream()
+                .map(item -> documentItemToDocumentItemEntity(item, documentEntity, index++))
+                .collect(Collectors.toList());
+    }
+
+    private DocumentItemEntity documentItemToDocumentItemEntity(DocumentItem documentItem, DocumentEntity documentEntity, long index) {
+        return DocumentItemEntity.builder()
+                .id(index)
+                .document(documentEntity)
+                .itemId(UUID.fromString(documentItem.getItem().getName()))
+                .subTotal(documentItem.getSubTotal().getAmount())
+                .lateInterest(documentItem.getLateInterest().getAmount())
+                .regularInterest(documentItem.getRegularInterest().getAmount())
                 .build();
     }
 }

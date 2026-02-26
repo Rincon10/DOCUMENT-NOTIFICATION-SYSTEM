@@ -152,7 +152,7 @@ DROP TABLE IF EXISTS "document".generation_outbox CASCADE;
 CREATE TABLE "document".generation_outbox (
                                               id UUID NOT NULL,
                                               saga_id UUID NOT NULL,
-                                              created_at TIMESTAMP NOT NULL,
+                                              created_at TIMESTAMP ,
                                               processed_at TIMESTAMP,
                                               type VARCHAR(255) NOT NULL,
                                               payload TEXT NOT NULL,
@@ -262,3 +262,5 @@ REFRESH MATERIALIZED VIEW "document".customers;
 
 
 
+
+SELECT * FROM "document".documents;
