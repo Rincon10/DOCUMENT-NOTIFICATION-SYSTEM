@@ -32,6 +32,7 @@ public class DocumentGenerationOutboxMessage {
     private SagaStatus sagaStatus;
     @Setter
     private DocumentStatus documentStatus;
+    @Setter
     private OutboxStatus outboxStatus;
     private int version;
 

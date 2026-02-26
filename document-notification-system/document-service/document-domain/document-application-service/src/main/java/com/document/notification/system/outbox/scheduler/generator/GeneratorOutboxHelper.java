@@ -14,6 +14,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.UUID;
@@ -73,5 +74,10 @@ public class GeneratorOutboxHelper {
         String errorMessage = "Could not create DocumentGenerationEventPayload object for document id: " +
                 documentGenerationEventPayload.getDocumentId();
         return JsonSerializationUtil.toJson(documentGenerationEventPayload, errorMessage);
+    }
+
+    @Transactional(readOnly = true)
+    public Optional<List<DocumentGenerationOutboxMessage>> getDocumentGenerationOutboxMessagesByTypeAndOutboxStatusAndSagaStatus( String sagaName,OutboxStatus outboxStatus, SagaStatus... sagaStatus) {
+        return generatorOutboxRepository.findByTypeAndOutboxStatusAndSagaStatus(sagaName, outboxStatus, sagaStatus);
     }
 }
