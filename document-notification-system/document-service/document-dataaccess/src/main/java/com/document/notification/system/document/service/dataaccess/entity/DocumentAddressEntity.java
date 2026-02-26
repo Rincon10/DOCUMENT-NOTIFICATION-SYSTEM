@@ -21,7 +21,7 @@ public class DocumentAddressEntity {
     @Id
     private UUID id;
 
-    @OneToOne(cascade = CascadeType.ALL, optional = true)
+    @OneToOne(optional = true)
     @JoinColumn(name = "DOCUMENT_ID", nullable = true)
     public DocumentEntity document;
 
