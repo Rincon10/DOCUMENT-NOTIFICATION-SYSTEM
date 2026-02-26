@@ -4,15 +4,18 @@ import com.document.notification.system.document.service.dataaccess.outbox.gener
 import com.document.notification.system.document.service.dataaccess.outbox.generator.entity.GenerationOutboxEntity;
 import com.document.notification.system.document.service.dataaccess.outbox.generator.repository.GeneratorOutboxJpaRepository;
 import com.document.notification.system.outbox.OutboxStatus;
+import com.document.notification.system.outbox.exception.GenerationOutboxNotFoundException;
 import com.document.notification.system.outbox.model.generator.DocumentGenerationOutboxMessage;
 import com.document.notification.system.ports.output.repository.GeneratorOutboxRepository;
 import com.document.notification.system.saga.SagaStatus;
 import lombok.AllArgsConstructor;
 import org.springframework.stereotype.Component;
 
+import java.util.Arrays;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
+import java.util.stream.Collectors;
 
 /**
  * @author Ivan Camilo Rincon Saavedra
@@ -35,8 +38,13 @@ public class GeneratorOutboxRepositoryImpl implements GeneratorOutboxRepository 
     }
 
     @Override
-    public Optional<List<DocumentGenerationOutboxMessage>> findByTypeAndOutboxStatusAndSagaStatus(String type, OutboxStatus outboxStatus, SagaStatus... sagaStatus) {
-        return Optional.empty();
+    public Optional<List<DocumentGenerationOutboxMessage>> findByTypeAndOutboxStatusAndSagaStatus(String sagaType, OutboxStatus outboxStatus, SagaStatus... sagaStatus) {
+        List<GenerationOutboxEntity> generationOutboxEntities = jpaRepository.findByTypeAndOutboxStatusAndSagaStatusIn(sagaType, outboxStatus, Arrays.asList(sagaStatus))
+                .orElseThrow(() -> new GenerationOutboxNotFoundException("Generation Outbox object was not found for saga " + sagaType));
+
+        List<DocumentGenerationOutboxMessage>  documentGenerationOutboxMessages =
+        generationOutboxEntities.stream().map(generationOutboxDataAccessMapper::mapGenerationOutboxEntityToDocumentGenerationOutboxMessage).collect(Collectors.toList());
+        return Optional.of(documentGenerationOutboxMessages);
     }
 
     @Override
