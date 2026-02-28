@@ -9,7 +9,6 @@ import com.document.notification.system.domain.valueobject.DocumentStatus;
 import com.document.notification.system.domain.valueobject.DocumentType;
 import lombok.Builder;
 import lombok.Getter;
-import lombok.Setter;
 
 import java.time.LocalDate;
 import java.util.List;
@@ -36,7 +35,7 @@ public class Document extends AggregateRoot<DocumentId> {
 
 
     @Builder
-    public Document(DocumentId documentId, CustomerId customerId, StreetAddress deliveryAddress, DocumentType documentType, List<DocumentItem> documentItems, DocumentStatus documentStatus,LocalDate periodStartDate,LocalDate periodEndDate,List<String> failureMessages) {
+    public Document(DocumentId documentId, CustomerId customerId, StreetAddress deliveryAddress, DocumentType documentType, List<DocumentItem> documentItems, DocumentStatus documentStatus, LocalDate periodStartDate, LocalDate periodEndDate, List<String> failureMessages) {
         setId(documentId);
         this.customerId = customerId;
         this.deliveryAddress = deliveryAddress;
@@ -57,13 +56,14 @@ public class Document extends AggregateRoot<DocumentId> {
         validateInitialDocument();
     }
 
-    public void generate(){
+    public void generate() {
         if (!DocumentStatus.PENDING.equals(this.documentStatus)) {
             throw new DocumentDomainException("Document is not in correct state for generation!");
         }
         this.documentStatus = DocumentStatus.GENERATED;
     }
-    public void sent(){
+
+    public void sent() {
         if (!DocumentStatus.GENERATED.equals(this.documentStatus)) {
             throw new DocumentDomainException("Document is not in correct state for sent!");
         }
@@ -75,7 +75,6 @@ public class Document extends AggregateRoot<DocumentId> {
             throw new DocumentDomainException("Document is not in correct state for initialization!");
         }
     }
-
 
 
 }

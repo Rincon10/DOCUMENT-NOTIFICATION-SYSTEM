@@ -11,7 +11,6 @@ import com.document.notification.system.outbox.model.generator.DocumentGeneratio
 import com.document.notification.system.ports.output.message.publisher.generator.GenerationRequestMessagePublisher;
 import lombok.AllArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-
 import org.springframework.stereotype.Component;
 
 import java.util.function.BiConsumer;
@@ -42,9 +41,9 @@ public class DocumentGenerationEventRequestKafkaPublisher implements GenerationR
                 documentGenerationEventPayload.getDocumentId(),
                 sagaId);
 
-        try{
+        try {
             GeneratorRequestAvroModel generatorRequestAvroModel = documentMessagingDataMapper
-                    .documentGenerationEventPayloadToGeneratorRequestAvroModel(sagaId,documentGenerationEventPayload);
+                    .documentGenerationEventPayloadToGeneratorRequestAvroModel(sagaId, documentGenerationEventPayload);
 
             kafkaProducer.send(documentServiceConfigData.getGeneratorRequestTopicName(),
                     sagaId,

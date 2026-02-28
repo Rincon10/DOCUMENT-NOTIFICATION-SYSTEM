@@ -17,9 +17,11 @@ public interface GeneratorOutboxRepository {
     Optional<List<DocumentGenerationOutboxMessage>> findByTypeAndOutboxStatusAndSagaStatus(String type,
                                                                                            OutboxStatus outboxStatus,
                                                                                            SagaStatus... sagaStatus);
+
     Optional<DocumentGenerationOutboxMessage> findByTypeAndSagaIdAndSagaStatus(String type,
-                                                                         UUID sagaId,
-                                                                         SagaStatus... sagaStatus);
+                                                                               UUID sagaId,
+                                                                               SagaStatus... sagaStatus);
+
     void deleteByTypeAndOutboxStatusAndSagaStatus(String type,
                                                   OutboxStatus outboxStatus,
                                                   SagaStatus... sagaStatus);

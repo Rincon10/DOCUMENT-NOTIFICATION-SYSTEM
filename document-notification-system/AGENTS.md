@@ -2,9 +2,11 @@
 
 ## Architecture Overview
 
-This is a **Hexagonal Architecture** (Ports & Adapters) system with **Domain-Driven Design** principles, implementing a document generation and notification platform.
+This is a **Hexagonal Architecture** (Ports & Adapters) system with **Domain-Driven Design** principles, implementing a
+document generation and notification platform.
 
 ### Service Structure
+
 ```
 document-notification-system/
 ├── common/                    # Shared domain models & utilities
@@ -19,6 +21,7 @@ document-notification-system/
 ### Module Organization (Per Service)
 
 Each service follows this structure:
+
 - **`*-domain-core/`**: Pure domain logic, entities, value objects, domain services (NO Spring dependencies)
 - **`*-application-service/`**: Use cases, ports (input/output interfaces), DTOs, helpers
 - **`*-dataaccess/`**: JPA entities, repositories, adapters implementing output ports
@@ -29,13 +32,15 @@ Each service follows this structure:
 ## Key Patterns & Conventions
 
 ### Domain Layer Rules
+
 - **Aggregate Roots** extend `AggregateRoot<ID>` (from `common-domain`)
 - **Value Objects** wrap primitives (e.g., `DocumentId`, `CustomerId` wrap `UUID`)
 - **Domain Services** contain business logic that doesn't belong to entities
-  - Example: `DocumentDomainServiceImpl.validateAndInitiateDocument()`
+    - Example: `DocumentDomainServiceImpl.validateAndInitiateDocument()`
 - **NO framework annotations** in domain-core (pure Java)
 
 ### Dependency Flow
+
 ```
 Container → Application-API → Application-Service → Domain-Core
                                       ↓
@@ -43,34 +48,41 @@ Container → Application-API → Application-Service → Domain-Core
 ```
 
 ### Bean Wiring Pattern
+
 Domain services are manually wired in `*-container/config/BeanConfiguration.java`:
+
 ```java
 @Bean
 public IDocumentDomainService documentDomainServiceI() {
     return new DocumentDomainServiceImpl();
 }
 ```
+
 This keeps domain-core framework-agnostic.
 
 ### Repository Pattern
+
 1. **Port Interface**: `*-application-service/ports/output/repository/I*Repository.java`
-   - Works with domain entities (e.g., `Document`)
+    - Works with domain entities (e.g., `Document`)
 2. **Adapter Implementation**: `*-dataaccess/adapter/*RepositoryImpl.java`
-   - Uses JPA repositories + mappers to convert between domain entities and JPA entities
+    - Uses JPA repositories + mappers to convert between domain entities and JPA entities
 3. **JPA Repository**: `*-dataaccess/repository/*JpaRepository.java` (Spring Data)
 4. **JPA Entity**: `*-dataaccess/entity/*Entity.java` (e.g., `DocumentEntity`)
 
 Example flow: `DocumentRepositoryImpl` → `DocumentJpaRepository` → PostgreSQL
 
 ### Mapper Strategy
+
 - **Domain Mappers**: Convert DTOs ↔ Domain entities (in `*-application-service`)
-  - Example: `IDocumentDataMapper.createDocumentCommandToDocument()`
+    - Example: `IDocumentDataMapper.createDocumentCommandToDocument()`
 - **Data Access Mappers**: Convert Domain entities ↔ JPA entities (in `*-dataaccess`)
-  - Example: `DocumentDataAccessMapperI.documentToDocumentEntity()`
+    - Example: `DocumentDataAccessMapperI.documentToDocumentEntity()`
 - All mappers use explicit interface + implementation pattern
 
 ### Transaction Boundaries
+
 `@Transactional` is placed on:
+
 - Command handlers (`DocumentCreateCommandHandler`)
 - Helper classes (`DocumentCreateHelper.persistDocument()`)
 
@@ -79,6 +91,7 @@ Example flow: `DocumentRepositoryImpl` → `DocumentJpaRepository` → PostgreSQ
 ### Running Services
 
 **Document Service** (Port 8181):
+
 ```powershell
 # Start PostgreSQL
 docker run -d --name my-postgres -e POSTGRES_USER=postgres -e POSTGRES_PASSWORD=admin -e POSTGRES_DB=postgres -p 5434:5434 postgres:15
@@ -93,6 +106,7 @@ mvn spring-boot:run
 **Customer Service**: Similar structure, check `customer-container/src/main/resources/application.yml`
 
 ### Building
+
 ```powershell
 # From root
 mvn clean install
@@ -103,6 +117,7 @@ mvn clean install
 ```
 
 ### Project Structure
+
 - Java 19
 - Spring Boot 3.3.2
 - Maven multi-module project
@@ -111,12 +126,14 @@ mvn clean install
 ## Adding New Features
 
 ### Creating a New Domain Entity
+
 1. Add entity in `*-domain-core/entity/` extending `AggregateRoot<T>` or `BaseEntity<T>`
 2. Add value objects in `*-domain-core/valueobject/`
 3. Create domain events in `*-domain-core/event/`
 4. Implement domain service logic in `*-domain-core/service/`
 
 ### Adding a New Use Case
+
 1. Create Command/Response DTOs in `*-application-service/dto/`
 2. Define input port interface in `*-application-service/ports/input/service/`
 3. Implement helper in `*-application-service/helper/` with business orchestration
@@ -124,6 +141,7 @@ mvn clean install
 5. Wire in `*-application-api` REST controller
 
 ### Implementing Persistence
+
 1. Create JPA entity in `*-dataaccess/entity/`
 2. Create JPA repository in `*-dataaccess/repository/` (Spring Data interface)
 3. Implement data access mapper in `*-dataaccess/mapper/`
@@ -139,7 +157,9 @@ mvn clean install
 ## Infrastructure
 
 ### Kafka Setup (Planned)
+
 Docker Compose files in `infraestructure/docker-compose/`:
+
 - `kafka_cluster.yml`: 3-broker cluster + Schema Registry
 - `zookeeper.yml`
 - `init_kafka.yml`
@@ -147,6 +167,7 @@ Docker Compose files in `infraestructure/docker-compose/`:
 Network: `document-notification-system` bridge network
 
 ### Database Schema Initialization
+
 SQL init scripts: `*-container/src/main/resources/init-init-schema.sql`
 Controlled by: `spring.sql.init.mode=always` in `application.yml`
 
@@ -156,8 +177,8 @@ Controlled by: `spring.sql.init.mode=always` in `application.yml`
 - **Author tags**: Include Javadoc with `@author`, `@version`, `@since`
 - **Logging**: Use Lombok's `@Slf4j`, log key business events (document created, saved)
 - **Exception handling**:
-  - Domain exceptions in `*-domain-core/exception/*DomainException.java`
-  - Global exception handler in `*-application-api/exception/handler/`
+    - Domain exceptions in `*-domain-core/exception/*DomainException.java`
+    - Global exception handler in `*-application-api/exception/handler/`
 - **DTO naming**: `Create*Command`, `Create*Response`, `*DTO`
 
 ## Important Notes

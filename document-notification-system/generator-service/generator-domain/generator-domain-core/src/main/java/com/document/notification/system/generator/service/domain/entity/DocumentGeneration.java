@@ -28,9 +28,9 @@ public class DocumentGeneration extends AggregateRoot<GenerationId> {
 
     private final GenerationId generationId;
     private final DocumentType fileExtension;
+    private final List<String> failureMessages;
     private GenerationStatus generationStatus;
     private LocalDateTime createdAt;
-    private final List<String> failureMessages;
 
     @Builder
     public DocumentGeneration(GenerationId generationId, GenerationStatus generationStatus, LocalDateTime createdAt, DocumentType fileExtension, List<String> failureMessages) {

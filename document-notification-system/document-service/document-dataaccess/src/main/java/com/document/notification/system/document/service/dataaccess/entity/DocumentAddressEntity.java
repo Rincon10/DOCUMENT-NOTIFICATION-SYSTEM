@@ -18,13 +18,11 @@ import java.util.UUID;
 @Table(name = "document_address")
 @Entity
 public class DocumentAddressEntity {
-    @Id
-    private UUID id;
-
     @OneToOne(optional = true)
     @JoinColumn(name = "DOCUMENT_ID", nullable = true)
     public DocumentEntity document;
-
+    @Id
+    private UUID id;
     private String state;
     private String postalCode;
     private String addressLine;

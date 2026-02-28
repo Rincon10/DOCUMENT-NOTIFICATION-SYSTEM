@@ -10,7 +10,6 @@ import com.document.notification.system.domain.valueobject.DocumentGenerationSta
 import com.document.notification.system.domain.valueobject.Money;
 import com.document.notification.system.dto.create.*;
 import com.document.notification.system.outbox.model.generator.DocumentGenerationEventPayload;
-import com.document.notification.system.outbox.model.generator.DocumentGenerationOutboxMessage;
 import com.document.notification.system.outbox.model.notification.DocumentNotificationEventPayload;
 import org.springframework.stereotype.Component;
 
@@ -25,12 +24,13 @@ import java.util.UUID;
 @Component
 public class DocumentDataMapper implements IDocumentDataMapper {
 
-    private Item item(DocumentItemDTO label){
+    private Item item(DocumentItemDTO label) {
         return Item.builder()
                 .name(label.getItemId().toString())
                 .amount(new Money(label.getAmount()))
                 .build();
     }
+
     private List<DocumentItem> documentItemDTOtoDocumentItemList(List<DocumentItemDTO> labels) {
         return labels.stream()
                 .map(label -> DocumentItem.builder()
@@ -40,9 +40,10 @@ public class DocumentDataMapper implements IDocumentDataMapper {
                         .build())
                 .toList();
     }
+
     private StreetAddress documentAddressToStreetAddress(DocumentAddressDTO documentAddress) {
         return StreetAddress.builder()
-                .id( UUID.randomUUID())
+                .id(UUID.randomUUID())
                 .street(documentAddress.getStreet())
                 .city(documentAddress.getCity())
                 .state(documentAddress.getState())

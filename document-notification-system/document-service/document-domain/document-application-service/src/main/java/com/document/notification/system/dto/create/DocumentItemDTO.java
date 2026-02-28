@@ -21,7 +21,7 @@ public class DocumentItemDTO {
     private final UUID itemId;
 
     private final BigDecimal amount;
-    
+
     private BigDecimal lateInterest;
 
     private BigDecimal regularInterest;

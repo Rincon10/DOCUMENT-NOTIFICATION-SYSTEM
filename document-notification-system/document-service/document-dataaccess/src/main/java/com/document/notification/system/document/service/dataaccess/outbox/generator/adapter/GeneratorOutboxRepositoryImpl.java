@@ -42,8 +42,8 @@ public class GeneratorOutboxRepositoryImpl implements GeneratorOutboxRepository 
         List<GenerationOutboxEntity> generationOutboxEntities = jpaRepository.findByTypeAndOutboxStatusAndSagaStatusIn(sagaType, outboxStatus, Arrays.asList(sagaStatus))
                 .orElseThrow(() -> new GenerationOutboxNotFoundException("Generation Outbox object was not found for saga " + sagaType));
 
-        List<DocumentGenerationOutboxMessage>  documentGenerationOutboxMessages =
-        generationOutboxEntities.stream().map(generationOutboxDataAccessMapper::mapGenerationOutboxEntityToDocumentGenerationOutboxMessage).collect(Collectors.toList());
+        List<DocumentGenerationOutboxMessage> documentGenerationOutboxMessages =
+                generationOutboxEntities.stream().map(generationOutboxDataAccessMapper::mapGenerationOutboxEntityToDocumentGenerationOutboxMessage).collect(Collectors.toList());
         return Optional.of(documentGenerationOutboxMessages);
     }
 

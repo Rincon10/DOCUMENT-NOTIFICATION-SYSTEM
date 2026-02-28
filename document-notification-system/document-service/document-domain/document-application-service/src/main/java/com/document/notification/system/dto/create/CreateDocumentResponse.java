@@ -18,9 +18,9 @@ import java.util.UUID;
 @AllArgsConstructor
 public class CreateDocumentResponse {
     @NotNull
-    private UUID accountId;
-    @NotNull
     private final DocumentStatus documentStatus;
     @NotNull
     private final String message;
+    @NotNull
+    private UUID accountId;
 }

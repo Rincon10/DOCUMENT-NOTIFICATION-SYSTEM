@@ -38,6 +38,6 @@ public class DocumentSagaHelper implements IDocumentSagaHelper {
             log.error("DocumentStatus cannot be null");
             throw new DocumentDomainException("DocumentStatus cannot be null");
         }
-        return STATUS_MAPPING.getOrDefault(documentStatus,SagaStatus.STARTED);
+        return STATUS_MAPPING.getOrDefault(documentStatus, SagaStatus.STARTED);
     }
 }
