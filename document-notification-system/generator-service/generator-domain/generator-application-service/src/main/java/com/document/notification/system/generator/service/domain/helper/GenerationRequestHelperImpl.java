@@ -1,5 +1,6 @@
 package com.document.notification.system.generator.service.domain.helper;
 
+import com.document.notification.system.domain.valueobject.GenerationStatus;
 import com.document.notification.system.generator.service.domain.dto.GenerationRequest;
 import com.document.notification.system.generator.service.domain.mapper.GenerationDataMapper;
 import com.document.notification.system.generator.service.domain.ports.output.message.publisher.GenerationResponseMessagePublisher;
@@ -29,7 +30,11 @@ public class GenerationRequestHelperImpl implements GenerationRequestHelper {
     @Transactional
     @Override
     public void persistGenerationOnHistoryRecords(GenerationRequest generationRequest) {
-        throw new UnsupportedOperationException("Not implemented yet");
+        if (publishIfOutboxMessageProcessedForGeneration(generationRequest, GenerationStatus.GENERATION_COMPLETED) {
+            log.info("An outbox message with saga id: {} is already saved to database!",
+                    generationRequest.getSagaId());
+            return;
+        }
     }
 
     @Transactional
