@@ -1,9 +1,10 @@
-package com.document.notification.system.generator.service.domain.valueobject;
+package com.document.notification.system.generator.service.domain.entity;
 
 import com.document.notification.system.domain.entity.AggregateRoot;
 import com.document.notification.system.domain.utils.DateUtils;
 import com.document.notification.system.domain.valueobject.DocumentType;
 import com.document.notification.system.domain.valueobject.GenerationStatus;
+import com.document.notification.system.generator.service.domain.valueobject.GenerationId;
 import lombok.Builder;
 import lombok.Getter;
 
@@ -26,18 +27,18 @@ public class DocumentGeneration extends AggregateRoot<GenerationId> {
     }
 
     private final GenerationId generationId;
+    private final DocumentType fileExtension;
     private GenerationStatus generationStatus;
     private LocalDateTime createdAt;
-    private final DocumentType fileExtension;
-    private List<String> failureMessages;
+    private final List<String> failureMessages;
 
     @Builder
-    public DocumentGeneration(GenerationId generationId, GenerationStatus generationStatus, LocalDateTime createdAt, DocumentType fileExtension) {
+    public DocumentGeneration(GenerationId generationId, GenerationStatus generationStatus, LocalDateTime createdAt, DocumentType fileExtension, List<String> failureMessages) {
         this.generationId = generationId;
         this.generationStatus = generationStatus;
         this.createdAt = createdAt;
-        this.failureMessages = failureMessages;
         this.fileExtension = fileExtension;
+        this.failureMessages = failureMessages;
     }
 
     public void initializateGeneration() {

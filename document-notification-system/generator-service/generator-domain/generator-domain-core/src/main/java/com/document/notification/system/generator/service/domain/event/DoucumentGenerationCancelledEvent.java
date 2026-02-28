@@ -1,6 +1,6 @@
 package com.document.notification.system.generator.service.domain.event;
 
-import com.document.notification.system.generator.service.domain.valueobject.DocumentGeneration;
+import com.document.notification.system.generator.service.domain.entity.DocumentGeneration;
 
 import java.time.ZonedDateTime;
 import java.util.Collections;
