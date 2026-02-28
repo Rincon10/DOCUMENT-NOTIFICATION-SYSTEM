@@ -8,6 +8,9 @@ import com.document.notification.system.kafka.document.avro.model.GeneratorRespo
 import com.document.notification.system.outbox.model.generator.DocumentGenerationEventPayload;
 import org.springframework.stereotype.Component;
 
+import java.time.Instant;
+import java.util.UUID;
+
 /**
  * @author Ivan Camilo Rincon Saavedra
  * @version 1.0
@@ -27,6 +30,16 @@ public class DocumentMessagingDataMapper implements IDocumentMessagingDataMapper
 
     @Override
     public GeneratorRequestAvroModel documentGenerationEventPayloadToGeneratorRequestAvroModel(String sagaId, DocumentGenerationEventPayload documentGenerationEventPayload) {
-        throw new UnsupportedOperationException("Method not implemented yet");
+        return GeneratorRequestAvroModel.newBuilder()
+                .setId(UUID.randomUUID().toString())
+                .setSagaId(sagaId)
+                .setCustomerId(documentGenerationEventPayload.getCustomerId())
+                .setDocumentId(documentGenerationEventPayload.getDocumentId())
+                .setCreatedAt(Instant.from(documentGenerationEventPayload.getCreatedAt()))
+                .setDocumentGenerationStatus(
+                        com.document.notification.system.kafka.document.avro.model.DocumentGenerationStatus
+                                .valueOf(documentGenerationEventPayload.getDocumentGenerationStatus())
+                )
+                .build();
     }
 }

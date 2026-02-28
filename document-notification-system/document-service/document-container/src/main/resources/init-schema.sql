@@ -35,7 +35,7 @@ CREATE TYPE "document".document_type AS ENUM ('INVOICE', 'RECEIPT', 'STATEMENT',
 
 -- Saga Status Enum
 DROP TYPE IF EXISTS "document".saga_status;
-CREATE TYPE "document".saga_status AS ENUM ('STARTED', 'SUCCEEDED', 'FAILED', 'COMPENSATED');
+CREATE TYPE "document".saga_status AS ENUM ('STARTED', 'SUCCESSFUL', 'FAILED', 'COMPENSATED','PROCESSING','COMPENSATING');
 
 -- Outbox Status Enum
 DROP TYPE IF EXISTS "document".outbox_status;
@@ -264,3 +264,5 @@ REFRESH MATERIALIZED VIEW "document".customers;
 
 
 SELECT * FROM "document".documents;
+
+SELECT * FROM "document".generation_outbox
