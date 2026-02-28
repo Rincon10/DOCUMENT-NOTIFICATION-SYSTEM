@@ -39,7 +39,7 @@ CREATE TYPE "document".saga_status AS ENUM ('STARTED', 'SUCCESSFUL', 'FAILED', '
 
 -- Outbox Status Enum
 DROP TYPE IF EXISTS "document".outbox_status;
-CREATE TYPE "document".outbox_status AS ENUM ('STARTED', 'PROCESSED', 'FAILED');
+CREATE TYPE "document".outbox_status AS ENUM ('STARTED', 'COMPLETED', 'FAILED');
 
 -- Generation Status Enum
 DROP TYPE IF EXISTS "document".generation_status;
@@ -258,11 +258,3 @@ VALUES
 
 -- Refresh the materialized view with initial data
 REFRESH MATERIALIZED VIEW "document".customers;
-
-
-
-
-
-SELECT * FROM "document".documents;
-
-SELECT * FROM "document".generation_outbox
