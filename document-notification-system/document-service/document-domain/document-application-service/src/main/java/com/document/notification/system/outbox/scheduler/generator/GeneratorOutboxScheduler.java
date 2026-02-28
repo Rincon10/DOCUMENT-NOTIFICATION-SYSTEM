@@ -31,7 +31,7 @@ public class GeneratorOutboxScheduler implements OutboxScheduler {
     private final GeneratorOutboxHelper generatorOutboxHelper;
     private final GenerationRequestMessagePublisher generationRequestMessagePublisher;
 
-    private void updateOutboxStatus(DocumentGenerationOutboxMessage documentGenerationOutboxMessage, OutboxStatus outboxStatus) {
+    private void updateOutboxStatus(final DocumentGenerationOutboxMessage documentGenerationOutboxMessage, OutboxStatus outboxStatus) {
         documentGenerationOutboxMessage.setOutboxStatus(outboxStatus);
         generatorOutboxHelper.save(documentGenerationOutboxMessage);
         log.info("DocumentGenerationOutboxMessage is updated with outbox status: {}", outboxStatus.name());
