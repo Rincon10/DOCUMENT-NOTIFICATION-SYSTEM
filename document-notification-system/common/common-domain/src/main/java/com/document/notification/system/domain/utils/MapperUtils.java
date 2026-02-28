@@ -2,8 +2,6 @@ package com.document.notification.system.domain.utils;
 
 import lombok.extern.slf4j.Slf4j;
 
-import java.util.Optional;
-import java.util.function.Function;
 import java.util.function.Supplier;
 
 /**
@@ -26,11 +24,11 @@ public class MapperUtils {
      * Executes a supplier safely with a default fallback value.
      * If an exception occurs, returns the default value instead of throwing.
      *
-     * @param supplier the supplier function to execute
+     * @param supplier     the supplier function to execute
      * @param defaultValue the fallback value to return if an exception occurs
-     * @param <T> the type of the result
+     * @param <T>          the type of the result
      * @return the supplier result or the default value if an exception occurs
-     *
+     * <p>
      * Example:
      * <pre>
      * String result = safeOrDefault(() -> riskyOperation(), "default value");
@@ -50,12 +48,12 @@ public class MapperUtils {
     /**
      * Executes a supplier safely with a default fallback value and custom error logging.
      *
-     * @param supplier the supplier function to execute
+     * @param supplier     the supplier function to execute
      * @param defaultValue the fallback value to return if an exception occurs
      * @param errorMessage custom error message to log
-     * @param <T> the type of the result
+     * @param <T>          the type of the result
      * @return the supplier result or the default value if an exception occurs
-     *
+     * <p>
      * Example:
      * <pre>
      * String result = safeOrDefault(

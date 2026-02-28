@@ -14,14 +14,14 @@ import lombok.Setter;
 
 @Getter
 @Setter
-public class Customer  extends AggregateRoot<CustomerId> {
+public class Customer extends AggregateRoot<CustomerId> {
     private final String username;
     private final String firstName;
     private final String lastName;
 
 
     @Builder
-    public Customer(CustomerId customerId,String username, String firstName, String lastName) {
+    public Customer(CustomerId customerId, String username, String firstName, String lastName) {
         setId(customerId);
         this.username = username;
         this.firstName = firstName;

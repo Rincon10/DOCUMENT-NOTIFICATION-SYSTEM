@@ -77,7 +77,7 @@ public class GeneratorOutboxHelper {
     }
 
     @Transactional(readOnly = true)
-    public Optional<List<DocumentGenerationOutboxMessage>> getDocumentGenerationOutboxMessagesByTypeAndOutboxStatusAndSagaStatus( String sagaName,OutboxStatus outboxStatus, SagaStatus... sagaStatus) {
+    public Optional<List<DocumentGenerationOutboxMessage>> getDocumentGenerationOutboxMessagesByTypeAndOutboxStatusAndSagaStatus(String sagaName, OutboxStatus outboxStatus, SagaStatus... sagaStatus) {
         return generatorOutboxRepository.findByTypeAndOutboxStatusAndSagaStatus(sagaName, outboxStatus, sagaStatus);
     }
 }

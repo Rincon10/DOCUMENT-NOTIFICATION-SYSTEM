@@ -34,10 +34,6 @@ public class CustomerApplicationServiceImpl implements CustomerApplicationServic
     }
 
 
-
-
-
-
     @Override
     public CreateCustomerResponse createCustomer(CreateCustomerCommand createCustomerCommand) {
         CustomerCreatedEvent customerCreatedEvent = customerCreateCommandHandler.createCustomer(createCustomerCommand);

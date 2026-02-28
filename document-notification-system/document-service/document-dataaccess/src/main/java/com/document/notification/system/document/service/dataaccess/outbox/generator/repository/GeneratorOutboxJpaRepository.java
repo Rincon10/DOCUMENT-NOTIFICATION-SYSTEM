@@ -16,14 +16,14 @@ import java.util.UUID;
  * @since 22/02/2026
  */
 @Repository
-public interface  GeneratorOutboxJpaRepository extends JpaRepository<GenerationOutboxEntity, UUID> {
+public interface GeneratorOutboxJpaRepository extends JpaRepository<GenerationOutboxEntity, UUID> {
     Optional<List<GenerationOutboxEntity>> findByTypeAndOutboxStatusAndSagaStatusIn(String type,
                                                                                     OutboxStatus outboxStatus,
                                                                                     List<SagaStatus> sagaStatus);
 
     Optional<GenerationOutboxEntity> findByTypeAndSagaIdAndSagaStatusIn(String type,
-                                                                     UUID sagaId,
-                                                                     List<SagaStatus> sagaStatus);
+                                                                        UUID sagaId,
+                                                                        List<SagaStatus> sagaStatus);
 
     void deleteByTypeAndOutboxStatusAndSagaStatusIn(String type,
                                                     OutboxStatus outboxStatus,

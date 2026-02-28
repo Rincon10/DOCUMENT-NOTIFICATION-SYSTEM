@@ -115,6 +115,7 @@
 ## 📋 ÍNDICES CREADOS
 
 ### En tabla `documents`
+
 ```
 - idx_document_customer_id
 - idx_document_status
@@ -123,17 +124,20 @@
 ```
 
 ### En tabla `document_address`
+
 ```
 - idx_document_address_document_id
 ```
 
 ### En tabla `document_items`
+
 ```
 - idx_document_items_document_id
 - idx_document_items_item_id
 ```
 
 ### En tabla `generation_outbox`
+
 ```
 - idx_generation_outbox_saga_id
 - idx_generation_outbox_status
@@ -142,6 +146,7 @@
 ```
 
 ### En tabla `notification_outbox`
+
 ```
 - idx_notification_outbox_saga_id
 - idx_notification_outbox_document_id
@@ -154,6 +159,7 @@
 ## 🔀 RELACIONES DETALLADAS
 
 ### 1. Customers ↔ Documents (1:N)
+
 ```
 customers.id ←─→ documents.customer_id (FK)
   Tipo: One-to-Many
@@ -163,6 +169,7 @@ customers.id ←─→ documents.customer_id (FK)
 ```
 
 ### 2. Documents ↔ Document Address (1:1)
+
 ```
 documents.id ←─→ document_address.document_id (FK UNIQUE)
   Tipo: One-to-One
@@ -172,6 +179,7 @@ documents.id ←─→ document_address.document_id (FK UNIQUE)
 ```
 
 ### 3. Documents ↔ Document Items (1:N)
+
 ```
 documents.id ←─→ document_items.document_id (FK)
   Tipo: One-to-Many
@@ -181,6 +189,7 @@ documents.id ←─→ document_items.document_id (FK)
 ```
 
 ### 4. Documents ↔ Notification Outbox (1:N)
+
 ```
 documents.id ←─→ notification_outbox.document_id (FK)
   Tipo: One-to-Many
@@ -195,6 +204,7 @@ documents.id ←─→ notification_outbox.document_id (FK)
 ### ENUM Types
 
 #### document_status
+
 ```
 PENDING      → Esperando procesamiento
 GENERATED    → Documento generado
@@ -204,6 +214,7 @@ CANCELLING   → En proceso de cancelación
 ```
 
 #### saga_status
+
 ```
 STARTED      → Saga iniciada
 SUCCEEDED    → Saga completada exitosamente
@@ -212,6 +223,7 @@ COMPENSATED  → Saga compensada (rollback)
 ```
 
 #### outbox_status
+
 ```
 STARTED      → Mensaje creado, esperando procesamiento
 PROCESSED    → Mensaje procesado y publicado
@@ -287,6 +299,7 @@ generation_outbox es independiente pero referencia a documents indirectamente
 ## 💾 PATRONES IMPLEMENTADOS
 
 ### 1. Outbox Pattern
+
 ```
 Usado en:
 - generation_outbox
@@ -299,6 +312,7 @@ Beneficio:
 ```
 
 ### 2. Saga Pattern
+
 ```
 Usado en:
 - generation_outbox con saga_status
@@ -310,6 +324,7 @@ STARTED (1) → FAILED → COMPENSATED
 ```
 
 ### 3. Optimistic Locking
+
 ```
 Usado en:
 - generation_outbox.version
@@ -362,20 +377,20 @@ Total tamaño aprox: 500 GB - 1 TB (con documentos guardados)
 ### Restricciones principales
 
 1. **FK documents.customer_id**
-   - No puedes eliminar cliente con documentos
-   - Actualizar customer.id actualiza en cascada
+    - No puedes eliminar cliente con documentos
+    - Actualizar customer.id actualiza en cascada
 
 2. **FK document_address.document_id**
-   - Eliminar documento elimina dirección (CASCADE)
-   - Garantiza integridad 1:1
+    - Eliminar documento elimina dirección (CASCADE)
+    - Garantiza integridad 1:1
 
 3. **FK document_items.document_id**
-   - Eliminar documento elimina items (CASCADE)
-   - Mantiene documentos completos
+    - Eliminar documento elimina items (CASCADE)
+    - Mantiene documentos completos
 
 4. **FK notification_outbox.document_id**
-   - Eliminar documento elimina mensajes de notificación
-   - Limpieza automática
+    - Eliminar documento elimina mensajes de notificación
+    - Limpieza automática
 
 ---
 
@@ -409,7 +424,7 @@ Customer
 1. **Esquemas separados**: `document` y `customer` están en esquemas distintos
    para mejor aislamiento y escalabilidad
 
-2. **Sin vistas materializadas en init-database.sql**: 
+2. **Sin vistas materializadas en init-database.sql**:
    El script simplificado no incluye MVs. Use `init-schema.sql` si las necesita.
 
 3. **Cascading deletes**:

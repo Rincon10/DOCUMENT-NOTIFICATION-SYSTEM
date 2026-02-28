@@ -15,8 +15,7 @@ public class SchedulerConfig {
     // esto solo lo colocariamos si necesitamos modificar el modulo del Mapper Json
     /**
      @Bean
-     @Primary
-     public ObjectMapper objectMapper(){
+     @Primary public ObjectMapper objectMapper(){
      return new ObjectMapper()
      .setSerializationInclusion(JsonInclude.Include.NON_NULL)
      .configure(DeserializationFeature.FAIL_ON_IGNORED_PROPERTIES, false)

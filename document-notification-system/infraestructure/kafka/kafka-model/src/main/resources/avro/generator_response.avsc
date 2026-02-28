@@ -50,15 +50,19 @@
       "type": {
         "type": "enum",
         "name": "GenerationStatus",
-        "symbols": ["GENERATION_COMPLETED", "GENERATION_CANCELLED", "GENERATION_FAILED"]
+        "symbols": [
+          "GENERATION_COMPLETED",
+          "GENERATION_CANCELLED",
+          "GENERATION_FAILED"
+        ]
       }
     },
     {
       "name": "failureMessages",
       "type": {
         "type": "array",
-        "items":{
-          "type":"string"
+        "items": {
+          "type": "string"
         }
       }
     }

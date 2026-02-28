@@ -3,10 +3,10 @@
 ```bash
 docker run -d --name my-postgres -e POSTGRES_USER=postgres -e POSTGRES_PASSWORD=admin -e POSTGRES_DB=postgres -p 5432:5432 postgres:15
 ```
+
 ## Kafka con docker
 
 cremos el modulo de infraestructure
-
 
 creamos la carpeta docker-compose/.env
 
@@ -24,7 +24,6 @@ docker-compose -f common.yml -f kafka_cluster.yml up
 
 iniciaremos el cluster
 
-
 ```bash
 docker-compose -f common.yml -f init_kafka.yml up
 ```
@@ -37,11 +36,9 @@ http://localhost:9000/
 
 le damos en cluster/add cluster
 
-
 ```
 document-notification-system-cluster
 ```
-
 
 ```
 zookeeper:2181

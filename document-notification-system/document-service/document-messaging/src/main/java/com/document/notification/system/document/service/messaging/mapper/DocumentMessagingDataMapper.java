@@ -17,7 +17,7 @@ import java.util.UUID;
  * @since 22/02/2026
  */
 @Component
-public class DocumentMessagingDataMapper implements IDocumentMessagingDataMapper{
+public class DocumentMessagingDataMapper implements IDocumentMessagingDataMapper {
     @Override
     public CustomerModel customerAvroModeltoCustomerModel(CustomerAvroModel customerAvroModel) {
         throw new UnsupportedOperationException("Method not implemented yet");

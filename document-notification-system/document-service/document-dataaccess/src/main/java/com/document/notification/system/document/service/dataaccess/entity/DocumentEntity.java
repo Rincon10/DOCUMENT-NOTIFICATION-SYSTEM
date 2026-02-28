@@ -49,7 +49,7 @@ public class DocumentEntity {
 
     private String createdBy;
 
-    @Column( nullable = false)
+    @Column(nullable = false)
     private LocalDateTime createdAt;
 
     private LocalDateTime updatedAt;

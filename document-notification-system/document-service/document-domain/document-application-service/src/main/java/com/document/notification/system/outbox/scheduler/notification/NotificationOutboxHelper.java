@@ -3,7 +3,6 @@ package com.document.notification.system.outbox.scheduler.notification;
 import com.document.notification.system.domain.valueobject.DocumentStatus;
 import com.document.notification.system.outbox.OutboxStatus;
 import com.document.notification.system.outbox.model.notification.DocumentNotificationEventPayload;
-import com.document.notification.system.ports.output.repository.NotificationOutboxRepository;
 import com.document.notification.system.saga.SagaStatus;
 import lombok.AllArgsConstructor;
 import lombok.extern.slf4j.Slf4j;

@@ -62,7 +62,7 @@ public class DocumentCreateHelper implements IDocumentCreateHelper {
 
     private Document saveDocument(Document document) {
         Document savedDocument = documentRepository.save(document);
-        if (Objects.isNull(savedDocument) ) {
+        if (Objects.isNull(savedDocument)) {
             log.error("Could not save document with id {}", document.getId().getValue());
             throw new DocumentDomainException("Could not save  the document.");
         }
