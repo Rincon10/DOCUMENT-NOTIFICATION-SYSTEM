@@ -1,5 +1,7 @@
 package com.document.notification.system.generator.service.domain.service;
 
+import com.document.notification.system.generator.service.domain.event.GenerationEvent;
+import com.document.notification.system.generator.service.domain.valueobject.DocumentGeneration;
 import lombok.extern.slf4j.Slf4j;
 
 /**
@@ -8,5 +10,9 @@ import lombok.extern.slf4j.Slf4j;
  * @since 27/02/2026
  */
 @Slf4j
-public class GeneratorDomainServiceImpl {
+public class GeneratorDomainServiceImpl implements IGeneratorDomainService {
+    @Override
+    public GenerationEvent validateAndInitiateDocumentGeneration(DocumentGeneration documentGeneration) {
+        throw new RuntimeException("Not implemented yet");
+    }
 }
