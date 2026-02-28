@@ -46,10 +46,10 @@ public class DocumentGenerationEventRequestKafkaPublisher implements GenerationR
             GeneratorRequestAvroModel generatorRequestAvroModel = documentMessagingDataMapper
                     .documentGenerationEventPayloadToGeneratorRequestAvroModel(sagaId,documentGenerationEventPayload);
 
-            kafkaProducer.send(documentServiceConfigData.getGenerationRequestTopicName(),
+            kafkaProducer.send(documentServiceConfigData.getGeneratorRequestTopicName(),
                     sagaId,
                     generatorRequestAvroModel,
-                    kafkaProducerHelper.getKafkaCallback(documentServiceConfigData.getGenerationRequestTopicName(),
+                    kafkaProducerHelper.getKafkaCallback(documentServiceConfigData.getGeneratorRequestTopicName(),
                             generatorRequestAvroModel,
                             documentGenerationOutboxMessage,
                             outboxCallback,
