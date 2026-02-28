@@ -1,7 +1,7 @@
 package com.document.notification.system.generator.service.domain.event;
 
 import com.document.notification.system.domain.events.DomainEvent;
-import com.document.notification.system.generator.service.domain.valueobject.DocumentGeneration;
+import com.document.notification.system.generator.service.domain.entity.DocumentGeneration;
 import lombok.AllArgsConstructor;
 
 import java.time.ZonedDateTime;

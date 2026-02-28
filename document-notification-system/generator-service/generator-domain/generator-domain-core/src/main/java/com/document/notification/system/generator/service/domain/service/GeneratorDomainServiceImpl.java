@@ -6,7 +6,7 @@ import com.document.notification.system.domain.valueobject.GenerationStatus;
 import com.document.notification.system.generator.service.domain.event.DocumentGeneratedEvent;
 import com.document.notification.system.generator.service.domain.event.DocumentGenerationFailedEvent;
 import com.document.notification.system.generator.service.domain.event.GenerationEvent;
-import com.document.notification.system.generator.service.domain.valueobject.DocumentGeneration;
+import com.document.notification.system.generator.service.domain.entity.DocumentGeneration;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
 
