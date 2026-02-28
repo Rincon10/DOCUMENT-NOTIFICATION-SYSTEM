@@ -5,6 +5,7 @@ import com.document.notification.system.domain.utils.DateUtils;
 import com.document.notification.system.domain.valueobject.DocumentType;
 import com.document.notification.system.domain.valueobject.GenerationStatus;
 import lombok.Builder;
+import lombok.Getter;
 
 import java.time.LocalDateTime;
 import java.util.*;
@@ -14,6 +15,7 @@ import java.util.*;
  * @version 1.0
  * @since 27/02/2026
  */
+@Getter
 public class DocumentGeneration extends AggregateRoot<GenerationId> {
     protected final static Map<String, DocumentType> VALID_FILE_EXTENSIONS = new HashMap<>();
 
@@ -26,14 +28,16 @@ public class DocumentGeneration extends AggregateRoot<GenerationId> {
     private final GenerationId generationId;
     private GenerationStatus generationStatus;
     private LocalDateTime createdAt;
+    private final DocumentType fileExtension;
     private List<String> failureMessages;
 
     @Builder
-    public DocumentGeneration(GenerationId generationId, GenerationStatus generationStatus, LocalDateTime createdAt) {
+    public DocumentGeneration(GenerationId generationId, GenerationStatus generationStatus, LocalDateTime createdAt, DocumentType fileExtension) {
         this.generationId = generationId;
         this.generationStatus = generationStatus;
         this.createdAt = createdAt;
         this.failureMessages = failureMessages;
+        this.fileExtension = fileExtension;
     }
 
     public void initializateGeneration() {
@@ -41,7 +45,7 @@ public class DocumentGeneration extends AggregateRoot<GenerationId> {
         this.createdAt = DateUtils.getZoneDateTimeByUTCZoneId().toLocalDateTime();
     }
 
-    public void validatedGeneration(List<String> validationErrors, String fileExtension) {
+    public void validateGeneration(List<String> validationErrors, String fileExtension) {
         if (Objects.isNull(fileExtension) || !VALID_FILE_EXTENSIONS.containsKey(fileExtension.toUpperCase())) {
             validationErrors.add("Invalid file extension: " + fileExtension);
         }
