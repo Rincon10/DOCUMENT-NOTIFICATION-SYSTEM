@@ -1,6 +1,7 @@
 package com.document.notification.system.generator.service.domain.config;
 
 import lombok.Data;
+import org.springframework.context.annotation.Configuration;
 
 /**
  * @author Ivan Camilo Rincon Saavedra
