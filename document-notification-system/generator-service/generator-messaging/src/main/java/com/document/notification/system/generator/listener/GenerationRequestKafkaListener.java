@@ -1,6 +1,5 @@
 package com.document.notification.system.generator.listener;
 
-import com.document.notification.system.generator.service.domain.ports.input.message.listener.GenerationRequestMessageListener;
 import com.document.notification.system.kafka.consumer.KafkaConsumer;
 import com.document.notification.system.kafka.document.avro.model.GeneratorRequestAvroModel;
 import lombok.AllArgsConstructor;
@@ -23,7 +22,7 @@ import java.util.List;
 @AllArgsConstructor
 public class GenerationRequestKafkaListener implements KafkaConsumer<GeneratorRequestAvroModel> {
 
-    private final GenerationRequestMessageListener generationRequestMessageListener;
+    //private final GenerationRequestMessageListener generationRequestMessageListener;
 
 
     @Override
