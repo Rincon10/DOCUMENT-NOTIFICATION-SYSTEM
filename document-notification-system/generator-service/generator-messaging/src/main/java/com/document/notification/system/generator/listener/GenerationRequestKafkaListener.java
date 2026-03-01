@@ -1,9 +1,13 @@
 package com.document.notification.system.generator.listener;
 
+import com.document.notification.system.generator.mapper.DocumentMessagingDataMapper;
+import com.document.notification.system.generator.service.domain.ports.input.message.listener.GenerationRequestMessageListener;
 import com.document.notification.system.kafka.consumer.KafkaConsumer;
+import com.document.notification.system.kafka.document.avro.model.DocumentGenerationStatus;
 import com.document.notification.system.kafka.document.avro.model.GeneratorRequestAvroModel;
 import lombok.AllArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.dao.DataAccessException;
 import org.springframework.kafka.annotation.KafkaListener;
 import org.springframework.kafka.support.KafkaHeaders;
 import org.springframework.messaging.handler.annotation.Header;
@@ -22,7 +26,8 @@ import java.util.List;
 @AllArgsConstructor
 public class GenerationRequestKafkaListener implements KafkaConsumer<GeneratorRequestAvroModel> {
 
-    //private final GenerationRequestMessageListener generationRequestMessageListener;
+    private final GenerationRequestMessageListener generationRequestMessageListener;
+    private final DocumentMessagingDataMapper documentMessagingDataMapper;
 
 
     @Override
@@ -38,13 +43,37 @@ public class GenerationRequestKafkaListener implements KafkaConsumer<GeneratorRe
                 keys.toString(),
                 partitions.toString(),
                 offsets.toString());
-        messages.forEach(message -> {
+        messages.forEach(generatorRequestAvroModel -> {
             log.info("Received message with key: {} from partition: {} with offset: {} for document id: {} and saga id: {}",
-                    keys.get(messages.indexOf(message)),
-                    partitions.get(messages.indexOf(message)),
-                    offsets.get(messages.indexOf(message)),
-                    message.getDocumentId(),
-                    message.getSagaId());
+                    keys.get(messages.indexOf(generatorRequestAvroModel)),
+                    partitions.get(messages.indexOf(generatorRequestAvroModel)),
+                    offsets.get(messages.indexOf(generatorRequestAvroModel)),
+                    generatorRequestAvroModel.getDocumentId(),
+                    generatorRequestAvroModel.getSagaId());
+            try {
+
+                DocumentGenerationStatus documentGenerationStatus = generatorRequestAvroModel.getDocumentGenerationStatus();
+                if(DocumentGenerationStatus.PENDING.equals(documentGenerationStatus)){
+                    log.info("Processing pending generation request for document id: {} and saga id: {}",
+                            generatorRequestAvroModel.getDocumentId(),
+                            generatorRequestAvroModel.getSagaId());
+                    generationRequestMessageListener.completedGeneration(documentMessagingDataMapper.generatorRequestAvroModelToGenerationRequest(generatorRequestAvroModel));
+                } else if(DocumentGenerationStatus.CANCELLED.equals(documentGenerationStatus)){
+                    log.info("Processing cancelled generation request for document id: {} and saga id: {}",
+                            generatorRequestAvroModel.getDocumentId(),
+                            generatorRequestAvroModel.getSagaId());
+                    //generationRequestMessageListener.cancellGeneration(documentMessagingDataMapper.generatorRequestAvroModelToGenerationRequest(generatorRequestAvroModel));
+                } else {
+                    log.warn("Received message with unknown document generation status: {} for document id: {} and saga id: {}",
+                            documentGenerationStatus,
+                            generatorRequestAvroModel.getDocumentId(),
+                            generatorRequestAvroModel.getSagaId());
+                }
+
+            } catch (DataAccessException e) {
+                e.printStackTrace();
+            }
+
         });
     }
 }
