@@ -39,7 +39,9 @@ public class GenerationRequestHelperImpl implements GenerationRequestHelper {
                     generationRequest.getSagaId());
             return;
         }
-        throw new UnsupportedOperationException("Not implemented yet");
+        log.info("Received generation event for document id: {}"
+                , generationRequest.getDocumentId());
+
     }
 
 
@@ -50,7 +52,7 @@ public class GenerationRequestHelperImpl implements GenerationRequestHelper {
             log.info("An outbox message with saga id: {} is already saved to database with generation status: {}!",
                     generationRequest.getSagaId(),
                     generationStatus);
-            generationResponseMessagePublisher.publish(documentOutboxMessagesOptional.get(), documentOutboxHelper::updateOutboxMessage);
+            generationResponseMessagePublisher.publish(documentOutboxMessage, documentOutboxHelper::updateOutboxMessage);
             return true;
         }
         return false;
