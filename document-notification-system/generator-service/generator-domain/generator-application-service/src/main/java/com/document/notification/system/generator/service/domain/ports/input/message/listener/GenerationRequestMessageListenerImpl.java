@@ -1,6 +1,8 @@
 package com.document.notification.system.generator.service.domain.ports.input.message.listener;
 
 import com.document.notification.system.generator.service.domain.dto.GenerationRequest;
+import com.document.notification.system.generator.service.domain.helper.GenerationRequestHelper;
+import lombok.AllArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
@@ -11,15 +13,19 @@ import org.springframework.stereotype.Service;
  */
 @Slf4j
 @Service
+@AllArgsConstructor
 public class GenerationRequestMessageListenerImpl implements GenerationRequestMessageListener {
+
+    private final GenerationRequestHelper generationRequestHelper;
+
     @Override
     public void completedGeneration(GenerationRequest generationRequest) {
-        throw new UnsupportedOperationException("Method not implemented yet");
+        generationRequestHelper.persistGenerationOnHistoryRecords(generationRequest);
     }
 
     @Override
     public void cancellGeneration(GenerationRequest generationRequest) {
-        throw new UnsupportedOperationException("Method not implemented yet");
+        generationRequestHelper.persistCancelledGenerationOnHistoryRecords(generationRequest);
 
     }
 }
