@@ -31,14 +31,16 @@ public class DocumentGeneration extends AggregateRoot<GenerationId> {
     private final List<String> failureMessages;
     private GenerationStatus generationStatus;
     private LocalDateTime createdAt;
+    private String generatedContentBase64;
 
     @Builder
-    public DocumentGeneration(GenerationId generationId, GenerationStatus generationStatus, LocalDateTime createdAt, DocumentType fileExtension, List<String> failureMessages) {
+    public DocumentGeneration(GenerationId generationId, GenerationStatus generationStatus, LocalDateTime createdAt, DocumentType fileExtension, List<String> failureMessages,String generatedContentBase64) {
         this.generationId = generationId;
         this.generationStatus = generationStatus;
         this.createdAt = createdAt;
         this.fileExtension = fileExtension;
         this.failureMessages = failureMessages;
+        this.generatedContentBase64 = generatedContentBase64;
     }
 
     public void initializateGeneration() {
@@ -56,6 +58,10 @@ public class DocumentGeneration extends AggregateRoot<GenerationId> {
 
     public void updateStatus(GenerationStatus generationStatus) {
         this.generationStatus = generationStatus;
+    }
+
+    public void setGeneratedContent(String base64Content) {
+        this.generatedContentBase64 = base64Content;
     }
 
 }
