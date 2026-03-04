@@ -1,5 +1,6 @@
 package com.document.notification.system.domain.utils;
 
+import java.time.Instant;
 import java.time.LocalDate;
 import java.time.ZoneId;
 import java.time.ZonedDateTime;
@@ -42,5 +43,25 @@ public class  DateUtils {
 
         DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd");
         return LocalDate.parse(date, formatter);
+    }
+
+    /**
+     * Converts timestamp in milliseconds to Instant
+     */
+    public static LocalDate convertTimestampToLocalDate(Long timestamp) {
+        if (timestamp == null) {
+            return null;
+        }
+        return convertInstantToLocalDate(Instant.ofEpochMilli(timestamp));
+    }
+
+    /**
+     * Converts days since epoch to LocalDate
+     */
+    public static LocalDate convertInstantToLocalDate(Instant instant) {
+        if (instant == null) {
+            return null;
+        }
+        return LocalDate.ofInstant(instant,getZoneDateTimeByUTCZoneId().getZone());
     }
 }
