@@ -48,6 +48,112 @@
           "CANCELLED"
         ]
       }
+    },
+    {
+      "name": "documentType",
+      "type": {
+        "type": "enum",
+        "name": "DocumentType",
+        "symbols": [
+          "PDF",
+          "HTML",
+          "DOCX",
+          "CSV"
+        ]
+      },
+      "doc": "File format/extension for the generated document"
+    },
+    {
+      "name": "fileName",
+      "type": [
+        "null",
+        "string"
+      ],
+      "default": null,
+      "doc": "Optional file name for the generated document"
+    },
+    {
+      "name": "periodStartDate",
+      "type": [
+        "null",
+        {
+          "type": "int",
+          "logicalType": "date"
+        }
+      ],
+      "default": null,
+      "doc": "Optional start date for the document period"
+    },
+    {
+      "name": "periodEndDate",
+      "type": [
+        "null",
+        {
+          "type": "int",
+          "logicalType": "date"
+        }
+      ],
+      "default": null,
+      "doc": "Optional end date for the document period"
+    },
+    {
+      "name": "totalAmount",
+      "type": [
+        "null",
+        "double"
+      ],
+      "default": null,
+      "doc": "Optional total amount/value in the document"
+    },
+    {
+      "name": "deliveryAddress",
+      "type": [
+        "null",
+        "string"
+      ],
+      "default": null,
+      "doc": "Optional delivery address for the document"
+    },
+    {
+      "name": "documentStatus",
+      "type": [
+        "null",
+        {
+          "type": "enum",
+          "name": "DocumentStatus",
+          "symbols": [
+            "PENDING",
+            "GENERATED",
+            "SENT",
+            "CANCELLING",
+            "CANCELLED"
+          ]
+        }
+      ],
+      "default": null,
+      "doc": "Current status of the document"
+    },
+    {
+      "name": "itemCount",
+      "type": [
+        "null",
+        "int"
+      ],
+      "default": null,
+      "doc": "Number of items/line items in the document"
+    },
+    {
+      "name": "metadata",
+      "type": [
+        "null",
+        {
+          "type": "map",
+          "values": "string"
+        }
+      ],
+      "default": null,
+      "doc": "Additional metadata as key-value pairs for the document generation"
     }
   ]
 }
+
