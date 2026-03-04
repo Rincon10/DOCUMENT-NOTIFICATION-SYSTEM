@@ -1,6 +1,8 @@
 package com.document.notification.system.generator.service.config;
 
+import com.document.notification.system.generator.service.domain.service.ContentGeneratorImpl;
 import com.document.notification.system.generator.service.domain.service.GeneratorDomainServiceImpl;
+import com.document.notification.system.generator.service.domain.service.IContentGenerator;
 import com.document.notification.system.generator.service.domain.service.IGeneratorDomainService;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -18,6 +20,10 @@ public class BeanConfiguration {
         return new GeneratorDomainServiceImpl();
     }
 
+    @Bean
+    public IContentGenerator iContentGenerator() {
+        return new ContentGeneratorImpl();
+    }
 
 }
 
