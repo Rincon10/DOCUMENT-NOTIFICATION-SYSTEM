@@ -24,6 +24,8 @@ public class DocumentGenerationEventPayload {
     private ZonedDateTime createdAt;
     @JsonProperty
     private String documentGenerationStatus;
+    @JsonProperty
+    private String documentType;
 
 
 }
