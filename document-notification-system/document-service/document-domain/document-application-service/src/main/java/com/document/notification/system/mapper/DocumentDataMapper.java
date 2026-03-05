@@ -85,6 +85,7 @@ public class DocumentDataMapper implements IDocumentDataMapper {
                 .customerId(documentCreatedEvent.getDocument().getCustomerId().getValue().toString())
                 .createdAt(documentCreatedEvent.getCreatedAt())
                 .documentGenerationStatus(DocumentGenerationStatus.PENDING.name())
+                .documentType(documentCreatedEvent.getDocument().getDocumentType().name())
                 .build();
     }
 
