@@ -77,8 +77,8 @@ public class GeneratorDomainServiceImpl implements IGeneratorDomainService {
         return GenerationContentData.builder()
                 .generationId(documentGeneration.getGenerationId().getValue().toString())
                 .documentId(documentGeneration.getDocumentId().toString())
-                .customerId(documentGeneration.getCustomerId())
-                .fileExtension(documentGeneration.getFileExtension().name())
+                .customerId(documentGeneration.getCustomerId().toString())
+                //.fileExtension(documentGeneration.getFileExtension().name())
                 .build();
     }
 

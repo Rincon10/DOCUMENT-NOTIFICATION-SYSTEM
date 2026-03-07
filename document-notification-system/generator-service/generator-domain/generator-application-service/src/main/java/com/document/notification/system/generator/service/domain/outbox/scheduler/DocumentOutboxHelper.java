@@ -1,13 +1,14 @@
 package com.document.notification.system.generator.service.domain.outbox.scheduler;
 
 import com.document.notification.system.domain.utils.DateUtils;
+import com.document.notification.system.domain.utils.JsonSerializationUtil;
 import com.document.notification.system.domain.valueobject.GenerationStatus;
 import com.document.notification.system.generator.service.domain.exception.GeneratorDomainException;
 import com.document.notification.system.generator.service.domain.outbox.model.DocumentEventPayload;
 import com.document.notification.system.generator.service.domain.outbox.model.DocumentOutboxMessage;
 import com.document.notification.system.generator.service.domain.ports.output.repository.DocumentOutboxRepository;
 import com.document.notification.system.outbox.OutboxStatus;
-import com.document.notification.system.utils.JsonSerializationUtil;
+
 import lombok.AllArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;

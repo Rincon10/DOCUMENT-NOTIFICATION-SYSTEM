@@ -142,7 +142,7 @@ public class ContentGeneratorImpl implements IContentGenerator {
         appendLine(content, "Generation ID", data.getGenerationId());
         appendLine(content, "Document ID", data.getDocumentId());
         appendLine(content, "Customer ID", data.getCustomerId());
-        appendLine(content, "File Extension", data.getFileExtension());
+        //appendLine(content, "File Extension", data.getFileExtension());
         appendLine(content, "Request ID", data.getRequestId());
         appendLine(content, "Saga ID", data.getSagaId());
     }
@@ -151,7 +151,7 @@ public class ContentGeneratorImpl implements IContentGenerator {
         appendHtmlRow(html, "Generation ID", data.getGenerationId());
         appendHtmlRow(html, "Document ID", data.getDocumentId());
         appendHtmlRow(html, "Customer ID", data.getCustomerId());
-        appendHtmlRow(html, "File Extension", data.getFileExtension());
+        //appendHtmlRow(html, "File Extension", data.getFileExtension());
         appendHtmlRow(html, "Request ID", data.getRequestId());
         appendHtmlRow(html, "Saga ID", data.getSagaId());
     }
