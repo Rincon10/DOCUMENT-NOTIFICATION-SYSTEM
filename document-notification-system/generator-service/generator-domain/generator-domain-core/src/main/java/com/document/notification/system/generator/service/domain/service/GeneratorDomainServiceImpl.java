@@ -8,13 +8,12 @@ import com.document.notification.system.generator.service.domain.event.DocumentG
 import com.document.notification.system.generator.service.domain.event.DocumentGenerationFailedEvent;
 import com.document.notification.system.generator.service.domain.event.GenerationEvent;
 import com.document.notification.system.generator.service.domain.valueobject.GeneratedContent;
+import com.document.notification.system.generator.service.domain.valueobject.GenerationContentData;
 import lombok.AllArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
 
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 
 /**
  * Domain service that orchestrates document generation business logic.
@@ -33,7 +32,7 @@ public class GeneratorDomainServiceImpl implements IGeneratorDomainService {
     @Override
     public GenerationEvent validateInitiateGenerateAndComplete(DocumentGeneration documentGeneration,
                                                                List<String> failureMessages,
-                                                               Map<String, Object> additionalGenerationData) {
+                                                               GenerationContentData additionalGenerationData) {
         String fileExtension = MapperUtils.safeOrDefault(() -> documentGeneration.getFileExtension().name(), StringUtils.EMPTY);
         documentGeneration.validateGeneration(failureMessages, fileExtension);
 
@@ -48,16 +47,16 @@ public class GeneratorDomainServiceImpl implements IGeneratorDomainService {
             documentGeneration.initializateGeneration();
             log.info("Generating content for document generation id: {}", documentGeneration.getGenerationId().getValue());
 
-            Map<String, Object> domainGenerationData = getGenerationData(documentGeneration);
-            if (additionalGenerationData != null && !additionalGenerationData.isEmpty()) {
-                domainGenerationData.putAll(additionalGenerationData);
-            }
+            GenerationContentData generationContentData = mergeGenerationData(
+                    getGenerationData(documentGeneration),
+                    additionalGenerationData
+            );
 
             GeneratedContent generatedContent = contentGenerator.generateContent(
                     documentGeneration.getFileExtension(),
-                    domainGenerationData.get("documentId").toString(),
-                    domainGenerationData.get("customerId").toString(),
-                    domainGenerationData
+                    generationContentData.getDocumentId(),
+                    generationContentData.getCustomerId(),
+                    generationContentData
             );
 
             documentGeneration.setGeneratedContent(generatedContent.getBase64Content());
@@ -72,15 +71,27 @@ public class GeneratorDomainServiceImpl implements IGeneratorDomainService {
         }
     }
 
-    private Map<String, Object> getGenerationData(DocumentGeneration documentGeneration) {
+    private GenerationContentData getGenerationData(DocumentGeneration documentGeneration) {
         log.info("Building generation data for document id: {}", documentGeneration.getDocumentId());
 
-        Map<String, Object> generationData = new HashMap<>();
-        generationData.put("generationId", documentGeneration.getGenerationId().getValue().toString());
-        generationData.put("documentId", documentGeneration.getDocumentId().toString());
-        generationData.put("customerId", documentGeneration.getCustomerId());
-        generationData.put("fileExtension", documentGeneration.getFileExtension().name());
-        return generationData;
+        return GenerationContentData.builder()
+                .generationId(documentGeneration.getGenerationId().getValue().toString())
+                .documentId(documentGeneration.getDocumentId().toString())
+                .customerId(documentGeneration.getCustomerId())
+                .fileExtension(documentGeneration.getFileExtension().name())
+                .build();
+    }
+
+    private GenerationContentData mergeGenerationData(GenerationContentData domainData,
+                                                      GenerationContentData additionalData) {
+        if (additionalData == null) {
+            return domainData;
+        }
+
+        return domainData.toBuilder()
+                .requestId(additionalData.getRequestId())
+                .sagaId(additionalData.getSagaId())
+                .build();
 
     }
 }
