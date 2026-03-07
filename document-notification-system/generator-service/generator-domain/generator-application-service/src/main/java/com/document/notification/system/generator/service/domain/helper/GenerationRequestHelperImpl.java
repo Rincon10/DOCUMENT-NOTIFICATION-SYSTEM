@@ -13,9 +13,11 @@ import com.document.notification.system.generator.service.domain.outbox.schedule
 import com.document.notification.system.generator.service.domain.ports.output.message.publisher.GenerationResponseMessagePublisher;
 import com.document.notification.system.generator.service.domain.ports.output.repository.DocumentGenerationRepository;
 import com.document.notification.system.generator.service.domain.service.IGeneratorDomainService;
+import com.document.notification.system.generator.service.domain.valueobject.GenerationContentData;
 import com.document.notification.system.outbox.OutboxStatus;
 import lombok.AllArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.apache.commons.lang3.StringUtils;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -53,7 +55,7 @@ public class GenerationRequestHelperImpl implements GenerationRequestHelper {
             DocumentGeneration documentGeneration = generationDataMapper
                     .generationRequestToDocumentGeneration(generationRequest);
 
-            Map<String, Object> generationData = getGenerationData(generationRequest);
+            GenerationContentData generationData = getGenerationData(generationRequest);
             GenerationEvent generationEvent = generatorDomainService
                     .validateInitiateGenerateAndComplete(documentGeneration, failureMessages, generationData);
 
@@ -74,11 +76,13 @@ public class GenerationRequestHelperImpl implements GenerationRequestHelper {
         }
     }
 
-    private Map<String, Object> getGenerationData(GenerationRequest generationRequest) {
-        Map<String, Object> generationData = new HashMap<>();
-        generationData.put("requestId", generationRequest.getId());
-        generationData.put("sagaId", generationRequest.getSagaId());
-        return generationData;
+    private GenerationContentData getGenerationData(GenerationRequest generationRequest) {
+        return GenerationContentData.builder()
+                .documentId(StringUtils.trimToNull(generationRequest.getDocumentId()))
+                .customerId(StringUtils.trimToNull(generationRequest.getCustomerId()))
+                .requestId(StringUtils.trimToNull(generationRequest.getId()))
+                .sagaId(StringUtils.trimToNull(generationRequest.getSagaId()))
+                .build();
     }
 
 

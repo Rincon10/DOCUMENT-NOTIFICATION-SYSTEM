@@ -2,8 +2,7 @@ package com.document.notification.system.generator.service.domain.service;
 
 import com.document.notification.system.domain.valueobject.DocumentType;
 import com.document.notification.system.generator.service.domain.valueobject.GeneratedContent;
-
-import java.util.Map;
+import com.document.notification.system.generator.service.domain.valueobject.GenerationContentData;
 
 /**
  * Service interface for generating document content in different formats
@@ -26,6 +25,6 @@ public interface IContentGenerator {
     GeneratedContent generateContent(DocumentType documentType,
                                     String documentId,
                                     String customerId,
-                                    Map<String, Object> data);
+                                    GenerationContentData data);
 }
 
