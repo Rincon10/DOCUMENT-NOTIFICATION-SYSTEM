@@ -53,12 +53,12 @@ public class GenerationRequestKafkaListener implements KafkaConsumer<GeneratorRe
             try {
 
                 DocumentGenerationStatus documentGenerationStatus = generatorRequestAvroModel.getDocumentGenerationStatus();
-                if(DocumentGenerationStatus.PENDING.equals(documentGenerationStatus)){
+                if (DocumentGenerationStatus.PENDING.equals(documentGenerationStatus)) {
                     log.info("Processing pending generation request for document id: {} and saga id: {}",
                             generatorRequestAvroModel.getDocumentId(),
                             generatorRequestAvroModel.getSagaId());
                     generationRequestMessageListener.completedGeneration(documentMessagingDataMapper.generatorRequestAvroModelToGenerationRequest(generatorRequestAvroModel));
-                } else if(DocumentGenerationStatus.CANCELLED.equals(documentGenerationStatus)){
+                } else if (DocumentGenerationStatus.CANCELLED.equals(documentGenerationStatus)) {
                     log.info("Processing cancelled generation request for document id: {} and saga id: {}",
                             generatorRequestAvroModel.getDocumentId(),
                             generatorRequestAvroModel.getSagaId());

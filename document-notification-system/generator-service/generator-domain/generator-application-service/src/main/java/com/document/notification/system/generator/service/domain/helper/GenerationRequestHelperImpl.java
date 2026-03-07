@@ -3,8 +3,6 @@ package com.document.notification.system.generator.service.domain.helper;
 import com.document.notification.system.domain.valueobject.GenerationStatus;
 import com.document.notification.system.generator.service.domain.dto.GenerationRequest;
 import com.document.notification.system.generator.service.domain.entity.DocumentGeneration;
-import com.document.notification.system.generator.service.domain.event.DocumentGeneratedEvent;
-import com.document.notification.system.generator.service.domain.event.DocumentGenerationFailedEvent;
 import com.document.notification.system.generator.service.domain.event.GenerationEvent;
 import com.document.notification.system.generator.service.domain.mapper.GenerationDataMapper;
 import com.document.notification.system.generator.service.domain.outbox.model.DocumentEventPayload;
@@ -21,7 +19,10 @@ import org.apache.commons.lang3.StringUtils;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.util.*;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Optional;
+import java.util.UUID;
 
 /**
  * @author Ivan Camilo Rincon Saavedra
@@ -56,6 +57,7 @@ public class GenerationRequestHelperImpl implements GenerationRequestHelper {
                     .generationRequestToDocumentGeneration(generationRequest);
 
             GenerationContentData generationData = getGenerationData(generationRequest);
+
             GenerationEvent generationEvent = generatorDomainService
                     .validateInitiateGenerateAndComplete(documentGeneration, failureMessages, generationData);
 
@@ -86,19 +88,8 @@ public class GenerationRequestHelperImpl implements GenerationRequestHelper {
     }
 
 
-
     private DocumentEventPayload createEventPayload(GenerationEvent event, GenerationRequest request) {
-        DocumentEventPayload payload;
 
-        if (event instanceof DocumentGeneratedEvent) {
-            payload = generationDataMapper.generatedEventToDocumentEventPayload((DocumentGeneratedEvent) event);
-        } else if (event instanceof DocumentGenerationFailedEvent) {
-            payload = generationDataMapper.failedEventToDocumentEventPayload((DocumentGenerationFailedEvent) event);
-        } else {
-            throw new IllegalArgumentException("Unknown event type: " + event.getClass());
-        }
-
-        // Set customer and document IDs from request
         return DocumentEventPayload.builder()
                 .generationId(payload.getGenerationId())
                 .documentId(request.getDocumentId())

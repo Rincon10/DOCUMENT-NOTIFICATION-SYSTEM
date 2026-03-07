@@ -1,15 +1,10 @@
 package com.document.notification.system.generator.mapper;
 
-import com.document.notification.system.domain.utils.DateUtils;
 import com.document.notification.system.domain.valueobject.GenerationDocumentStatus;
 import com.document.notification.system.generator.service.domain.dto.GenerationRequest;
 import com.document.notification.system.kafka.document.avro.model.GeneratorRequestAvroModel;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
-
-import java.time.Instant;
-import java.time.LocalDate;
-import java.time.ZoneId;
 
 /**
  * Mapper for converting between Avro models and domain DTOs

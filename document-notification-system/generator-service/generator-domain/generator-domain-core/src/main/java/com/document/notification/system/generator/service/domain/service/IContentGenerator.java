@@ -23,8 +23,8 @@ public interface IContentGenerator {
      * @return GeneratedContent object containing Base64 content
      */
     GeneratedContent generateContent(DocumentType documentType,
-                                    String documentId,
-                                    String customerId,
-                                    GenerationContentData data);
+                                     String documentId,
+                                     String customerId,
+                                     GenerationContentData data);
 }
 

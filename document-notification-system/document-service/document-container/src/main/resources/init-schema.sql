@@ -245,7 +245,8 @@ DROP TRIGGER IF EXISTS refresh_document_customer_m_view ON customer.customers;
 CREATE TRIGGER refresh_document_customer_m_view
     AFTER INSERT OR
 UPDATE OR
-DELETE OR TRUNCATE
+DELETE
+OR TRUNCATE
 ON customer.customers
     FOR EACH STATEMENT
     EXECUTE PROCEDURE customer.refresh_document_customer_m_view();
