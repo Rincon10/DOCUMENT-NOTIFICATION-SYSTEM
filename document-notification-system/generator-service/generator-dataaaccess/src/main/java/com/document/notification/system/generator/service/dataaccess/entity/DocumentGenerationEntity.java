@@ -20,6 +20,7 @@ public class DocumentGenerationEntity {
     private UUID id;
     private UUID customerId;
     private UUID documentId;
+    private String documentName;
 
     @Enumerated(EnumType.STRING)
     private GenerationStatus status;

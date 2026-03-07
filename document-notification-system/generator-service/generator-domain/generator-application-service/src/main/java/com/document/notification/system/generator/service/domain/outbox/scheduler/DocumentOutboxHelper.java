@@ -8,7 +8,6 @@ import com.document.notification.system.generator.service.domain.outbox.model.Do
 import com.document.notification.system.generator.service.domain.outbox.model.DocumentOutboxMessage;
 import com.document.notification.system.generator.service.domain.ports.output.repository.DocumentOutboxRepository;
 import com.document.notification.system.outbox.OutboxStatus;
-
 import lombok.AllArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
@@ -47,9 +46,9 @@ public class DocumentOutboxHelper {
 
     @Transactional
     public void saveDocumentOutboxMessage(DocumentEventPayload eventPayload,
-                                         GenerationStatus generationStatus,
-                                         OutboxStatus outboxStatus,
-                                         UUID sagaId) {
+                                          GenerationStatus generationStatus,
+                                          OutboxStatus outboxStatus,
+                                          UUID sagaId) {
         String payload = JsonSerializationUtil.toJson(eventPayload,
                 "Could not create DocumentEventPayload for generation id: " + eventPayload.getGenerationId());
 

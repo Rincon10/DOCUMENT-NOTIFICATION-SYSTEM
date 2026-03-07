@@ -8,7 +8,6 @@ import com.document.notification.system.generator.service.domain.dto.GenerationR
 import com.document.notification.system.generator.service.domain.dto.GenerationResponse;
 import com.document.notification.system.generator.service.domain.entity.DocumentGeneration;
 import com.document.notification.system.generator.service.domain.event.DocumentGeneratedEvent;
-import com.document.notification.system.generator.service.domain.event.DocumentGenerationFailedEvent;
 import com.document.notification.system.generator.service.domain.event.GenerationEvent;
 import com.document.notification.system.generator.service.domain.outbox.model.DocumentEventPayload;
 import com.document.notification.system.generator.service.domain.valueobject.GenerationId;
@@ -40,19 +39,6 @@ public class GenerationDataMapperImpl implements GenerationDataMapper {
 
     @Override
     public DocumentEventPayload generatedEventToDocumentEventPayload(DocumentGeneratedEvent event) {
-        DocumentGeneration generation = event.getDocumentGeneration();
-        return DocumentEventPayload.builder()
-                .generationId(generation.getGenerationId().getValue().toString())
-                .documentId(generation.getGenerationId().getValue().toString())
-                .customerId("") // Will be set from request
-                .createdAt(event.getCreatedAt())
-                .generationStatus(generation.getGenerationStatus().name())
-                .failureMessages(event.getFailureMessages())
-                .build();
-    }
-
-    @Override
-    public DocumentEventPayload failedEventToDocumentEventPayload(DocumentGenerationFailedEvent event) {
         DocumentGeneration generation = event.getDocumentGeneration();
         return DocumentEventPayload.builder()
                 .generationId(generation.getGenerationId().getValue().toString())
