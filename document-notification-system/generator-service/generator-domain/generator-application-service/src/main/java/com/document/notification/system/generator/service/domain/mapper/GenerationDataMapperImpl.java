@@ -5,9 +5,7 @@ import com.document.notification.system.domain.valueobject.CustomerId;
 import com.document.notification.system.domain.valueobject.DocumentId;
 import com.document.notification.system.domain.valueobject.DocumentType;
 import com.document.notification.system.generator.service.domain.dto.GenerationRequest;
-import com.document.notification.system.generator.service.domain.dto.GenerationResponse;
 import com.document.notification.system.generator.service.domain.entity.DocumentGeneration;
-import com.document.notification.system.generator.service.domain.event.DocumentGeneratedEvent;
 import com.document.notification.system.generator.service.domain.event.GenerationEvent;
 import com.document.notification.system.generator.service.domain.outbox.model.DocumentEventPayload;
 import com.document.notification.system.generator.service.domain.valueobject.GenerationId;
@@ -38,30 +36,19 @@ public class GenerationDataMapperImpl implements GenerationDataMapper {
     }
 
     @Override
-    public DocumentEventPayload generatedEventToDocumentEventPayload(DocumentGeneratedEvent event) {
-        DocumentGeneration generation = event.getDocumentGeneration();
+    public DocumentEventPayload generatedEventToDocumentEventPayload(GenerationEvent generationEvent) {
+        DocumentGeneration documentGeneration = generationEvent.getDocumentGeneration();
+
         return DocumentEventPayload.builder()
-                .generationId(generation.getGenerationId().getValue().toString())
-                .documentId(generation.getGenerationId().getValue().toString())
-                .customerId("") // Will be set from request
-                .createdAt(event.getCreatedAt())
-                .generationStatus(generation.getGenerationStatus().name())
-                .failureMessages(event.getFailureMessages())
+                .generationId(documentGeneration.getGenerationId().getValue().toString())
+                .customerId(documentGeneration.getCustomerId().getValue().toString())
+                .documentId(documentGeneration.getDocumentId().getValue().toString())
+                .createdAt(generationEvent.getCreatedAt())
+                .generationStatus(documentGeneration.getGenerationStatus().name())
+                .failureMessages(generationEvent.getFailureMessages())
                 .build();
     }
 
-    @Override
-    public GenerationResponse generationEventToGenerationResponse(GenerationEvent event, UUID sagaId) {
-        DocumentGeneration generation = event.getDocumentGeneration();
-        return GenerationResponse.builder()
-                .generationId(generation.getGenerationId().getValue().toString())
-                .sagaId(sagaId.toString())
-                .documentId(generation.getGenerationId().getValue().toString())
-                .customerId("") // Will be set from request
-                .createdAt(event.getCreatedAt())
-                .generationStatus(generation.getGenerationStatus())
-                .failureMessages(event.getFailureMessages())
-                .build();
-    }
+
 }
 

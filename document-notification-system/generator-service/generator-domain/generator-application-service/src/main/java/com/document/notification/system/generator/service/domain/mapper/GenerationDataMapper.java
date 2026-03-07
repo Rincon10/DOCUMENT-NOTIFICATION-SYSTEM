@@ -23,15 +23,8 @@ public interface GenerationDataMapper {
      */
     DocumentGeneration generationRequestToDocumentGeneration(GenerationRequest request);
 
-    /**
-     * Converts DocumentGeneratedEvent to DocumentEventPayload for outbox pattern
-     */
-    DocumentEventPayload generatedEventToDocumentEventPayload(DocumentGeneratedEvent event);
 
-    /**
-     * Converts GenerationEvent to GenerationResponse DTO
-     */
-    GenerationResponse generationEventToGenerationResponse(GenerationEvent event, UUID sagaId);
+    DocumentEventPayload generatedEventToDocumentEventPayload(GenerationEvent generationEvent);
 }
 
 
