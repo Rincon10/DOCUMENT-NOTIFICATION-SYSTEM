@@ -1,6 +1,5 @@
 package com.document.notification.system.generator.service.domain.helper;
 
-import com.document.notification.system.domain.valueobject.DocumentType;
 import com.document.notification.system.domain.valueobject.GenerationStatus;
 import com.document.notification.system.generator.service.domain.dto.GenerationRequest;
 import com.document.notification.system.generator.service.domain.entity.DocumentGeneration;
@@ -13,18 +12,13 @@ import com.document.notification.system.generator.service.domain.outbox.model.Do
 import com.document.notification.system.generator.service.domain.outbox.scheduler.DocumentOutboxHelper;
 import com.document.notification.system.generator.service.domain.ports.output.message.publisher.GenerationResponseMessagePublisher;
 import com.document.notification.system.generator.service.domain.ports.output.repository.DocumentGenerationRepository;
-import com.document.notification.system.generator.service.domain.service.IContentGenerator;
 import com.document.notification.system.generator.service.domain.service.IGeneratorDomainService;
-import com.document.notification.system.generator.service.domain.valueobject.GeneratedContent;
 import com.document.notification.system.outbox.OutboxStatus;
-import com.document.notification.system.saga.constants.SagaConstants;
 import lombok.AllArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.time.ZoneId;
-import java.time.ZonedDateTime;
 import java.util.*;
 
 /**
@@ -37,7 +31,6 @@ import java.util.*;
 @AllArgsConstructor
 public class GenerationRequestHelperImpl implements GenerationRequestHelper {
     private final IGeneratorDomainService generatorDomainService;
-    private final IContentGenerator contentGenerator;
     private final GenerationDataMapper generationDataMapper;
     private final DocumentGenerationRepository documentGenerationRepository;
     private final DocumentOutboxHelper documentOutboxHelper;
@@ -52,38 +45,17 @@ public class GenerationRequestHelperImpl implements GenerationRequestHelper {
                     generationRequest.getSagaId());
             return;
         }
-        generationRequest
-
         log.info("Received generation event for document id: {}", generationRequest.getDocumentId());
 
         try {
-            // Determine document type (default to PDF if not specified)
-            DocumentType documentType = DocumentType.PDF;
-
-            // Create domain entity
-            DocumentGeneration documentGeneration = generationDataMapper
-                    .generationRequestToDocumentGeneration(generationRequest, documentType);
-
-            // Generate Base64 content
-            log.info("Generating content for document id: {}", generationRequest.getDocumentId());
-            Map<String, Object> generationData = new HashMap<>();
-            generationData.put("customerId", generationRequest.getCustomerId());
-            generationData.put("requestId", generationRequest.getId());
-
-            GeneratedContent generatedContent = contentGenerator.generateContent(
-                    documentType,
-                    generationRequest.getDocumentId(),
-                    generationRequest.getCustomerId(),
-                    generationData
-            );
-
-            // Set generated content in entity
-            documentGeneration.setGeneratedContent(generatedContent.getBase64Content());
-
-            // Validate and initiate generation through domain service
             List<String> failureMessages = new ArrayList<>();
+
+            DocumentGeneration documentGeneration = generationDataMapper
+                    .generationRequestToDocumentGeneration(generationRequest);
+
+            Map<String, Object> generationData = getGenerationData(generationRequest);
             GenerationEvent generationEvent = generatorDomainService
-                    .validateAndInitiateDocumentGeneration(documentGeneration, failureMessages);
+                    .validateInitiateGenerateAndComplete(documentGeneration, failureMessages, generationData);
 
             // Save generation history
             documentGenerationRepository.save(documentGeneration);
@@ -101,6 +73,15 @@ public class GenerationRequestHelperImpl implements GenerationRequestHelper {
             throw new RuntimeException("Failed to process generation request", e);
         }
     }
+
+    private Map<String, Object> getGenerationData(GenerationRequest generationRequest) {
+        Map<String, Object> generationData = new HashMap<>();
+        generationData.put("requestId", generationRequest.getId());
+        generationData.put("sagaId", generationRequest.getSagaId());
+        return generationData;
+    }
+
+
 
     private DocumentEventPayload createEventPayload(GenerationEvent event, GenerationRequest request) {
         DocumentEventPayload payload;
