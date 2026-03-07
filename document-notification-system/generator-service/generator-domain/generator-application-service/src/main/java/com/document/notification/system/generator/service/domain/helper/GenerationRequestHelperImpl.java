@@ -66,8 +66,8 @@ public class GenerationRequestHelperImpl implements GenerationRequestHelper {
             log.info("Document generation saved with id: {}", documentGeneration.getId().getValue());
 
             // Create and save outbox message
-            DocumentEventPayload eventPayload = createEventPayload(generationEvent, generationRequest);
-            saveOutboxMessage(eventPayload, generationEvent, generationRequest);
+
+            //saveOutboxMessage(eventPayload, generationEvent, generationRequest);
 
             log.info("Document generation completed for document id: {}", generationRequest.getDocumentId());
 
@@ -88,17 +88,7 @@ public class GenerationRequestHelperImpl implements GenerationRequestHelper {
     }
 
 
-    private DocumentEventPayload createEventPayload(GenerationEvent event, GenerationRequest request) {
 
-        return DocumentEventPayload.builder()
-                .generationId(payload.getGenerationId())
-                .documentId(request.getDocumentId())
-                .customerId(request.getCustomerId())
-                .createdAt(payload.getCreatedAt())
-                .generationStatus(payload.getGenerationStatus())
-                .failureMessages(payload.getFailureMessages())
-                .build();
-    }
 
     private void saveOutboxMessage(DocumentEventPayload payload,
                                    GenerationEvent event,
