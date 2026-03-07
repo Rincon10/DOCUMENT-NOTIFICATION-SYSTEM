@@ -4,7 +4,10 @@ import com.document.notification.system.generator.service.domain.entity.Document
 import com.document.notification.system.generator.service.domain.event.GenerationEvent;
 
 import java.util.List;
+import java.util.Map;
 
 public interface IGeneratorDomainService {
-    GenerationEvent validateAndInitiateDocumentGeneration(DocumentGeneration documentGeneration, List<String> failureMessages);
+    GenerationEvent validateInitiateGenerateAndComplete(DocumentGeneration documentGeneration,
+                                                        List<String> failureMessages,
+                                                        Map<String, Object> additionalGenerationData);
 }

@@ -1,5 +1,8 @@
 package com.document.notification.system.generator.service.domain.mapper;
 
+import com.document.notification.system.domain.utils.MapperUtils;
+import com.document.notification.system.domain.valueobject.CustomerId;
+import com.document.notification.system.domain.valueobject.DocumentId;
 import com.document.notification.system.domain.valueobject.DocumentType;
 import com.document.notification.system.generator.service.domain.dto.GenerationRequest;
 import com.document.notification.system.generator.service.domain.dto.GenerationResponse;
@@ -25,10 +28,12 @@ import java.util.UUID;
 public class GenerationDataMapperImpl implements GenerationDataMapper {
 
     @Override
-    public DocumentGeneration generationRequestToDocumentGeneration(GenerationRequest request, DocumentType documentType) {
+    public DocumentGeneration generationRequestToDocumentGeneration(GenerationRequest generationRequest) {
         return DocumentGeneration.builder()
-                .generationId(new GenerationId(UUID.fromString(request.getDocumentId())))
-                .fileExtension(documentType)
+                .generationId(new GenerationId(UUID.fromString(generationRequest.getDocumentId())))
+                .documentId(new DocumentId(UUID.fromString(generationRequest.getDocumentId())))
+                .customerId(new CustomerId(UUID.fromString(generationRequest.getCustomerId())))
+                .fileExtension(MapperUtils.safeOrDefault(() -> DocumentType.valueOf(generationRequest.getDocumentType()), null))
                 .failureMessages(new ArrayList<>())
                 .build();
     }

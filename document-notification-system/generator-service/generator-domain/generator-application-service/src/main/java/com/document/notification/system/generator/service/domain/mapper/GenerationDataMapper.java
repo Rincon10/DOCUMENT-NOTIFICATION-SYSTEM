@@ -25,7 +25,7 @@ public interface GenerationDataMapper {
     /**
      * Converts GenerationRequest DTO to DocumentGeneration domain entity
      */
-    DocumentGeneration generationRequestToDocumentGeneration(GenerationRequest request, DocumentType documentType);
+    DocumentGeneration generationRequestToDocumentGeneration(GenerationRequest request);
 
     /**
      * Converts DocumentGeneratedEvent to DocumentEventPayload for outbox pattern
