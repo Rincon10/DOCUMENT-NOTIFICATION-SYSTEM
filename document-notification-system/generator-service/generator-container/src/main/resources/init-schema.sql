@@ -94,4 +94,4 @@ CREATE INDEX idx_document_outbox_saga_generation_outbox_status
 
 
 SELECT * FROM generator.document_generation dg;
-SELECT * FROM generator.document_generation;
+SELECT * FROM generator.document_outbox do2 ;
