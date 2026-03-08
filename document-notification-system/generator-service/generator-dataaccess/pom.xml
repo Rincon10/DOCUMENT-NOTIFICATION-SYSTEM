@@ -9,7 +9,7 @@
         <version>1.0-SNAPSHOT</version>
     </parent>
 
-    <artifactId>generator-dataaaccess</artifactId>
+    <artifactId>generator-dataaccess</artifactId>
 
     <dependencies>
         <dependency>

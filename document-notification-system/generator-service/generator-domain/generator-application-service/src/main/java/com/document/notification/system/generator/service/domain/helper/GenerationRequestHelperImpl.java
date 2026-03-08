@@ -50,33 +50,29 @@ public class GenerationRequestHelperImpl implements GenerationRequestHelper {
         }
         log.info("Received generation event for document id: {}", generationRequest.getDocumentId());
 
-        try {
-            List<String> failureMessages = new ArrayList<>();
 
-            DocumentGeneration documentGeneration = generationDataMapper
-                    .generationRequestToDocumentGeneration(generationRequest);
+        List<String> failureMessages = new ArrayList<>();
 
-            GenerationContentData generationData = getGenerationData(generationRequest);
+        DocumentGeneration documentGeneration = generationDataMapper
+                .generationRequestToDocumentGeneration(generationRequest);
 
-            GenerationEvent generationEvent = generatorDomainService
-                    .validateInitiateGenerateAndComplete(documentGeneration, failureMessages, generationData);
+        GenerationContentData generationData = getGenerationData(generationRequest);
 
-            // Save generation history
-            documentGenerationRepository.save(documentGeneration);
-            log.info("Document generation saved with id: {}", documentGeneration.getId().getValue());
+        GenerationEvent generationEvent = generatorDomainService
+                .validateInitiateGenerateAndComplete(documentGeneration, failureMessages, generationData);
 
-            // Create and save outbox message
+        // Save generation history
+        documentGenerationRepository.save(documentGeneration);
+        log.info("Document generation saved with id: {}", documentGeneration.getId().getValue());
 
-            DocumentEventPayload documentEventPayload = generationDataMapper.generatedEventToDocumentEventPayload(generationEvent);
-            documentOutboxHelper.saveDocumentOutboxMessage(null, generationEvent.getDocumentGeneration().getGenerationStatus(), OutboxStatus.STARTED, UUID.fromString(generationRequest.getSagaId()));
+        // Create and save outbox message
 
-            log.info("Document generation completed for document id: {}", generationRequest.getDocumentId());
+        DocumentEventPayload documentEventPayload = generationDataMapper.generatedEventToDocumentEventPayload(generationEvent);
+        documentOutboxHelper.saveDocumentOutboxMessage(documentEventPayload, generationEvent.getDocumentGeneration().getGenerationStatus(), OutboxStatus.STARTED, UUID.fromString(generationRequest.getSagaId()));
 
-        } catch (Exception e) {
-            log.error("Error processing generation request for document id: {}",
-                    generationRequest.getDocumentId(), e);
-            throw new RuntimeException("Failed to process generation request", e);
-        }
+        log.info("Document generation completed for document id: {}", generationRequest.getDocumentId());
+
+
     }
 
     private GenerationContentData getGenerationData(GenerationRequest generationRequest) {
