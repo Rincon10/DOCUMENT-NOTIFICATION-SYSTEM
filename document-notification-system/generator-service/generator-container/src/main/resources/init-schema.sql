@@ -92,3 +92,6 @@ CREATE INDEX idx_document_outbox_type_outbox_status ON generator.document_outbox
 CREATE INDEX idx_document_outbox_saga_generation_outbox_status
     ON generator.document_outbox (saga_id, generation_status, outbox_status);
 
+
+SELECT * FROM generator.document_generation dg;
+SELECT * FROM generator.document_generation;

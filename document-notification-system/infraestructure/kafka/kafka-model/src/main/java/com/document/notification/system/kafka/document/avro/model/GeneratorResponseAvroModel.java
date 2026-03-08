@@ -50,6 +50,7 @@ public class GeneratorResponseAvroModel extends org.apache.avro.specific.Specifi
     private java.time.Instant createdAt;
     private com.document.notification.system.kafka.document.avro.model.GenerationStatus generationStatus;
     private java.util.List<java.lang.String> failureMessages;
+
     /**
      * Default constructor.  Note that this does not initialize fields
      * to their default values from the schema.  If that is desired then
@@ -57,16 +58,18 @@ public class GeneratorResponseAvroModel extends org.apache.avro.specific.Specifi
      */
     public GeneratorResponseAvroModel() {
     }
+
     /**
      * All-args constructor.
-     * @param id The new value for id
-     * @param sagaId The new value for sagaId
-     * @param generatorId The new value for generatorId
-     * @param customerId The new value for customerId
-     * @param documentId The new value for documentId
-     * @param createdAt The new value for createdAt
+     *
+     * @param id               The new value for id
+     * @param sagaId           The new value for sagaId
+     * @param generatorId      The new value for generatorId
+     * @param customerId       The new value for customerId
+     * @param documentId       The new value for documentId
+     * @param createdAt        The new value for createdAt
      * @param generationStatus The new value for generationStatus
-     * @param failureMessages The new value for failureMessages
+     * @param failureMessages  The new value for failureMessages
      */
     public GeneratorResponseAvroModel(java.lang.String id, java.lang.String sagaId, java.lang.String generatorId, java.lang.String customerId, java.lang.String documentId, java.time.Instant createdAt, com.document.notification.system.kafka.document.avro.model.GenerationStatus generationStatus, java.util.List<java.lang.String> failureMessages) {
         this.id = id;
@@ -85,6 +88,7 @@ public class GeneratorResponseAvroModel extends org.apache.avro.specific.Specifi
 
     /**
      * Return the BinaryMessageEncoder instance used by this class.
+     *
      * @return the message encoder used by this class
      */
     public static BinaryMessageEncoder<GeneratorResponseAvroModel> getEncoder() {
@@ -93,6 +97,7 @@ public class GeneratorResponseAvroModel extends org.apache.avro.specific.Specifi
 
     /**
      * Return the BinaryMessageDecoder instance used by this class.
+     *
      * @return the message decoder used by this class
      */
     public static BinaryMessageDecoder<GeneratorResponseAvroModel> getDecoder() {
@@ -101,6 +106,7 @@ public class GeneratorResponseAvroModel extends org.apache.avro.specific.Specifi
 
     /**
      * Create a new BinaryMessageDecoder instance for this class that uses the specified {@link SchemaStore}.
+     *
      * @param resolver a {@link SchemaStore} used to find schemas by fingerprint
      * @return a BinaryMessageDecoder instance for this class backed by the given SchemaStore
      */
@@ -110,6 +116,7 @@ public class GeneratorResponseAvroModel extends org.apache.avro.specific.Specifi
 
     /**
      * Deserializes a GeneratorResponseAvroModel from a ByteBuffer.
+     *
      * @param b a byte buffer holding serialized data for an instance of this class
      * @return a GeneratorResponseAvroModel instance decoded from the given buffer
      * @throws java.io.IOException if the given bytes could not be deserialized into an instance of this class
@@ -121,6 +128,7 @@ public class GeneratorResponseAvroModel extends org.apache.avro.specific.Specifi
 
     /**
      * Creates a new GeneratorResponseAvroModel RecordBuilder.
+     *
      * @return A new GeneratorResponseAvroModel RecordBuilder
      */
     public static com.document.notification.system.kafka.document.avro.model.GeneratorResponseAvroModel.Builder newBuilder() {
@@ -129,6 +137,7 @@ public class GeneratorResponseAvroModel extends org.apache.avro.specific.Specifi
 
     /**
      * Creates a new GeneratorResponseAvroModel RecordBuilder by copying an existing Builder.
+     *
      * @param other The existing builder to copy.
      * @return A new GeneratorResponseAvroModel RecordBuilder
      */
@@ -142,6 +151,7 @@ public class GeneratorResponseAvroModel extends org.apache.avro.specific.Specifi
 
     /**
      * Creates a new GeneratorResponseAvroModel RecordBuilder by copying an existing GeneratorResponseAvroModel instance.
+     *
      * @param other The existing instance to copy.
      * @return A new GeneratorResponseAvroModel RecordBuilder
      */
@@ -155,6 +165,7 @@ public class GeneratorResponseAvroModel extends org.apache.avro.specific.Specifi
 
     /**
      * Serializes this GeneratorResponseAvroModel to a ByteBuffer.
+     *
      * @return a buffer holding the serialized data for this instance
      * @throws java.io.IOException if this instance could not be serialized
      */
@@ -234,6 +245,7 @@ public class GeneratorResponseAvroModel extends org.apache.avro.specific.Specifi
 
     /**
      * Gets the value of the 'id' field.
+     *
      * @return The value of the 'id' field.
      */
     public java.lang.String getId() {
@@ -242,6 +254,7 @@ public class GeneratorResponseAvroModel extends org.apache.avro.specific.Specifi
 
     /**
      * Sets the value of the 'id' field.
+     *
      * @param value the value to set.
      */
     public void setId(java.lang.String value) {
@@ -250,6 +263,7 @@ public class GeneratorResponseAvroModel extends org.apache.avro.specific.Specifi
 
     /**
      * Gets the value of the 'sagaId' field.
+     *
      * @return The value of the 'sagaId' field.
      */
     public java.lang.String getSagaId() {
@@ -258,6 +272,7 @@ public class GeneratorResponseAvroModel extends org.apache.avro.specific.Specifi
 
     /**
      * Sets the value of the 'sagaId' field.
+     *
      * @param value the value to set.
      */
     public void setSagaId(java.lang.String value) {
@@ -266,6 +281,7 @@ public class GeneratorResponseAvroModel extends org.apache.avro.specific.Specifi
 
     /**
      * Gets the value of the 'generatorId' field.
+     *
      * @return The value of the 'generatorId' field.
      */
     public java.lang.String getGeneratorId() {
@@ -274,6 +290,7 @@ public class GeneratorResponseAvroModel extends org.apache.avro.specific.Specifi
 
     /**
      * Sets the value of the 'generatorId' field.
+     *
      * @param value the value to set.
      */
     public void setGeneratorId(java.lang.String value) {
@@ -282,6 +299,7 @@ public class GeneratorResponseAvroModel extends org.apache.avro.specific.Specifi
 
     /**
      * Gets the value of the 'customerId' field.
+     *
      * @return The value of the 'customerId' field.
      */
     public java.lang.String getCustomerId() {
@@ -290,6 +308,7 @@ public class GeneratorResponseAvroModel extends org.apache.avro.specific.Specifi
 
     /**
      * Sets the value of the 'customerId' field.
+     *
      * @param value the value to set.
      */
     public void setCustomerId(java.lang.String value) {
@@ -298,6 +317,7 @@ public class GeneratorResponseAvroModel extends org.apache.avro.specific.Specifi
 
     /**
      * Gets the value of the 'documentId' field.
+     *
      * @return The value of the 'documentId' field.
      */
     public java.lang.String getDocumentId() {
@@ -306,6 +326,7 @@ public class GeneratorResponseAvroModel extends org.apache.avro.specific.Specifi
 
     /**
      * Sets the value of the 'documentId' field.
+     *
      * @param value the value to set.
      */
     public void setDocumentId(java.lang.String value) {
@@ -314,6 +335,7 @@ public class GeneratorResponseAvroModel extends org.apache.avro.specific.Specifi
 
     /**
      * Gets the value of the 'createdAt' field.
+     *
      * @return The value of the 'createdAt' field.
      */
     public java.time.Instant getCreatedAt() {
@@ -322,6 +344,7 @@ public class GeneratorResponseAvroModel extends org.apache.avro.specific.Specifi
 
     /**
      * Sets the value of the 'createdAt' field.
+     *
      * @param value the value to set.
      */
     public void setCreatedAt(java.time.Instant value) {
@@ -330,6 +353,7 @@ public class GeneratorResponseAvroModel extends org.apache.avro.specific.Specifi
 
     /**
      * Gets the value of the 'generationStatus' field.
+     *
      * @return The value of the 'generationStatus' field.
      */
     public com.document.notification.system.kafka.document.avro.model.GenerationStatus getGenerationStatus() {
@@ -338,6 +362,7 @@ public class GeneratorResponseAvroModel extends org.apache.avro.specific.Specifi
 
     /**
      * Sets the value of the 'generationStatus' field.
+     *
      * @param value the value to set.
      */
     public void setGenerationStatus(com.document.notification.system.kafka.document.avro.model.GenerationStatus value) {
@@ -346,6 +371,7 @@ public class GeneratorResponseAvroModel extends org.apache.avro.specific.Specifi
 
     /**
      * Gets the value of the 'failureMessages' field.
+     *
      * @return The value of the 'failureMessages' field.
      */
     public java.util.List<java.lang.String> getFailureMessages() {
@@ -354,6 +380,7 @@ public class GeneratorResponseAvroModel extends org.apache.avro.specific.Specifi
 
     /**
      * Sets the value of the 'failureMessages' field.
+     *
      * @param value the value to set.
      */
     public void setFailureMessages(java.util.List<java.lang.String> value) {
@@ -388,13 +415,16 @@ public class GeneratorResponseAvroModel extends org.apache.avro.specific.Specifi
         private com.document.notification.system.kafka.document.avro.model.GenerationStatus generationStatus;
         private java.util.List<java.lang.String> failureMessages;
 
-        /** Creates a new Builder */
+        /**
+         * Creates a new Builder
+         */
         private Builder() {
             super(SCHEMA$, MODEL$);
         }
 
         /**
          * Creates a Builder by copying an existing Builder.
+         *
          * @param other The existing Builder to copy.
          */
         private Builder(com.document.notification.system.kafka.document.avro.model.GeneratorResponseAvroModel.Builder other) {
@@ -435,6 +465,7 @@ public class GeneratorResponseAvroModel extends org.apache.avro.specific.Specifi
 
         /**
          * Creates a Builder by copying an existing GeneratorResponseAvroModel instance
+         *
          * @param other The existing instance to copy.
          */
         private Builder(com.document.notification.system.kafka.document.avro.model.GeneratorResponseAvroModel other) {
@@ -475,6 +506,7 @@ public class GeneratorResponseAvroModel extends org.apache.avro.specific.Specifi
 
         /**
          * Gets the value of the 'id' field.
+         *
          * @return The value.
          */
         public java.lang.String getId() {
@@ -484,6 +516,7 @@ public class GeneratorResponseAvroModel extends org.apache.avro.specific.Specifi
 
         /**
          * Sets the value of the 'id' field.
+         *
          * @param value The value of 'id'.
          * @return This builder.
          */
@@ -496,6 +529,7 @@ public class GeneratorResponseAvroModel extends org.apache.avro.specific.Specifi
 
         /**
          * Checks whether the 'id' field has been set.
+         *
          * @return True if the 'id' field has been set, false otherwise.
          */
         public boolean hasId() {
@@ -505,6 +539,7 @@ public class GeneratorResponseAvroModel extends org.apache.avro.specific.Specifi
 
         /**
          * Clears the value of the 'id' field.
+         *
          * @return This builder.
          */
         public com.document.notification.system.kafka.document.avro.model.GeneratorResponseAvroModel.Builder clearId() {
@@ -515,6 +550,7 @@ public class GeneratorResponseAvroModel extends org.apache.avro.specific.Specifi
 
         /**
          * Gets the value of the 'sagaId' field.
+         *
          * @return The value.
          */
         public java.lang.String getSagaId() {
@@ -524,6 +560,7 @@ public class GeneratorResponseAvroModel extends org.apache.avro.specific.Specifi
 
         /**
          * Sets the value of the 'sagaId' field.
+         *
          * @param value The value of 'sagaId'.
          * @return This builder.
          */
@@ -536,6 +573,7 @@ public class GeneratorResponseAvroModel extends org.apache.avro.specific.Specifi
 
         /**
          * Checks whether the 'sagaId' field has been set.
+         *
          * @return True if the 'sagaId' field has been set, false otherwise.
          */
         public boolean hasSagaId() {
@@ -545,6 +583,7 @@ public class GeneratorResponseAvroModel extends org.apache.avro.specific.Specifi
 
         /**
          * Clears the value of the 'sagaId' field.
+         *
          * @return This builder.
          */
         public com.document.notification.system.kafka.document.avro.model.GeneratorResponseAvroModel.Builder clearSagaId() {
@@ -555,6 +594,7 @@ public class GeneratorResponseAvroModel extends org.apache.avro.specific.Specifi
 
         /**
          * Gets the value of the 'generatorId' field.
+         *
          * @return The value.
          */
         public java.lang.String getGeneratorId() {
@@ -564,6 +604,7 @@ public class GeneratorResponseAvroModel extends org.apache.avro.specific.Specifi
 
         /**
          * Sets the value of the 'generatorId' field.
+         *
          * @param value The value of 'generatorId'.
          * @return This builder.
          */
@@ -576,6 +617,7 @@ public class GeneratorResponseAvroModel extends org.apache.avro.specific.Specifi
 
         /**
          * Checks whether the 'generatorId' field has been set.
+         *
          * @return True if the 'generatorId' field has been set, false otherwise.
          */
         public boolean hasGeneratorId() {
@@ -585,6 +627,7 @@ public class GeneratorResponseAvroModel extends org.apache.avro.specific.Specifi
 
         /**
          * Clears the value of the 'generatorId' field.
+         *
          * @return This builder.
          */
         public com.document.notification.system.kafka.document.avro.model.GeneratorResponseAvroModel.Builder clearGeneratorId() {
@@ -595,6 +638,7 @@ public class GeneratorResponseAvroModel extends org.apache.avro.specific.Specifi
 
         /**
          * Gets the value of the 'customerId' field.
+         *
          * @return The value.
          */
         public java.lang.String getCustomerId() {
@@ -604,6 +648,7 @@ public class GeneratorResponseAvroModel extends org.apache.avro.specific.Specifi
 
         /**
          * Sets the value of the 'customerId' field.
+         *
          * @param value The value of 'customerId'.
          * @return This builder.
          */
@@ -616,6 +661,7 @@ public class GeneratorResponseAvroModel extends org.apache.avro.specific.Specifi
 
         /**
          * Checks whether the 'customerId' field has been set.
+         *
          * @return True if the 'customerId' field has been set, false otherwise.
          */
         public boolean hasCustomerId() {
@@ -625,6 +671,7 @@ public class GeneratorResponseAvroModel extends org.apache.avro.specific.Specifi
 
         /**
          * Clears the value of the 'customerId' field.
+         *
          * @return This builder.
          */
         public com.document.notification.system.kafka.document.avro.model.GeneratorResponseAvroModel.Builder clearCustomerId() {
@@ -635,6 +682,7 @@ public class GeneratorResponseAvroModel extends org.apache.avro.specific.Specifi
 
         /**
          * Gets the value of the 'documentId' field.
+         *
          * @return The value.
          */
         public java.lang.String getDocumentId() {
@@ -644,6 +692,7 @@ public class GeneratorResponseAvroModel extends org.apache.avro.specific.Specifi
 
         /**
          * Sets the value of the 'documentId' field.
+         *
          * @param value The value of 'documentId'.
          * @return This builder.
          */
@@ -656,6 +705,7 @@ public class GeneratorResponseAvroModel extends org.apache.avro.specific.Specifi
 
         /**
          * Checks whether the 'documentId' field has been set.
+         *
          * @return True if the 'documentId' field has been set, false otherwise.
          */
         public boolean hasDocumentId() {
@@ -665,6 +715,7 @@ public class GeneratorResponseAvroModel extends org.apache.avro.specific.Specifi
 
         /**
          * Clears the value of the 'documentId' field.
+         *
          * @return This builder.
          */
         public com.document.notification.system.kafka.document.avro.model.GeneratorResponseAvroModel.Builder clearDocumentId() {
@@ -675,6 +726,7 @@ public class GeneratorResponseAvroModel extends org.apache.avro.specific.Specifi
 
         /**
          * Gets the value of the 'createdAt' field.
+         *
          * @return The value.
          */
         public java.time.Instant getCreatedAt() {
@@ -684,6 +736,7 @@ public class GeneratorResponseAvroModel extends org.apache.avro.specific.Specifi
 
         /**
          * Sets the value of the 'createdAt' field.
+         *
          * @param value The value of 'createdAt'.
          * @return This builder.
          */
@@ -696,6 +749,7 @@ public class GeneratorResponseAvroModel extends org.apache.avro.specific.Specifi
 
         /**
          * Checks whether the 'createdAt' field has been set.
+         *
          * @return True if the 'createdAt' field has been set, false otherwise.
          */
         public boolean hasCreatedAt() {
@@ -705,6 +759,7 @@ public class GeneratorResponseAvroModel extends org.apache.avro.specific.Specifi
 
         /**
          * Clears the value of the 'createdAt' field.
+         *
          * @return This builder.
          */
         public com.document.notification.system.kafka.document.avro.model.GeneratorResponseAvroModel.Builder clearCreatedAt() {
@@ -714,6 +769,7 @@ public class GeneratorResponseAvroModel extends org.apache.avro.specific.Specifi
 
         /**
          * Gets the value of the 'generationStatus' field.
+         *
          * @return The value.
          */
         public com.document.notification.system.kafka.document.avro.model.GenerationStatus getGenerationStatus() {
@@ -723,6 +779,7 @@ public class GeneratorResponseAvroModel extends org.apache.avro.specific.Specifi
 
         /**
          * Sets the value of the 'generationStatus' field.
+         *
          * @param value The value of 'generationStatus'.
          * @return This builder.
          */
@@ -735,6 +792,7 @@ public class GeneratorResponseAvroModel extends org.apache.avro.specific.Specifi
 
         /**
          * Checks whether the 'generationStatus' field has been set.
+         *
          * @return True if the 'generationStatus' field has been set, false otherwise.
          */
         public boolean hasGenerationStatus() {
@@ -744,6 +802,7 @@ public class GeneratorResponseAvroModel extends org.apache.avro.specific.Specifi
 
         /**
          * Clears the value of the 'generationStatus' field.
+         *
          * @return This builder.
          */
         public com.document.notification.system.kafka.document.avro.model.GeneratorResponseAvroModel.Builder clearGenerationStatus() {
@@ -754,6 +813,7 @@ public class GeneratorResponseAvroModel extends org.apache.avro.specific.Specifi
 
         /**
          * Gets the value of the 'failureMessages' field.
+         *
          * @return The value.
          */
         public java.util.List<java.lang.String> getFailureMessages() {
@@ -763,6 +823,7 @@ public class GeneratorResponseAvroModel extends org.apache.avro.specific.Specifi
 
         /**
          * Sets the value of the 'failureMessages' field.
+         *
          * @param value The value of 'failureMessages'.
          * @return This builder.
          */
@@ -775,6 +836,7 @@ public class GeneratorResponseAvroModel extends org.apache.avro.specific.Specifi
 
         /**
          * Checks whether the 'failureMessages' field has been set.
+         *
          * @return True if the 'failureMessages' field has been set, false otherwise.
          */
         public boolean hasFailureMessages() {
@@ -784,6 +846,7 @@ public class GeneratorResponseAvroModel extends org.apache.avro.specific.Specifi
 
         /**
          * Clears the value of the 'failureMessages' field.
+         *
          * @return This builder.
          */
         public com.document.notification.system.kafka.document.avro.model.GeneratorResponseAvroModel.Builder clearFailureMessages() {
