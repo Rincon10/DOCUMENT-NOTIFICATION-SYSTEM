@@ -56,7 +56,7 @@ public class GeneratorOutboxScheduler implements OutboxScheduler {
                             outboxMessage.getId().toString()).collect(Collectors.joining(",")));
             outboxMessages.forEach(outboxMessage ->
                     generationRequestMessagePublisher.publish(outboxMessage, this::updateOutboxStatus));
-            log.info("{} OrderPaymentOutboxMessage sent to message bus!", outboxMessages.size());
+            log.info("{} DocumentGenerationOutboxMessage sent to message bus!", outboxMessages.size());
         }
 
     }

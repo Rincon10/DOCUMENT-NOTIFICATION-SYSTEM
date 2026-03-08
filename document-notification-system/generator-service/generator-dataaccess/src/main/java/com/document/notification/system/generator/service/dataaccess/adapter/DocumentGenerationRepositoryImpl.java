@@ -1,5 +1,6 @@
 package com.document.notification.system.generator.service.dataaccess.adapter;
 
+import com.document.notification.system.generator.service.dataaccess.entity.DocumentGenerationEntity;
 import com.document.notification.system.generator.service.dataaccess.mapper.IDocumentGenerationDataMapper;
 import com.document.notification.system.generator.service.dataaccess.repository.DocumentGenerationJpaRepository;
 import com.document.notification.system.generator.service.domain.entity.DocumentGeneration;
@@ -24,7 +25,8 @@ public class DocumentGenerationRepositoryImpl implements DocumentGenerationRepos
 
     @Override
     public DocumentGeneration save(DocumentGeneration documentGeneration) {
-        documentGenerationDataMapper.documentGenerationToDocumentGenerationEntity(documentGeneration);
+        DocumentGenerationEntity entity = documentGenerationDataMapper.documentGenerationToDocumentGenerationEntity(documentGeneration);
+        documentGenerationJpaRepository.save(entity);
         return documentGeneration;
     }
 

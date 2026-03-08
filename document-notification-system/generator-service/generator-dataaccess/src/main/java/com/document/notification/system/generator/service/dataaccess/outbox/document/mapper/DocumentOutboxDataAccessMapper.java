@@ -12,7 +12,17 @@ import org.springframework.stereotype.Component;
 @Component
 public class DocumentOutboxDataAccessMapper {
     public DocumentOutboxEntity mapDocumentOutboxMessageToDocumentOutboxEntity(DocumentOutboxMessage documentOutboxMessage) {
-        return null;
+        return DocumentOutboxEntity.builder()
+                .id(documentOutboxMessage.getId())
+                .sagaId(documentOutboxMessage.getSagaId())
+                .createdAt(documentOutboxMessage.getCreatedAt())
+                .processedAt(documentOutboxMessage.getProcessedAt())
+                .type(documentOutboxMessage.getType())
+                .payload(documentOutboxMessage.getPayload())
+                .generationStatus(documentOutboxMessage.getGenerationStatus())
+                .outboxStatus(documentOutboxMessage.getOutboxStatus())
+                .version(documentOutboxMessage.getVersion())
+                .build();
     }
 
     public DocumentOutboxMessage mapDocumentOutboxEntityToDocumentOutboxMessage(DocumentOutboxEntity savedEntity) {

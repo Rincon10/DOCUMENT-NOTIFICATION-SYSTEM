@@ -4,4 +4,8 @@ public class GeneratorDomainException extends RuntimeException {
     public GeneratorDomainException(String message) {
         super(message);
     }
+
+    public GeneratorDomainException(String message, Throwable cause) {
+        super(message, cause);
+    }
 }
