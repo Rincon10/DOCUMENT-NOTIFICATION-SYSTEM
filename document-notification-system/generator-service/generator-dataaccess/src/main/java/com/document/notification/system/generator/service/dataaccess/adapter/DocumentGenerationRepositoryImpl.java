@@ -1,5 +1,6 @@
 package com.document.notification.system.generator.service.dataaccess.adapter;
 
+import com.document.notification.system.generator.service.dataaccess.mapper.IDocumentGenerationDataMapper;
 import com.document.notification.system.generator.service.dataaccess.repository.DocumentGenerationJpaRepository;
 import com.document.notification.system.generator.service.domain.entity.DocumentGeneration;
 import com.document.notification.system.generator.service.domain.ports.output.repository.DocumentGenerationRepository;
@@ -16,13 +17,15 @@ import java.util.UUID;
  */
 @Component
 @AllArgsConstructor
-public class DocumentGenerationImpl implements DocumentGenerationRepository {
+public class DocumentGenerationRepositoryImpl implements DocumentGenerationRepository {
 
     private final DocumentGenerationJpaRepository documentGenerationJpaRepository;
+    private final IDocumentGenerationDataMapper documentGenerationDataMapper;
 
     @Override
     public DocumentGeneration save(DocumentGeneration documentGeneration) {
-        return null;
+        documentGenerationDataMapper.documentGenerationToDocumentGenerationEntity(documentGeneration);
+        return documentGeneration;
     }
 
     @Override
