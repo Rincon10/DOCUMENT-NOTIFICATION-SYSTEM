@@ -60,7 +60,6 @@ public class DocumentOutboxHelper {
                 .payload(payload)
                 .generationStatus(generationStatus)
                 .outboxStatus(outboxStatus)
-                .version(0)
                 .build();
 
         save(outboxMessage);
