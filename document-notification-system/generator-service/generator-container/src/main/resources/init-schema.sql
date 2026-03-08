@@ -91,6 +91,8 @@ CREATE INDEX idx_document_outbox_generation_status ON generator.document_outbox 
 CREATE INDEX idx_document_outbox_type_outbox_status ON generator.document_outbox (type, outbox_status);
 CREATE INDEX idx_document_outbox_saga_generation_outbox_status
     ON generator.document_outbox (saga_id, generation_status, outbox_status);
+CREATE UNIQUE INDEX document_outbox_type_saga_id_generation_status_outbox_status
+    ON generator.document_outbox (type, saga_id, generation_status, outbox_status);
 
 
 SELECT * FROM generator.document_generation dg;
