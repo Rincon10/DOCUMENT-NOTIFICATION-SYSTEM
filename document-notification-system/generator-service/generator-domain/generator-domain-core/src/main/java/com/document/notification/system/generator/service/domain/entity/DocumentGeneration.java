@@ -32,7 +32,6 @@ public class DocumentGeneration extends AggregateRoot<GenerationId> {
     private final DocumentId documentId;
     private final CustomerId customerId;
     private final DocumentType fileExtension;
-    private final List<String> failureMessages;
     private final DocumentType documentType;
     private GenerationStatus generationStatus;
     private LocalDateTime createdAt;
@@ -45,7 +44,6 @@ public class DocumentGeneration extends AggregateRoot<GenerationId> {
                               GenerationStatus generationStatus,
                               LocalDateTime createdAt,
                               DocumentType fileExtension,
-                              List<String> failureMessages,
                               DocumentType documentType,
                               String generatedContentBase64) {
         this.generationId = generationId;
@@ -54,7 +52,6 @@ public class DocumentGeneration extends AggregateRoot<GenerationId> {
         this.generationStatus = generationStatus;
         this.createdAt = createdAt;
         this.fileExtension = fileExtension;
-        this.failureMessages = failureMessages;
         this.documentType = documentType;
         this.generatedContentBase64 = generatedContentBase64;
     }
