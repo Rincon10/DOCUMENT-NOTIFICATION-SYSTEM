@@ -15,7 +15,7 @@ import org.springframework.stereotype.Component;
 public class DocumentOutboxScheduler implements OutboxScheduler {
     @Override
     public void processOutboxMessage() {
-            log.info("Processing document outbox messages...");
-            // Here you would implement the logic to fetch and process outbox messages
+        log.info("Processing document outbox messages...");
+        // Here you would implement the logic to fetch and process outbox messages
     }
 }

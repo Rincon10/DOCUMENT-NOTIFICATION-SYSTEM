@@ -11,7 +11,6 @@ import com.document.notification.system.generator.service.domain.outbox.model.Do
 import com.document.notification.system.generator.service.domain.valueobject.GenerationId;
 import org.springframework.stereotype.Component;
 
-import java.util.ArrayList;
 import java.util.UUID;
 
 /**

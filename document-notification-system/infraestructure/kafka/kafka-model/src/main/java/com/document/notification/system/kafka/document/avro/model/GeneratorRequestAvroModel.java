@@ -56,24 +56,43 @@ public class GeneratorRequestAvroModel extends org.apache.avro.specific.Specific
     private java.lang.String documentId;
     private java.time.Instant createdAt;
     private com.document.notification.system.kafka.document.avro.model.DocumentGenerationStatus documentGenerationStatus;
-    /** File format/extension for the generated document */
+    /**
+     * File format/extension for the generated document
+     */
     private com.document.notification.system.kafka.document.avro.model.DocumentType documentType;
-    /** Optional file name for the generated document */
+    /**
+     * Optional file name for the generated document
+     */
     private java.lang.String fileName;
-    /** Optional start date for the document period */
+    /**
+     * Optional start date for the document period
+     */
     private java.time.LocalDate periodStartDate;
-    /** Optional end date for the document period */
+    /**
+     * Optional end date for the document period
+     */
     private java.time.LocalDate periodEndDate;
-    /** Optional total amount/value in the document */
+    /**
+     * Optional total amount/value in the document
+     */
     private java.lang.Double totalAmount;
-    /** Optional delivery address for the document */
+    /**
+     * Optional delivery address for the document
+     */
     private java.lang.String deliveryAddress;
-    /** Current status of the document */
+    /**
+     * Current status of the document
+     */
     private com.document.notification.system.kafka.document.avro.model.DocumentStatus documentStatus;
-    /** Number of items/line items in the document */
+    /**
+     * Number of items/line items in the document
+     */
     private java.lang.Integer itemCount;
-    /** Additional metadata as key-value pairs for the document generation */
+    /**
+     * Additional metadata as key-value pairs for the document generation
+     */
     private java.util.Map<java.lang.String, java.lang.String> metadata;
+
     /**
      * Default constructor.  Note that this does not initialize fields
      * to their default values from the schema.  If that is desired then
@@ -81,23 +100,25 @@ public class GeneratorRequestAvroModel extends org.apache.avro.specific.Specific
      */
     public GeneratorRequestAvroModel() {
     }
+
     /**
      * All-args constructor.
-     * @param id The new value for id
-     * @param sagaId The new value for sagaId
-     * @param customerId The new value for customerId
-     * @param documentId The new value for documentId
-     * @param createdAt The new value for createdAt
+     *
+     * @param id                       The new value for id
+     * @param sagaId                   The new value for sagaId
+     * @param customerId               The new value for customerId
+     * @param documentId               The new value for documentId
+     * @param createdAt                The new value for createdAt
      * @param documentGenerationStatus The new value for documentGenerationStatus
-     * @param documentType File format/extension for the generated document
-     * @param fileName Optional file name for the generated document
-     * @param periodStartDate Optional start date for the document period
-     * @param periodEndDate Optional end date for the document period
-     * @param totalAmount Optional total amount/value in the document
-     * @param deliveryAddress Optional delivery address for the document
-     * @param documentStatus Current status of the document
-     * @param itemCount Number of items/line items in the document
-     * @param metadata Additional metadata as key-value pairs for the document generation
+     * @param documentType             File format/extension for the generated document
+     * @param fileName                 Optional file name for the generated document
+     * @param periodStartDate          Optional start date for the document period
+     * @param periodEndDate            Optional end date for the document period
+     * @param totalAmount              Optional total amount/value in the document
+     * @param deliveryAddress          Optional delivery address for the document
+     * @param documentStatus           Current status of the document
+     * @param itemCount                Number of items/line items in the document
+     * @param metadata                 Additional metadata as key-value pairs for the document generation
      */
     public GeneratorRequestAvroModel(java.lang.String id, java.lang.String sagaId, java.lang.String customerId, java.lang.String documentId, java.time.Instant createdAt, com.document.notification.system.kafka.document.avro.model.DocumentGenerationStatus documentGenerationStatus, com.document.notification.system.kafka.document.avro.model.DocumentType documentType, java.lang.String fileName, java.time.LocalDate periodStartDate, java.time.LocalDate periodEndDate, java.lang.Double totalAmount, java.lang.String deliveryAddress, com.document.notification.system.kafka.document.avro.model.DocumentStatus documentStatus, java.lang.Integer itemCount, java.util.Map<java.lang.String, java.lang.String> metadata) {
         this.id = id;
@@ -123,6 +144,7 @@ public class GeneratorRequestAvroModel extends org.apache.avro.specific.Specific
 
     /**
      * Return the BinaryMessageEncoder instance used by this class.
+     *
      * @return the message encoder used by this class
      */
     public static BinaryMessageEncoder<GeneratorRequestAvroModel> getEncoder() {
@@ -131,6 +153,7 @@ public class GeneratorRequestAvroModel extends org.apache.avro.specific.Specific
 
     /**
      * Return the BinaryMessageDecoder instance used by this class.
+     *
      * @return the message decoder used by this class
      */
     public static BinaryMessageDecoder<GeneratorRequestAvroModel> getDecoder() {
@@ -139,6 +162,7 @@ public class GeneratorRequestAvroModel extends org.apache.avro.specific.Specific
 
     /**
      * Create a new BinaryMessageDecoder instance for this class that uses the specified {@link SchemaStore}.
+     *
      * @param resolver a {@link SchemaStore} used to find schemas by fingerprint
      * @return a BinaryMessageDecoder instance for this class backed by the given SchemaStore
      */
@@ -148,6 +172,7 @@ public class GeneratorRequestAvroModel extends org.apache.avro.specific.Specific
 
     /**
      * Deserializes a GeneratorRequestAvroModel from a ByteBuffer.
+     *
      * @param b a byte buffer holding serialized data for an instance of this class
      * @return a GeneratorRequestAvroModel instance decoded from the given buffer
      * @throws java.io.IOException if the given bytes could not be deserialized into an instance of this class
@@ -159,6 +184,7 @@ public class GeneratorRequestAvroModel extends org.apache.avro.specific.Specific
 
     /**
      * Creates a new GeneratorRequestAvroModel RecordBuilder.
+     *
      * @return A new GeneratorRequestAvroModel RecordBuilder
      */
     public static com.document.notification.system.kafka.document.avro.model.GeneratorRequestAvroModel.Builder newBuilder() {
@@ -167,6 +193,7 @@ public class GeneratorRequestAvroModel extends org.apache.avro.specific.Specific
 
     /**
      * Creates a new GeneratorRequestAvroModel RecordBuilder by copying an existing Builder.
+     *
      * @param other The existing builder to copy.
      * @return A new GeneratorRequestAvroModel RecordBuilder
      */
@@ -180,6 +207,7 @@ public class GeneratorRequestAvroModel extends org.apache.avro.specific.Specific
 
     /**
      * Creates a new GeneratorRequestAvroModel RecordBuilder by copying an existing GeneratorRequestAvroModel instance.
+     *
      * @param other The existing instance to copy.
      * @return A new GeneratorRequestAvroModel RecordBuilder
      */
@@ -193,6 +221,7 @@ public class GeneratorRequestAvroModel extends org.apache.avro.specific.Specific
 
     /**
      * Serializes this GeneratorRequestAvroModel to a ByteBuffer.
+     *
      * @return a buffer holding the serialized data for this instance
      * @throws java.io.IOException if this instance could not be serialized
      */
@@ -307,6 +336,7 @@ public class GeneratorRequestAvroModel extends org.apache.avro.specific.Specific
 
     /**
      * Gets the value of the 'id' field.
+     *
      * @return The value of the 'id' field.
      */
     public java.lang.String getId() {
@@ -315,6 +345,7 @@ public class GeneratorRequestAvroModel extends org.apache.avro.specific.Specific
 
     /**
      * Sets the value of the 'id' field.
+     *
      * @param value the value to set.
      */
     public void setId(java.lang.String value) {
@@ -323,6 +354,7 @@ public class GeneratorRequestAvroModel extends org.apache.avro.specific.Specific
 
     /**
      * Gets the value of the 'sagaId' field.
+     *
      * @return The value of the 'sagaId' field.
      */
     public java.lang.String getSagaId() {
@@ -331,6 +363,7 @@ public class GeneratorRequestAvroModel extends org.apache.avro.specific.Specific
 
     /**
      * Sets the value of the 'sagaId' field.
+     *
      * @param value the value to set.
      */
     public void setSagaId(java.lang.String value) {
@@ -339,6 +372,7 @@ public class GeneratorRequestAvroModel extends org.apache.avro.specific.Specific
 
     /**
      * Gets the value of the 'customerId' field.
+     *
      * @return The value of the 'customerId' field.
      */
     public java.lang.String getCustomerId() {
@@ -347,6 +381,7 @@ public class GeneratorRequestAvroModel extends org.apache.avro.specific.Specific
 
     /**
      * Sets the value of the 'customerId' field.
+     *
      * @param value the value to set.
      */
     public void setCustomerId(java.lang.String value) {
@@ -355,6 +390,7 @@ public class GeneratorRequestAvroModel extends org.apache.avro.specific.Specific
 
     /**
      * Gets the value of the 'documentId' field.
+     *
      * @return The value of the 'documentId' field.
      */
     public java.lang.String getDocumentId() {
@@ -363,6 +399,7 @@ public class GeneratorRequestAvroModel extends org.apache.avro.specific.Specific
 
     /**
      * Sets the value of the 'documentId' field.
+     *
      * @param value the value to set.
      */
     public void setDocumentId(java.lang.String value) {
@@ -371,6 +408,7 @@ public class GeneratorRequestAvroModel extends org.apache.avro.specific.Specific
 
     /**
      * Gets the value of the 'createdAt' field.
+     *
      * @return The value of the 'createdAt' field.
      */
     public java.time.Instant getCreatedAt() {
@@ -379,6 +417,7 @@ public class GeneratorRequestAvroModel extends org.apache.avro.specific.Specific
 
     /**
      * Sets the value of the 'createdAt' field.
+     *
      * @param value the value to set.
      */
     public void setCreatedAt(java.time.Instant value) {
@@ -387,6 +426,7 @@ public class GeneratorRequestAvroModel extends org.apache.avro.specific.Specific
 
     /**
      * Gets the value of the 'documentGenerationStatus' field.
+     *
      * @return The value of the 'documentGenerationStatus' field.
      */
     public com.document.notification.system.kafka.document.avro.model.DocumentGenerationStatus getDocumentGenerationStatus() {
@@ -395,6 +435,7 @@ public class GeneratorRequestAvroModel extends org.apache.avro.specific.Specific
 
     /**
      * Sets the value of the 'documentGenerationStatus' field.
+     *
      * @param value the value to set.
      */
     public void setDocumentGenerationStatus(com.document.notification.system.kafka.document.avro.model.DocumentGenerationStatus value) {
@@ -403,6 +444,7 @@ public class GeneratorRequestAvroModel extends org.apache.avro.specific.Specific
 
     /**
      * Gets the value of the 'documentType' field.
+     *
      * @return File format/extension for the generated document
      */
     public com.document.notification.system.kafka.document.avro.model.DocumentType getDocumentType() {
@@ -412,6 +454,7 @@ public class GeneratorRequestAvroModel extends org.apache.avro.specific.Specific
     /**
      * Sets the value of the 'documentType' field.
      * File format/extension for the generated document
+     *
      * @param value the value to set.
      */
     public void setDocumentType(com.document.notification.system.kafka.document.avro.model.DocumentType value) {
@@ -420,6 +463,7 @@ public class GeneratorRequestAvroModel extends org.apache.avro.specific.Specific
 
     /**
      * Gets the value of the 'fileName' field.
+     *
      * @return Optional file name for the generated document
      */
     public java.lang.String getFileName() {
@@ -429,6 +473,7 @@ public class GeneratorRequestAvroModel extends org.apache.avro.specific.Specific
     /**
      * Sets the value of the 'fileName' field.
      * Optional file name for the generated document
+     *
      * @param value the value to set.
      */
     public void setFileName(java.lang.String value) {
@@ -437,6 +482,7 @@ public class GeneratorRequestAvroModel extends org.apache.avro.specific.Specific
 
     /**
      * Gets the value of the 'periodStartDate' field.
+     *
      * @return Optional start date for the document period
      */
     public java.time.LocalDate getPeriodStartDate() {
@@ -446,6 +492,7 @@ public class GeneratorRequestAvroModel extends org.apache.avro.specific.Specific
     /**
      * Sets the value of the 'periodStartDate' field.
      * Optional start date for the document period
+     *
      * @param value the value to set.
      */
     public void setPeriodStartDate(java.time.LocalDate value) {
@@ -454,6 +501,7 @@ public class GeneratorRequestAvroModel extends org.apache.avro.specific.Specific
 
     /**
      * Gets the value of the 'periodEndDate' field.
+     *
      * @return Optional end date for the document period
      */
     public java.time.LocalDate getPeriodEndDate() {
@@ -463,6 +511,7 @@ public class GeneratorRequestAvroModel extends org.apache.avro.specific.Specific
     /**
      * Sets the value of the 'periodEndDate' field.
      * Optional end date for the document period
+     *
      * @param value the value to set.
      */
     public void setPeriodEndDate(java.time.LocalDate value) {
@@ -471,6 +520,7 @@ public class GeneratorRequestAvroModel extends org.apache.avro.specific.Specific
 
     /**
      * Gets the value of the 'totalAmount' field.
+     *
      * @return Optional total amount/value in the document
      */
     public java.lang.Double getTotalAmount() {
@@ -480,6 +530,7 @@ public class GeneratorRequestAvroModel extends org.apache.avro.specific.Specific
     /**
      * Sets the value of the 'totalAmount' field.
      * Optional total amount/value in the document
+     *
      * @param value the value to set.
      */
     public void setTotalAmount(java.lang.Double value) {
@@ -488,6 +539,7 @@ public class GeneratorRequestAvroModel extends org.apache.avro.specific.Specific
 
     /**
      * Gets the value of the 'deliveryAddress' field.
+     *
      * @return Optional delivery address for the document
      */
     public java.lang.String getDeliveryAddress() {
@@ -497,6 +549,7 @@ public class GeneratorRequestAvroModel extends org.apache.avro.specific.Specific
     /**
      * Sets the value of the 'deliveryAddress' field.
      * Optional delivery address for the document
+     *
      * @param value the value to set.
      */
     public void setDeliveryAddress(java.lang.String value) {
@@ -505,6 +558,7 @@ public class GeneratorRequestAvroModel extends org.apache.avro.specific.Specific
 
     /**
      * Gets the value of the 'documentStatus' field.
+     *
      * @return Current status of the document
      */
     public com.document.notification.system.kafka.document.avro.model.DocumentStatus getDocumentStatus() {
@@ -514,6 +568,7 @@ public class GeneratorRequestAvroModel extends org.apache.avro.specific.Specific
     /**
      * Sets the value of the 'documentStatus' field.
      * Current status of the document
+     *
      * @param value the value to set.
      */
     public void setDocumentStatus(com.document.notification.system.kafka.document.avro.model.DocumentStatus value) {
@@ -522,6 +577,7 @@ public class GeneratorRequestAvroModel extends org.apache.avro.specific.Specific
 
     /**
      * Gets the value of the 'itemCount' field.
+     *
      * @return Number of items/line items in the document
      */
     public java.lang.Integer getItemCount() {
@@ -531,6 +587,7 @@ public class GeneratorRequestAvroModel extends org.apache.avro.specific.Specific
     /**
      * Sets the value of the 'itemCount' field.
      * Number of items/line items in the document
+     *
      * @param value the value to set.
      */
     public void setItemCount(java.lang.Integer value) {
@@ -539,6 +596,7 @@ public class GeneratorRequestAvroModel extends org.apache.avro.specific.Specific
 
     /**
      * Gets the value of the 'metadata' field.
+     *
      * @return Additional metadata as key-value pairs for the document generation
      */
     public java.util.Map<java.lang.String, java.lang.String> getMetadata() {
@@ -548,6 +606,7 @@ public class GeneratorRequestAvroModel extends org.apache.avro.specific.Specific
     /**
      * Sets the value of the 'metadata' field.
      * Additional metadata as key-value pairs for the document generation
+     *
      * @param value the value to set.
      */
     public void setMetadata(java.util.Map<java.lang.String, java.lang.String> value) {
@@ -579,32 +638,53 @@ public class GeneratorRequestAvroModel extends org.apache.avro.specific.Specific
         private java.lang.String documentId;
         private java.time.Instant createdAt;
         private com.document.notification.system.kafka.document.avro.model.DocumentGenerationStatus documentGenerationStatus;
-        /** File format/extension for the generated document */
+        /**
+         * File format/extension for the generated document
+         */
         private com.document.notification.system.kafka.document.avro.model.DocumentType documentType;
-        /** Optional file name for the generated document */
+        /**
+         * Optional file name for the generated document
+         */
         private java.lang.String fileName;
-        /** Optional start date for the document period */
+        /**
+         * Optional start date for the document period
+         */
         private java.time.LocalDate periodStartDate;
-        /** Optional end date for the document period */
+        /**
+         * Optional end date for the document period
+         */
         private java.time.LocalDate periodEndDate;
-        /** Optional total amount/value in the document */
+        /**
+         * Optional total amount/value in the document
+         */
         private java.lang.Double totalAmount;
-        /** Optional delivery address for the document */
+        /**
+         * Optional delivery address for the document
+         */
         private java.lang.String deliveryAddress;
-        /** Current status of the document */
+        /**
+         * Current status of the document
+         */
         private com.document.notification.system.kafka.document.avro.model.DocumentStatus documentStatus;
-        /** Number of items/line items in the document */
+        /**
+         * Number of items/line items in the document
+         */
         private java.lang.Integer itemCount;
-        /** Additional metadata as key-value pairs for the document generation */
+        /**
+         * Additional metadata as key-value pairs for the document generation
+         */
         private java.util.Map<java.lang.String, java.lang.String> metadata;
 
-        /** Creates a new Builder */
+        /**
+         * Creates a new Builder
+         */
         private Builder() {
             super(SCHEMA$, MODEL$);
         }
 
         /**
          * Creates a Builder by copying an existing Builder.
+         *
          * @param other The existing Builder to copy.
          */
         private Builder(com.document.notification.system.kafka.document.avro.model.GeneratorRequestAvroModel.Builder other) {
@@ -673,6 +753,7 @@ public class GeneratorRequestAvroModel extends org.apache.avro.specific.Specific
 
         /**
          * Creates a Builder by copying an existing GeneratorRequestAvroModel instance
+         *
          * @param other The existing instance to copy.
          */
         private Builder(com.document.notification.system.kafka.document.avro.model.GeneratorRequestAvroModel other) {
@@ -741,6 +822,7 @@ public class GeneratorRequestAvroModel extends org.apache.avro.specific.Specific
 
         /**
          * Gets the value of the 'id' field.
+         *
          * @return The value.
          */
         public java.lang.String getId() {
@@ -750,6 +832,7 @@ public class GeneratorRequestAvroModel extends org.apache.avro.specific.Specific
 
         /**
          * Sets the value of the 'id' field.
+         *
          * @param value The value of 'id'.
          * @return This builder.
          */
@@ -762,6 +845,7 @@ public class GeneratorRequestAvroModel extends org.apache.avro.specific.Specific
 
         /**
          * Checks whether the 'id' field has been set.
+         *
          * @return True if the 'id' field has been set, false otherwise.
          */
         public boolean hasId() {
@@ -771,6 +855,7 @@ public class GeneratorRequestAvroModel extends org.apache.avro.specific.Specific
 
         /**
          * Clears the value of the 'id' field.
+         *
          * @return This builder.
          */
         public com.document.notification.system.kafka.document.avro.model.GeneratorRequestAvroModel.Builder clearId() {
@@ -781,6 +866,7 @@ public class GeneratorRequestAvroModel extends org.apache.avro.specific.Specific
 
         /**
          * Gets the value of the 'sagaId' field.
+         *
          * @return The value.
          */
         public java.lang.String getSagaId() {
@@ -790,6 +876,7 @@ public class GeneratorRequestAvroModel extends org.apache.avro.specific.Specific
 
         /**
          * Sets the value of the 'sagaId' field.
+         *
          * @param value The value of 'sagaId'.
          * @return This builder.
          */
@@ -802,6 +889,7 @@ public class GeneratorRequestAvroModel extends org.apache.avro.specific.Specific
 
         /**
          * Checks whether the 'sagaId' field has been set.
+         *
          * @return True if the 'sagaId' field has been set, false otherwise.
          */
         public boolean hasSagaId() {
@@ -811,6 +899,7 @@ public class GeneratorRequestAvroModel extends org.apache.avro.specific.Specific
 
         /**
          * Clears the value of the 'sagaId' field.
+         *
          * @return This builder.
          */
         public com.document.notification.system.kafka.document.avro.model.GeneratorRequestAvroModel.Builder clearSagaId() {
@@ -821,6 +910,7 @@ public class GeneratorRequestAvroModel extends org.apache.avro.specific.Specific
 
         /**
          * Gets the value of the 'customerId' field.
+         *
          * @return The value.
          */
         public java.lang.String getCustomerId() {
@@ -830,6 +920,7 @@ public class GeneratorRequestAvroModel extends org.apache.avro.specific.Specific
 
         /**
          * Sets the value of the 'customerId' field.
+         *
          * @param value The value of 'customerId'.
          * @return This builder.
          */
@@ -842,6 +933,7 @@ public class GeneratorRequestAvroModel extends org.apache.avro.specific.Specific
 
         /**
          * Checks whether the 'customerId' field has been set.
+         *
          * @return True if the 'customerId' field has been set, false otherwise.
          */
         public boolean hasCustomerId() {
@@ -851,6 +943,7 @@ public class GeneratorRequestAvroModel extends org.apache.avro.specific.Specific
 
         /**
          * Clears the value of the 'customerId' field.
+         *
          * @return This builder.
          */
         public com.document.notification.system.kafka.document.avro.model.GeneratorRequestAvroModel.Builder clearCustomerId() {
@@ -861,6 +954,7 @@ public class GeneratorRequestAvroModel extends org.apache.avro.specific.Specific
 
         /**
          * Gets the value of the 'documentId' field.
+         *
          * @return The value.
          */
         public java.lang.String getDocumentId() {
@@ -870,6 +964,7 @@ public class GeneratorRequestAvroModel extends org.apache.avro.specific.Specific
 
         /**
          * Sets the value of the 'documentId' field.
+         *
          * @param value The value of 'documentId'.
          * @return This builder.
          */
@@ -882,6 +977,7 @@ public class GeneratorRequestAvroModel extends org.apache.avro.specific.Specific
 
         /**
          * Checks whether the 'documentId' field has been set.
+         *
          * @return True if the 'documentId' field has been set, false otherwise.
          */
         public boolean hasDocumentId() {
@@ -891,6 +987,7 @@ public class GeneratorRequestAvroModel extends org.apache.avro.specific.Specific
 
         /**
          * Clears the value of the 'documentId' field.
+         *
          * @return This builder.
          */
         public com.document.notification.system.kafka.document.avro.model.GeneratorRequestAvroModel.Builder clearDocumentId() {
@@ -901,6 +998,7 @@ public class GeneratorRequestAvroModel extends org.apache.avro.specific.Specific
 
         /**
          * Gets the value of the 'createdAt' field.
+         *
          * @return The value.
          */
         public java.time.Instant getCreatedAt() {
@@ -910,6 +1008,7 @@ public class GeneratorRequestAvroModel extends org.apache.avro.specific.Specific
 
         /**
          * Sets the value of the 'createdAt' field.
+         *
          * @param value The value of 'createdAt'.
          * @return This builder.
          */
@@ -922,6 +1021,7 @@ public class GeneratorRequestAvroModel extends org.apache.avro.specific.Specific
 
         /**
          * Checks whether the 'createdAt' field has been set.
+         *
          * @return True if the 'createdAt' field has been set, false otherwise.
          */
         public boolean hasCreatedAt() {
@@ -931,6 +1031,7 @@ public class GeneratorRequestAvroModel extends org.apache.avro.specific.Specific
 
         /**
          * Clears the value of the 'createdAt' field.
+         *
          * @return This builder.
          */
         public com.document.notification.system.kafka.document.avro.model.GeneratorRequestAvroModel.Builder clearCreatedAt() {
@@ -940,6 +1041,7 @@ public class GeneratorRequestAvroModel extends org.apache.avro.specific.Specific
 
         /**
          * Gets the value of the 'documentGenerationStatus' field.
+         *
          * @return The value.
          */
         public com.document.notification.system.kafka.document.avro.model.DocumentGenerationStatus getDocumentGenerationStatus() {
@@ -949,6 +1051,7 @@ public class GeneratorRequestAvroModel extends org.apache.avro.specific.Specific
 
         /**
          * Sets the value of the 'documentGenerationStatus' field.
+         *
          * @param value The value of 'documentGenerationStatus'.
          * @return This builder.
          */
@@ -961,6 +1064,7 @@ public class GeneratorRequestAvroModel extends org.apache.avro.specific.Specific
 
         /**
          * Checks whether the 'documentGenerationStatus' field has been set.
+         *
          * @return True if the 'documentGenerationStatus' field has been set, false otherwise.
          */
         public boolean hasDocumentGenerationStatus() {
@@ -970,6 +1074,7 @@ public class GeneratorRequestAvroModel extends org.apache.avro.specific.Specific
 
         /**
          * Clears the value of the 'documentGenerationStatus' field.
+         *
          * @return This builder.
          */
         public com.document.notification.system.kafka.document.avro.model.GeneratorRequestAvroModel.Builder clearDocumentGenerationStatus() {
@@ -981,6 +1086,7 @@ public class GeneratorRequestAvroModel extends org.apache.avro.specific.Specific
         /**
          * Gets the value of the 'documentType' field.
          * File format/extension for the generated document
+         *
          * @return The value.
          */
         public com.document.notification.system.kafka.document.avro.model.DocumentType getDocumentType() {
@@ -991,6 +1097,7 @@ public class GeneratorRequestAvroModel extends org.apache.avro.specific.Specific
         /**
          * Sets the value of the 'documentType' field.
          * File format/extension for the generated document
+         *
          * @param value The value of 'documentType'.
          * @return This builder.
          */
@@ -1004,6 +1111,7 @@ public class GeneratorRequestAvroModel extends org.apache.avro.specific.Specific
         /**
          * Checks whether the 'documentType' field has been set.
          * File format/extension for the generated document
+         *
          * @return True if the 'documentType' field has been set, false otherwise.
          */
         public boolean hasDocumentType() {
@@ -1014,6 +1122,7 @@ public class GeneratorRequestAvroModel extends org.apache.avro.specific.Specific
         /**
          * Clears the value of the 'documentType' field.
          * File format/extension for the generated document
+         *
          * @return This builder.
          */
         public com.document.notification.system.kafka.document.avro.model.GeneratorRequestAvroModel.Builder clearDocumentType() {
@@ -1025,6 +1134,7 @@ public class GeneratorRequestAvroModel extends org.apache.avro.specific.Specific
         /**
          * Gets the value of the 'fileName' field.
          * Optional file name for the generated document
+         *
          * @return The value.
          */
         public java.lang.String getFileName() {
@@ -1035,6 +1145,7 @@ public class GeneratorRequestAvroModel extends org.apache.avro.specific.Specific
         /**
          * Sets the value of the 'fileName' field.
          * Optional file name for the generated document
+         *
          * @param value The value of 'fileName'.
          * @return This builder.
          */
@@ -1048,6 +1159,7 @@ public class GeneratorRequestAvroModel extends org.apache.avro.specific.Specific
         /**
          * Checks whether the 'fileName' field has been set.
          * Optional file name for the generated document
+         *
          * @return True if the 'fileName' field has been set, false otherwise.
          */
         public boolean hasFileName() {
@@ -1058,6 +1170,7 @@ public class GeneratorRequestAvroModel extends org.apache.avro.specific.Specific
         /**
          * Clears the value of the 'fileName' field.
          * Optional file name for the generated document
+         *
          * @return This builder.
          */
         public com.document.notification.system.kafka.document.avro.model.GeneratorRequestAvroModel.Builder clearFileName() {
@@ -1069,6 +1182,7 @@ public class GeneratorRequestAvroModel extends org.apache.avro.specific.Specific
         /**
          * Gets the value of the 'periodStartDate' field.
          * Optional start date for the document period
+         *
          * @return The value.
          */
         public java.time.LocalDate getPeriodStartDate() {
@@ -1079,6 +1193,7 @@ public class GeneratorRequestAvroModel extends org.apache.avro.specific.Specific
         /**
          * Sets the value of the 'periodStartDate' field.
          * Optional start date for the document period
+         *
          * @param value The value of 'periodStartDate'.
          * @return This builder.
          */
@@ -1092,6 +1207,7 @@ public class GeneratorRequestAvroModel extends org.apache.avro.specific.Specific
         /**
          * Checks whether the 'periodStartDate' field has been set.
          * Optional start date for the document period
+         *
          * @return True if the 'periodStartDate' field has been set, false otherwise.
          */
         public boolean hasPeriodStartDate() {
@@ -1102,6 +1218,7 @@ public class GeneratorRequestAvroModel extends org.apache.avro.specific.Specific
         /**
          * Clears the value of the 'periodStartDate' field.
          * Optional start date for the document period
+         *
          * @return This builder.
          */
         public com.document.notification.system.kafka.document.avro.model.GeneratorRequestAvroModel.Builder clearPeriodStartDate() {
@@ -1113,6 +1230,7 @@ public class GeneratorRequestAvroModel extends org.apache.avro.specific.Specific
         /**
          * Gets the value of the 'periodEndDate' field.
          * Optional end date for the document period
+         *
          * @return The value.
          */
         public java.time.LocalDate getPeriodEndDate() {
@@ -1123,6 +1241,7 @@ public class GeneratorRequestAvroModel extends org.apache.avro.specific.Specific
         /**
          * Sets the value of the 'periodEndDate' field.
          * Optional end date for the document period
+         *
          * @param value The value of 'periodEndDate'.
          * @return This builder.
          */
@@ -1136,6 +1255,7 @@ public class GeneratorRequestAvroModel extends org.apache.avro.specific.Specific
         /**
          * Checks whether the 'periodEndDate' field has been set.
          * Optional end date for the document period
+         *
          * @return True if the 'periodEndDate' field has been set, false otherwise.
          */
         public boolean hasPeriodEndDate() {
@@ -1146,6 +1266,7 @@ public class GeneratorRequestAvroModel extends org.apache.avro.specific.Specific
         /**
          * Clears the value of the 'periodEndDate' field.
          * Optional end date for the document period
+         *
          * @return This builder.
          */
         public com.document.notification.system.kafka.document.avro.model.GeneratorRequestAvroModel.Builder clearPeriodEndDate() {
@@ -1157,6 +1278,7 @@ public class GeneratorRequestAvroModel extends org.apache.avro.specific.Specific
         /**
          * Gets the value of the 'totalAmount' field.
          * Optional total amount/value in the document
+         *
          * @return The value.
          */
         public java.lang.Double getTotalAmount() {
@@ -1167,6 +1289,7 @@ public class GeneratorRequestAvroModel extends org.apache.avro.specific.Specific
         /**
          * Sets the value of the 'totalAmount' field.
          * Optional total amount/value in the document
+         *
          * @param value The value of 'totalAmount'.
          * @return This builder.
          */
@@ -1180,6 +1303,7 @@ public class GeneratorRequestAvroModel extends org.apache.avro.specific.Specific
         /**
          * Checks whether the 'totalAmount' field has been set.
          * Optional total amount/value in the document
+         *
          * @return True if the 'totalAmount' field has been set, false otherwise.
          */
         public boolean hasTotalAmount() {
@@ -1190,6 +1314,7 @@ public class GeneratorRequestAvroModel extends org.apache.avro.specific.Specific
         /**
          * Clears the value of the 'totalAmount' field.
          * Optional total amount/value in the document
+         *
          * @return This builder.
          */
         public com.document.notification.system.kafka.document.avro.model.GeneratorRequestAvroModel.Builder clearTotalAmount() {
@@ -1201,6 +1326,7 @@ public class GeneratorRequestAvroModel extends org.apache.avro.specific.Specific
         /**
          * Gets the value of the 'deliveryAddress' field.
          * Optional delivery address for the document
+         *
          * @return The value.
          */
         public java.lang.String getDeliveryAddress() {
@@ -1211,6 +1337,7 @@ public class GeneratorRequestAvroModel extends org.apache.avro.specific.Specific
         /**
          * Sets the value of the 'deliveryAddress' field.
          * Optional delivery address for the document
+         *
          * @param value The value of 'deliveryAddress'.
          * @return This builder.
          */
@@ -1224,6 +1351,7 @@ public class GeneratorRequestAvroModel extends org.apache.avro.specific.Specific
         /**
          * Checks whether the 'deliveryAddress' field has been set.
          * Optional delivery address for the document
+         *
          * @return True if the 'deliveryAddress' field has been set, false otherwise.
          */
         public boolean hasDeliveryAddress() {
@@ -1234,6 +1362,7 @@ public class GeneratorRequestAvroModel extends org.apache.avro.specific.Specific
         /**
          * Clears the value of the 'deliveryAddress' field.
          * Optional delivery address for the document
+         *
          * @return This builder.
          */
         public com.document.notification.system.kafka.document.avro.model.GeneratorRequestAvroModel.Builder clearDeliveryAddress() {
@@ -1245,6 +1374,7 @@ public class GeneratorRequestAvroModel extends org.apache.avro.specific.Specific
         /**
          * Gets the value of the 'documentStatus' field.
          * Current status of the document
+         *
          * @return The value.
          */
         public com.document.notification.system.kafka.document.avro.model.DocumentStatus getDocumentStatus() {
@@ -1255,6 +1385,7 @@ public class GeneratorRequestAvroModel extends org.apache.avro.specific.Specific
         /**
          * Sets the value of the 'documentStatus' field.
          * Current status of the document
+         *
          * @param value The value of 'documentStatus'.
          * @return This builder.
          */
@@ -1268,6 +1399,7 @@ public class GeneratorRequestAvroModel extends org.apache.avro.specific.Specific
         /**
          * Checks whether the 'documentStatus' field has been set.
          * Current status of the document
+         *
          * @return True if the 'documentStatus' field has been set, false otherwise.
          */
         public boolean hasDocumentStatus() {
@@ -1278,6 +1410,7 @@ public class GeneratorRequestAvroModel extends org.apache.avro.specific.Specific
         /**
          * Clears the value of the 'documentStatus' field.
          * Current status of the document
+         *
          * @return This builder.
          */
         public com.document.notification.system.kafka.document.avro.model.GeneratorRequestAvroModel.Builder clearDocumentStatus() {
@@ -1289,6 +1422,7 @@ public class GeneratorRequestAvroModel extends org.apache.avro.specific.Specific
         /**
          * Gets the value of the 'itemCount' field.
          * Number of items/line items in the document
+         *
          * @return The value.
          */
         public java.lang.Integer getItemCount() {
@@ -1299,6 +1433,7 @@ public class GeneratorRequestAvroModel extends org.apache.avro.specific.Specific
         /**
          * Sets the value of the 'itemCount' field.
          * Number of items/line items in the document
+         *
          * @param value The value of 'itemCount'.
          * @return This builder.
          */
@@ -1312,6 +1447,7 @@ public class GeneratorRequestAvroModel extends org.apache.avro.specific.Specific
         /**
          * Checks whether the 'itemCount' field has been set.
          * Number of items/line items in the document
+         *
          * @return True if the 'itemCount' field has been set, false otherwise.
          */
         public boolean hasItemCount() {
@@ -1322,6 +1458,7 @@ public class GeneratorRequestAvroModel extends org.apache.avro.specific.Specific
         /**
          * Clears the value of the 'itemCount' field.
          * Number of items/line items in the document
+         *
          * @return This builder.
          */
         public com.document.notification.system.kafka.document.avro.model.GeneratorRequestAvroModel.Builder clearItemCount() {
@@ -1333,6 +1470,7 @@ public class GeneratorRequestAvroModel extends org.apache.avro.specific.Specific
         /**
          * Gets the value of the 'metadata' field.
          * Additional metadata as key-value pairs for the document generation
+         *
          * @return The value.
          */
         public java.util.Map<java.lang.String, java.lang.String> getMetadata() {
@@ -1343,6 +1481,7 @@ public class GeneratorRequestAvroModel extends org.apache.avro.specific.Specific
         /**
          * Sets the value of the 'metadata' field.
          * Additional metadata as key-value pairs for the document generation
+         *
          * @param value The value of 'metadata'.
          * @return This builder.
          */
@@ -1356,6 +1495,7 @@ public class GeneratorRequestAvroModel extends org.apache.avro.specific.Specific
         /**
          * Checks whether the 'metadata' field has been set.
          * Additional metadata as key-value pairs for the document generation
+         *
          * @return True if the 'metadata' field has been set, false otherwise.
          */
         public boolean hasMetadata() {
@@ -1366,6 +1506,7 @@ public class GeneratorRequestAvroModel extends org.apache.avro.specific.Specific
         /**
          * Clears the value of the 'metadata' field.
          * Additional metadata as key-value pairs for the document generation
+         *
          * @return This builder.
          */
         public com.document.notification.system.kafka.document.avro.model.GeneratorRequestAvroModel.Builder clearMetadata() {
