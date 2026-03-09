@@ -103,7 +103,7 @@
             </dependency>
             <dependency>
                 <groupId>com.document.notification.system</groupId>
-                <artifactId>generator-dataaaccess</artifactId>
+                <artifactId>generator-dataaccess</artifactId>
                 <version>${project.version}</version>
             </dependency>
             <!--            Customer dependencies-->

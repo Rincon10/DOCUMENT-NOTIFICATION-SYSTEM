@@ -9,7 +9,7 @@
     </parent>
     <packaging>pom</packaging>
     <modules>
-        <module>generator-dataaaccess</module>
+        <module>generator-dataaccess</module>
         <module>generator-domain</module>
         <module>generator-messaging</module>
         <module>generator-container</module>

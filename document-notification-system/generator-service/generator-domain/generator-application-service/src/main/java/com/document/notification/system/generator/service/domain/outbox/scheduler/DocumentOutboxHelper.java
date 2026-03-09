@@ -1,7 +1,10 @@
 package com.document.notification.system.generator.service.domain.outbox.scheduler;
 
+import com.document.notification.system.domain.utils.DateUtils;
+import com.document.notification.system.domain.utils.JsonSerializationUtil;
 import com.document.notification.system.domain.valueobject.GenerationStatus;
 import com.document.notification.system.generator.service.domain.exception.GeneratorDomainException;
+import com.document.notification.system.generator.service.domain.outbox.model.DocumentEventPayload;
 import com.document.notification.system.generator.service.domain.outbox.model.DocumentOutboxMessage;
 import com.document.notification.system.generator.service.domain.ports.output.repository.DocumentOutboxRepository;
 import com.document.notification.system.outbox.OutboxStatus;
@@ -39,6 +42,28 @@ public class DocumentOutboxHelper {
         documentOutboxMessage.setOutboxStatus(outboxStatus);
         save(documentOutboxMessage);
         log.info("Document outbox table status is updated as: {}", outboxStatus.name());
+    }
+
+    @Transactional
+    public void saveDocumentOutboxMessage(DocumentEventPayload eventPayload,
+                                          GenerationStatus generationStatus,
+                                          OutboxStatus outboxStatus,
+                                          UUID sagaId) {
+        String payload = JsonSerializationUtil.toJson(eventPayload,
+                "Could not create DocumentEventPayload for generation id: " + eventPayload.getGenerationId());
+
+        DocumentOutboxMessage outboxMessage = DocumentOutboxMessage.builder()
+                .id(UUID.randomUUID())
+                .sagaId(sagaId)
+                .createdAt(DateUtils.getZoneDateTimeByUTCZoneId())
+                .type(SAGA_NAME)
+                .payload(payload)
+                .generationStatus(generationStatus)
+                .outboxStatus(outboxStatus)
+                .build();
+
+        save(outboxMessage);
+        log.info("Document outbox message saved with id: {} for saga id: {}", outboxMessage.getId(), sagaId);
     }
 
     private void save(DocumentOutboxMessage documentOutboxMessage) {

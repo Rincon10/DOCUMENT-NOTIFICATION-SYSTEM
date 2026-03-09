@@ -16,13 +16,13 @@ import org.springframework.context.annotation.Configuration;
 public class BeanConfiguration {
 
     @Bean
-    public IGeneratorDomainService iGeneratorDomainService() {
-        return new GeneratorDomainServiceImpl();
+    public IContentGenerator iContentGenerator() {
+        return new ContentGeneratorImpl();
     }
 
     @Bean
-    public IContentGenerator iContentGenerator() {
-        return new ContentGeneratorImpl();
+    public IGeneratorDomainService iGeneratorDomainService() {
+        return new GeneratorDomainServiceImpl(iContentGenerator());
     }
 
 }

@@ -1,6 +1,7 @@
 package com.document.notification.system.outbox.scheduler.generator;
 
 import com.document.notification.system.document.service.domain.exception.DocumentDomainException;
+import com.document.notification.system.domain.utils.JsonSerializationUtil;
 import com.document.notification.system.domain.valueobject.DocumentStatus;
 import com.document.notification.system.outbox.OutboxStatus;
 import com.document.notification.system.outbox.model.generator.DocumentGenerationEventPayload;
@@ -8,7 +9,6 @@ import com.document.notification.system.outbox.model.generator.DocumentGeneratio
 import com.document.notification.system.ports.output.repository.GeneratorOutboxRepository;
 import com.document.notification.system.saga.SagaStatus;
 import com.document.notification.system.saga.constants.SagaConstants;
-import com.document.notification.system.utils.JsonSerializationUtil;
 import lombok.AllArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
@@ -79,5 +79,10 @@ public class GeneratorOutboxHelper {
     @Transactional(readOnly = true)
     public Optional<List<DocumentGenerationOutboxMessage>> getDocumentGenerationOutboxMessagesByTypeAndOutboxStatusAndSagaStatus(String sagaName, OutboxStatus outboxStatus, SagaStatus... sagaStatus) {
         return generatorOutboxRepository.findByTypeAndOutboxStatusAndSagaStatus(sagaName, outboxStatus, sagaStatus);
+    }
+
+    @Transactional
+    public void deletePaymentOutboxMessageByOutboxStatusAndSagaStatus(String sagaName, OutboxStatus outboxStatus, SagaStatus... sagaStatus) {
+        generatorOutboxRepository.deleteByTypeAndOutboxStatusAndSagaStatus(sagaName, outboxStatus, sagaStatus);
     }
 }
