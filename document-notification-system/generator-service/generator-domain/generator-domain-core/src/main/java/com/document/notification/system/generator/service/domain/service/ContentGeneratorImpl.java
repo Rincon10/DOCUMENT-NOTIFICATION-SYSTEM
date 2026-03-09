@@ -3,13 +3,13 @@ package com.document.notification.system.generator.service.domain.service;
 import com.document.notification.system.domain.valueobject.DocumentType;
 import com.document.notification.system.generator.service.domain.exception.GeneratorDomainException;
 import com.document.notification.system.generator.service.domain.valueobject.GeneratedContent;
+import com.document.notification.system.generator.service.domain.valueobject.GenerationContentData;
 import lombok.extern.slf4j.Slf4j;
 
 import java.nio.charset.StandardCharsets;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.Base64;
-import java.util.Map;
 
 /**
  * Content generator implementation for creating documents
@@ -29,7 +29,7 @@ public class ContentGeneratorImpl implements IContentGenerator {
     public GeneratedContent generateContent(DocumentType documentType,
                                             String documentId,
                                             String customerId,
-                                            Map<String, Object> data) {
+                                            GenerationContentData data) {
         log.info("Generating {} content for document: {} and customer: {}",
                 documentType, documentId, customerId);
 
@@ -55,7 +55,7 @@ public class ContentGeneratorImpl implements IContentGenerator {
     }
 
     // TO DO: Handle better using factory or strategy pattern for different document types
-    private String generatePdfContent(String documentId, String customerId, Map<String, Object> data) {
+    private String generatePdfContent(String documentId, String customerId, GenerationContentData data) {
         // Simple text content that simulates PDF structure
         // In production, use Apache PDFBox or iText for real PDF generation
         StringBuilder content = new StringBuilder();
@@ -79,10 +79,9 @@ public class ContentGeneratorImpl implements IContentGenerator {
         content.append("Customer ID: ").append(customerId).append("\n");
         content.append("Generated At: ").append(LocalDateTime.now().format(FORMATTER)).append("\n\n");
 
-        if (data != null && !data.isEmpty()) {
+        if (data != null) {
             content.append("Additional Data:\n");
-            data.forEach((key, value) ->
-                    content.append("  ").append(key).append(": ").append(value).append("\n"));
+            appendContentData(content, data);
         }
 
         content.append("\nendstream\n");
@@ -92,7 +91,7 @@ public class ContentGeneratorImpl implements IContentGenerator {
         return content.toString();
     }
 
-    private String generateHtmlContent(String documentId, String customerId, Map<String, Object> data) {
+    private String generateHtmlContent(String documentId, String customerId, GenerationContentData data) {
         StringBuilder html = new StringBuilder();
         html.append("<!DOCTYPE html>\n");
         html.append("<html lang=\"en\">\n");
@@ -122,10 +121,8 @@ public class ContentGeneratorImpl implements IContentGenerator {
         html.append("            <tr><td><strong>Generated At:</strong></td><td>")
                 .append(LocalDateTime.now().format(FORMATTER)).append("</td></tr>\n");
 
-        if (data != null && !data.isEmpty()) {
-            data.forEach((key, value) ->
-                    html.append("            <tr><td><strong>").append(key)
-                            .append(":</strong></td><td>").append(value).append("</td></tr>\n"));
+        if (data != null) {
+            appendHtmlContentData(html, data);
         }
 
         html.append("        </table>\n");
@@ -139,6 +136,37 @@ public class ContentGeneratorImpl implements IContentGenerator {
     private String encodeToBase64(String content) {
         byte[] contentBytes = content.getBytes(StandardCharsets.UTF_8);
         return Base64.getEncoder().encodeToString(contentBytes);
+    }
+
+    private void appendContentData(StringBuilder content, GenerationContentData data) {
+        appendLine(content, "Generation ID", data.getGenerationId());
+        appendLine(content, "Document ID", data.getDocumentId());
+        appendLine(content, "Customer ID", data.getCustomerId());
+        //appendLine(content, "File Extension", data.getFileExtension());
+        appendLine(content, "Request ID", data.getRequestId());
+        appendLine(content, "Saga ID", data.getSagaId());
+    }
+
+    private void appendHtmlContentData(StringBuilder html, GenerationContentData data) {
+        appendHtmlRow(html, "Generation ID", data.getGenerationId());
+        appendHtmlRow(html, "Document ID", data.getDocumentId());
+        appendHtmlRow(html, "Customer ID", data.getCustomerId());
+        //appendHtmlRow(html, "File Extension", data.getFileExtension());
+        appendHtmlRow(html, "Request ID", data.getRequestId());
+        appendHtmlRow(html, "Saga ID", data.getSagaId());
+    }
+
+    private void appendLine(StringBuilder content, String label, String value) {
+        if (value != null) {
+            content.append("  ").append(label).append(": ").append(value).append("\n");
+        }
+    }
+
+    private void appendHtmlRow(StringBuilder html, String label, String value) {
+        if (value != null) {
+            html.append("            <tr><td><strong>").append(label)
+                    .append(":</strong></td><td>").append(value).append("</td></tr>\n");
+        }
     }
 }
 

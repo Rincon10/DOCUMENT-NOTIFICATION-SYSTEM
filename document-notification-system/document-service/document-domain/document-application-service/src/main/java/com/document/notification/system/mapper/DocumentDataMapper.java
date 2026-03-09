@@ -13,7 +13,9 @@ import com.document.notification.system.outbox.model.generator.DocumentGeneratio
 import com.document.notification.system.outbox.model.notification.DocumentNotificationEventPayload;
 import org.springframework.stereotype.Component;
 
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 
 /**
@@ -57,6 +59,7 @@ public class DocumentDataMapper implements IDocumentDataMapper {
     @Override
     public Document createDocumentCommandToDocument(CreateDocumentCommand createDocumentCommand) {
         final DocumentInformationDTO documentInformation = createDocumentCommand.getDocumentInformation();
+
         return Document.builder()
                 .customerId(new CustomerId(createDocumentCommand.getCustomerId()))
                 .deliveryAddress(documentAddressToStreetAddress(documentInformation.getAddress()))
@@ -64,7 +67,25 @@ public class DocumentDataMapper implements IDocumentDataMapper {
                 .documentItems(documentItemDTOtoDocumentItemList(createDocumentCommand.getLabels()))
                 .periodStartDate(documentInformation.getPeriodStartDate())
                 .periodEndDate(documentInformation.getPeriodEndDate())
+                .fileName(buildFileName(createDocumentCommand))
                 .build();
+    }
+
+    private String buildFileName(CreateDocumentCommand createDocumentCommand) {
+        final DocumentInformationDTO documentInformation = createDocumentCommand.getDocumentInformation();
+        String customerId = createDocumentCommand.getCustomerId() != null ? createDocumentCommand.getCustomerId().toString() : "unknown-customer";
+        String periodStartDate = documentInformation.getPeriodStartDate() != null
+                ? documentInformation.getPeriodStartDate().toString()
+                : "no-start-date";
+        String periodEndDate = documentInformation.getPeriodEndDate() != null
+                ? documentInformation.getPeriodEndDate().toString()
+                : "no-end-date";
+
+        return String.format("document-%s-%s-%s.%s",
+                customerId,
+                periodStartDate,
+                periodEndDate,
+                documentInformation.getDocumentType().name().toLowerCase());
     }
 
 
@@ -80,12 +101,51 @@ public class DocumentDataMapper implements IDocumentDataMapper {
 
     @Override
     public DocumentGenerationEventPayload documentCreatedEventToDocumentGenerationEventPayload(DocumentCreatedEvent documentCreatedEvent) {
+        Document document = documentCreatedEvent.getDocument();
         return DocumentGenerationEventPayload.builder()
                 .documentId(documentCreatedEvent.getDocument().getId().getValue().toString())
                 .customerId(documentCreatedEvent.getDocument().getCustomerId().getValue().toString())
                 .createdAt(documentCreatedEvent.getCreatedAt())
                 .documentGenerationStatus(DocumentGenerationStatus.PENDING.name())
+                .documentType(document.getDocumentType().name())
+                .fileName(buildFileName(document))
+                .periodStartDate(document.getPeriodStartDate())
+                .periodEndDate(document.getPeriodEndDate())
+                .deliveryAddress(buildDeliveryAddress(document.getDeliveryAddress()))
+                .documentStatus(document.getDocumentStatus().name())
+                .itemCount(document.getDocumentItems() != null ? document.getDocumentItems().size() : 0)
+                .metadata(buildMetadata(document))
                 .build();
+    }
+
+    private String buildFileName(Document document) {
+        return "document-" + document.getId().getValue() + "." + document.getDocumentType().name().toLowerCase();
+    }
+
+    private String buildDeliveryAddress(StreetAddress address) {
+        if (address == null) {
+            return null;
+        }
+        return String.join(", ",
+                List.of(address.getStreet(), address.getCity(), address.getState(), address.getZipCode(), address.getCountry())
+                        .stream()
+                        .filter(value -> value != null && !value.isBlank())
+                        .toList());
+    }
+
+    private Map<String, String> buildMetadata(Document document) {
+        Map<String, String> metadata = new HashMap<>();
+        metadata.put("source", "document-service");
+        metadata.put("documentId", document.getId().getValue().toString());
+        metadata.put("customerId", document.getCustomerId().getValue().toString());
+        metadata.put("documentType", document.getDocumentType().name());
+        if (document.getPeriodStartDate() != null) {
+            metadata.put("periodStartDate", document.getPeriodStartDate().toString());
+        }
+        if (document.getPeriodEndDate() != null) {
+            metadata.put("periodEndDate", document.getPeriodEndDate().toString());
+        }
+        return metadata;
     }
 
     @Override

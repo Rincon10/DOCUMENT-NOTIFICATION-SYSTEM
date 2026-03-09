@@ -63,6 +63,7 @@ public class DocumentDataAccessMapperImpl implements DocumentDataAccessMapperI {
                 .createdAt(DateUtils.getZoneDateTimeByUTCZoneId().toLocalDateTime())
                 .periodEndDate(document.getPeriodEndDate())
                 .totalAmount(totalRegularInterest.add(totalLateInterest))
+                .fileName(document.getFileName())
                 .failureMessages(failuresMessages)
                 .build();
 

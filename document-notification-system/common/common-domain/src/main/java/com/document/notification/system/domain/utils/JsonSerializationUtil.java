@@ -1,5 +1,4 @@
-package com.document.notification.system.utils;
-
+package com.document.notification.system.domain.utils;
 
 import com.document.notification.system.domain.exceptions.DomainException;
 import com.fasterxml.jackson.core.JsonProcessingException;
@@ -8,14 +7,6 @@ import com.fasterxml.jackson.databind.SerializationFeature;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import lombok.extern.slf4j.Slf4j;
 
-/**
- * Utility class for JSON serialization and deserialization operations.
- * Provides generic methods to convert objects to JSON strings with proper error handling.
- *
- * @author Ivan Camilo Rincon Saavedra
- * @version 1.0
- * @since 21/02/2026
- */
 @Slf4j
 public class JsonSerializationUtil {
     private static final ObjectMapper objectMapper = createObjectMapper();
@@ -115,4 +106,3 @@ public class JsonSerializationUtil {
         }
     }
 }
-
