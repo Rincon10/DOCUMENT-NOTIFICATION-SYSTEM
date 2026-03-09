@@ -59,6 +59,7 @@ public class DocumentDataMapper implements IDocumentDataMapper {
     @Override
     public Document createDocumentCommandToDocument(CreateDocumentCommand createDocumentCommand) {
         final DocumentInformationDTO documentInformation = createDocumentCommand.getDocumentInformation();
+
         return Document.builder()
                 .customerId(new CustomerId(createDocumentCommand.getCustomerId()))
                 .deliveryAddress(documentAddressToStreetAddress(documentInformation.getAddress()))
@@ -66,7 +67,25 @@ public class DocumentDataMapper implements IDocumentDataMapper {
                 .documentItems(documentItemDTOtoDocumentItemList(createDocumentCommand.getLabels()))
                 .periodStartDate(documentInformation.getPeriodStartDate())
                 .periodEndDate(documentInformation.getPeriodEndDate())
+                .fileName(buildFileName(createDocumentCommand))
                 .build();
+    }
+
+    private String buildFileName(CreateDocumentCommand createDocumentCommand) {
+        final DocumentInformationDTO documentInformation = createDocumentCommand.getDocumentInformation();
+        String customerId = createDocumentCommand.getCustomerId() != null ? createDocumentCommand.getCustomerId().toString() : "unknown-customer";
+        String periodStartDate = documentInformation.getPeriodStartDate() != null
+                ? documentInformation.getPeriodStartDate().toString()
+                : "no-start-date";
+        String periodEndDate = documentInformation.getPeriodEndDate() != null
+                ? documentInformation.getPeriodEndDate().toString()
+                : "no-end-date";
+
+        return String.format("document-%s-%s-%s.%s",
+                customerId,
+                periodStartDate,
+                periodEndDate,
+                documentInformation.getDocumentType().name().toLowerCase());
     }
 
 
@@ -96,7 +115,6 @@ public class DocumentDataMapper implements IDocumentDataMapper {
                 .documentStatus(document.getDocumentStatus().name())
                 .itemCount(document.getDocumentItems() != null ? document.getDocumentItems().size() : 0)
                 .metadata(buildMetadata(document))
-                .fileName(buildFileName(document))
                 .build();
     }
 
