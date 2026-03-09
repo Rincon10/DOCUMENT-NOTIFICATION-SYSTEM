@@ -36,16 +36,21 @@ public class DocumentOutboxRepositoryImpl implements DocumentOutboxRepository {
 
     @Override
     public Optional<List<DocumentOutboxMessage>> findByTypeAndOutboxStatus(String type, OutboxStatus status) {
-        return Optional.empty();
+
+        return Optional.of(documentOutboxRepository.findByTypeAndOutboxStatus(type, status)
+                .orElseThrow(() -> new RuntimeException("Document Outbox object was not found for type " + type))
+                .stream()
+                .map(documentOutboxDataAccessMapper::mapDocumentOutboxEntityToDocumentOutboxMessage)
+                .toList());
     }
 
     @Override
     public Optional<DocumentOutboxMessage> findByTypeAndSagaIdAndGenerationStatusAndOutboxStatus(String type, UUID sagaId, GenerationStatus generationStatus, OutboxStatus outboxStatus) {
-        return Optional.empty();
+        throw new UnsupportedOperationException("Find operation is not supported for DocumentOutboxRepositoryImpl");
     }
 
     @Override
     public void deleteByTypeAndOutboxStatus(String type, OutboxStatus status) {
-
+        throw new UnsupportedOperationException("Delete operation is not supported for DocumentOutboxRepositoryImpl");
     }
 }
