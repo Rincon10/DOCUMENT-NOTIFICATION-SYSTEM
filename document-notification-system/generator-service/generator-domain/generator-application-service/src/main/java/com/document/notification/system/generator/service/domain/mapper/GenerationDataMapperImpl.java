@@ -44,6 +44,8 @@ public class GenerationDataMapperImpl implements GenerationDataMapper {
                 .createdAt(generationEvent.getCreatedAt())
                 .generationStatus(documentGeneration.getGenerationStatus().name())
                 .failureMessages(generationEvent.getFailureMessages())
+                .contentBase64(documentGeneration.getGeneratedContentBase64())
+                .contentType(documentGeneration.getDocumentType().name())
                 .build();
     }
 

@@ -13,6 +13,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -73,5 +74,9 @@ public class DocumentOutboxHelper {
             throw new GeneratorDomainException("Could not save DocumentOutboxMessage!");
         }
         log.info("DocumentOutboxMessage is saved with id: {}", documentOutboxMessage.getId());
+    }
+
+    public Optional<List<DocumentOutboxMessage>> getDocumentOutboxMessageByOutboxStatus(OutboxStatus outboxStatus) {
+         return documentOutboxRepository.findByTypeAndOutboxStatus(SAGA_NAME, outboxStatus);
     }
 }
