@@ -33,6 +33,18 @@ public class DocumentEventPayload {
     private String generationStatus;
 
     @JsonProperty
+    private String fileName;
+
+    @JsonProperty
+    private String contentType;
+
+    @JsonProperty
+    private String contentBase64;
+
+    @JsonProperty
+    private Long fileSizeInBytes;
+
+    @JsonProperty
     private List<String> failureMessages;
 
 }
