@@ -11,9 +11,6 @@
 
     <artifactId>generator-domain-core</artifactId>
 
-    <properties>
-    </properties>
-
     <dependencies>
         <dependency>
             <groupId>com.document.notification.system</groupId>
