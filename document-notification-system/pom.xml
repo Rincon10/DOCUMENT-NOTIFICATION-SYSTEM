@@ -14,6 +14,7 @@
         <module>common</module>
         <module>document-service</module>
         <module>generator-service</module>
+        <module>notification-service</module>
         <module>customer-service</module>
     </modules>
 
@@ -104,6 +105,32 @@
             <dependency>
                 <groupId>com.document.notification.system</groupId>
                 <artifactId>generator-dataaccess</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+            <!--            Notification dependencies-->
+            <dependency>
+                <groupId>com.document.notification.system</groupId>
+                <artifactId>notification-domain-core</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>com.document.notification.system</groupId>
+                <artifactId>notification-application-service</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>com.document.notification.system</groupId>
+                <artifactId>notification-container</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>com.document.notification.system</groupId>
+                <artifactId>notification-messaging</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>com.document.notification.system</groupId>
+                <artifactId>notification-dataaccess</artifactId>
                 <version>${project.version}</version>
             </dependency>
             <!--            Customer dependencies-->
