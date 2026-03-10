@@ -13,8 +13,9 @@
     <modules>
         <module>notification-dataaccess</module>
         <module>notification-messaging</module>
-        <module>notification-container</module>
         <module>notification-domain</module>
+        <module>notification-container</module>
+
     </modules>
 
 

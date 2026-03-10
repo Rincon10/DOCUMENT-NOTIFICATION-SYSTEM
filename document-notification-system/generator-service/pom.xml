@@ -13,7 +13,6 @@
         <module>generator-domain</module>
         <module>generator-messaging</module>
         <module>generator-container</module>
-        <module>generator-domain/generator-domain-core</module>
     </modules>
     <modelVersion>4.0.0</modelVersion>
 
