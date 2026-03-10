@@ -6,11 +6,13 @@ import com.document.notification.system.outbox.OutboxScheduler;
 import com.document.notification.system.outbox.OutboxStatus;
 import lombok.AllArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 import java.util.Optional;
+import java.util.stream.Collectors;
 
 /**
  * @author Ivan Camilo Rincon Saavedra
@@ -28,10 +30,27 @@ public class DocumentOutboxScheduler implements OutboxScheduler {
 
     @Override
     @Transactional
+    @Scheduled(fixedRateString = "${generator-service.outbox-scheduler-fixed-rate}",
+            initialDelayString = "${generator-service.outbox-scheduler-initial-delay}")
     public void processOutboxMessage() {
         log.info("Processing document outbox messages...");
 
         Optional<List<DocumentOutboxMessage>> documentOutboxMessageResponse = documentOutboxHelper.getDocumentOutboxMessageByOutboxStatus(OutboxStatus.STARTED);
+
+        if (documentOutboxMessageResponse.isPresent() && !documentOutboxMessageResponse.get().isEmpty()) {
+            List<DocumentOutboxMessage> documentOutboxMessages = documentOutboxMessageResponse.get();
+            log.info("Received {} DocumentOutboxMessage with ids {}, sending to message bus!", documentOutboxMessages.size(),
+                    documentOutboxMessages.stream().map(outboxMessage ->
+                            outboxMessage.getId().toString()).collect(Collectors.joining(",")));
+
+            documentOutboxMessages.forEach(documentOutboxMessage -> {
+                generationResponseMessagePublisher.publish(documentOutboxMessage, documentOutboxHelper::updateOutboxMessage);
+            });
+
+        } else {
+            log.info("No document outbox message with STARTED status is found for processing!");
+        }
+
 
     }
 }
