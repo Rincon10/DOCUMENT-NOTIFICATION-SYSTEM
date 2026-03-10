@@ -2,9 +2,13 @@ package com.document.notification.system.generator.mapper;
 
 import com.document.notification.system.domain.valueobject.GenerationDocumentStatus;
 import com.document.notification.system.generator.service.domain.dto.GenerationRequest;
+import com.document.notification.system.generator.service.domain.outbox.model.DocumentEventPayload;
 import com.document.notification.system.kafka.document.avro.model.GeneratorRequestAvroModel;
+import com.document.notification.system.kafka.document.avro.model.GeneratorResponseAvroModel;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
+
+import java.util.ArrayList;
 
 /**
  * Mapper for converting between Avro models and domain DTOs
@@ -45,5 +49,24 @@ public class GeneratorMessagingDataMapper {
     }
 
 
+    public GeneratorResponseAvroModel documentEventPayloadToGeneratorResponseAvroModel(String sagaId, DocumentEventPayload documentEventPayload) {
+        return GeneratorResponseAvroModel.newBuilder()
+                .setId(documentEventPayload.getGenerationId())
+                .setSagaId(sagaId)
+                .setGeneratorId(documentEventPayload.getGenerationId())
+                .setCustomerId(documentEventPayload.getCustomerId())
+                .setDocumentId(documentEventPayload.getDocumentId())
+                .setCreatedAt(documentEventPayload.getCreatedAt().toInstant())
+                .setGenerationStatus(com.document.notification.system.kafka.document.avro.model.GenerationStatus
+                        .valueOf(documentEventPayload.getGenerationStatus()))
+                .setFileName(documentEventPayload.getFileName())
+                .setContentType(documentEventPayload.getContentType())
+                .setContentBase64(documentEventPayload.getContentBase64())
+                .setFileSizeInBytes(documentEventPayload.getFileSizeInBytes())
+                .setFailureMessages(documentEventPayload.getFailureMessages() != null
+                        ? new ArrayList<>(documentEventPayload.getFailureMessages())
+                        : new ArrayList<>())
+                .build();
+    }
 }
 
