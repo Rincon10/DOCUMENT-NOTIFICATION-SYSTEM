@@ -15,7 +15,7 @@ import org.springframework.stereotype.Component;
  */
 @Slf4j
 @Component
-public class DocumentMessagingDataMapper {
+public class GeneratorMessagingDataMapper {
 
     /**
      * Converts GeneratorRequestAvroModel to GenerationRequest DTO
