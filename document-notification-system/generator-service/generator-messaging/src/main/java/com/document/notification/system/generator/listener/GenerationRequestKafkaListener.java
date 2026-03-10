@@ -1,6 +1,6 @@
 package com.document.notification.system.generator.listener;
 
-import com.document.notification.system.generator.mapper.DocumentMessagingDataMapper;
+import com.document.notification.system.generator.mapper.GeneratorMessagingDataMapper;
 import com.document.notification.system.generator.service.domain.exception.GeneratorDomainException;
 import com.document.notification.system.generator.service.domain.ports.input.message.listener.GenerationRequestMessageListener;
 import com.document.notification.system.kafka.consumer.KafkaConsumer;
@@ -30,7 +30,7 @@ import java.util.List;
 public class GenerationRequestKafkaListener implements KafkaConsumer<GeneratorRequestAvroModel> {
 
     private final GenerationRequestMessageListener generationRequestMessageListener;
-    private final DocumentMessagingDataMapper documentMessagingDataMapper;
+    private final GeneratorMessagingDataMapper generatorMessagingDataMapper;
 
 
     @Override
@@ -60,7 +60,7 @@ public class GenerationRequestKafkaListener implements KafkaConsumer<GeneratorRe
                     log.info("Processing pending generation request for document id: {} and saga id: {}",
                             generatorRequestAvroModel.getDocumentId(),
                             generatorRequestAvroModel.getSagaId());
-                    generationRequestMessageListener.completedGeneration(documentMessagingDataMapper.generatorRequestAvroModelToGenerationRequest(generatorRequestAvroModel));
+                    generationRequestMessageListener.completedGeneration(generatorMessagingDataMapper.generatorRequestAvroModelToGenerationRequest(generatorRequestAvroModel));
                 } else if (DocumentGenerationStatus.CANCELLED.equals(documentGenerationStatus)) {
                     log.info("Processing cancelled generation request for document id: {} and saga id: {}",
                             generatorRequestAvroModel.getDocumentId(),

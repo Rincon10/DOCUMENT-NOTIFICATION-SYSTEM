@@ -25,7 +25,7 @@ public class KafkaProducerHelperImpl implements KafkaProducerHelper {
     private final ObjectMapper objectMapper;
 
     @Override
-    public <T> T getOrderEventPayload(String payload, Class<T> outputType) {
+    public <T> T getDocumentEventPayload(String payload, Class<T> outputType) {
         try {
             return objectMapper.readValue(payload, outputType);
         } catch (JsonProcessingException e) {

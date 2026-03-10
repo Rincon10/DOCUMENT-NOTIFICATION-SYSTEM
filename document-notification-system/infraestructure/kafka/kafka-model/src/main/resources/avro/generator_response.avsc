@@ -58,13 +58,60 @@
       }
     },
     {
+      "name": "fileName",
+      "type": [
+        "null",
+        {
+          "type": "string",
+          "avro.java.string": "String"
+        }
+      ],
+      "doc": "Generated file name when content generation succeeds",
+      "default": null
+    },
+    {
+      "name": "contentType",
+      "type": [
+        "null",
+        {
+          "type": "string",
+          "avro.java.string": "String"
+        }
+      ],
+      "doc": "MIME type of the generated file, for example application/pdf",
+      "default": null
+    },
+    {
+      "name": "contentBase64",
+      "type": [
+        "null",
+        {
+          "type": "string",
+          "avro.java.string": "String"
+        }
+      ],
+      "doc": "Generated document content encoded as Base64. Present only when generation succeeds",
+      "default": null
+    },
+    {
+      "name": "fileSizeInBytes",
+      "type": [
+        "null",
+        "long"
+      ],
+      "doc": "Optional size of the generated binary content in bytes before Base64 encoding",
+      "default": null
+    },
+    {
       "name": "failureMessages",
       "type": {
         "type": "array",
         "items": {
-          "type": "string"
+          "type": "string",
+          "avro.java.string": "String"
         }
-      }
+      },
+      "doc": "Business or technical errors produced during generation. Empty when generation succeeds"
     }
   ]
 }

@@ -34,7 +34,7 @@ public class DocumentGenerationEventRequestKafkaPublisher implements GenerationR
 
     @Override
     public void publish(DocumentGenerationOutboxMessage documentGenerationOutboxMessage, BiConsumer<DocumentGenerationOutboxMessage, OutboxStatus> outboxCallback) {
-        DocumentGenerationEventPayload documentGenerationEventPayload = kafkaProducerHelper.getOrderEventPayload(documentGenerationOutboxMessage.getPayload(), DocumentGenerationEventPayload.class);
+        DocumentGenerationEventPayload documentGenerationEventPayload = kafkaProducerHelper.getDocumentEventPayload(documentGenerationOutboxMessage.getPayload(), DocumentGenerationEventPayload.class);
 
         String sagaId = documentGenerationOutboxMessage.getSagaId().toString();
         log.info("Received DocumentGenerationOutboxMessage for document id: {} and saga id: {}",

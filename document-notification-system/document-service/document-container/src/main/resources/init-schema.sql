@@ -170,6 +170,8 @@ CREATE TABLE "document".generation_outbox
 );
 
 -- Create Indexes for outbox polling
+CREATE UNIQUE INDEX uk_generation_outbox_type_saga_id_saga_status
+    ON "document".generation_outbox (type, saga_id, saga_status);
 CREATE INDEX idx_generation_outbox_saga_id ON "document".generation_outbox (saga_id);
 CREATE INDEX idx_generation_outbox_status ON "document".generation_outbox (outbox_status);
 CREATE INDEX idx_generation_outbox_created_at ON "document".generation_outbox (created_at);
@@ -187,6 +189,7 @@ CREATE TABLE "document".notification_outbox
     processed_at  TIMESTAMP,
     type          VARCHAR(255)             NOT NULL,
     payload       TEXT                     NOT NULL,
+    saga_status   "document".saga_status  NOT NULL,
     outbox_status "document".outbox_status NOT NULL,
     version       INTEGER DEFAULT 0,
     CONSTRAINT notification_outbox_pkey PRIMARY KEY (id),
@@ -195,10 +198,13 @@ CREATE TABLE "document".notification_outbox
 );
 
 -- Create Indexes for notification outbox polling
+CREATE UNIQUE INDEX uk_notification_outbox_type_saga_id_saga_status
+    ON "document".notification_outbox (type, saga_id, saga_status);
 CREATE INDEX idx_notification_outbox_saga_id ON "document".notification_outbox (saga_id);
 CREATE INDEX idx_notification_outbox_document_id ON "document".notification_outbox (document_id);
 CREATE INDEX idx_notification_outbox_status ON "document".notification_outbox (outbox_status);
 CREATE INDEX idx_notification_outbox_created_at ON "document".notification_outbox (created_at);
+CREATE INDEX idx_notification_outbox_saga_status ON "document".notification_outbox (saga_status);
 
 -- ===================================================================
 -- 7. MATERIALIZED VIEWS FOR CROSS-SCHEMA QUERIES
