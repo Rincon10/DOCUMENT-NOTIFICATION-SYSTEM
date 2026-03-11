@@ -47,12 +47,12 @@ DROP TABLE IF EXISTS generator.document_generation CASCADE;
 
 CREATE TABLE generator.document_generation
 (
-    id            UUID                       NOT NULL,
-    customer_id   UUID                       NOT NULL,
-    document_id   UUID                       NOT NULL,
+    id            UUID                        NOT NULL,
+    customer_id   UUID                        NOT NULL,
+    document_id   UUID                        NOT NULL,
     document_name VARCHAR(100),
     status        generator.generation_status NOT NULL,
-    created_at    TIMESTAMP WITH TIME ZONE   NOT NULL,
+    created_at    TIMESTAMP WITH TIME ZONE    NOT NULL,
     CONSTRAINT document_generation_pkey PRIMARY KEY (id)
 );
 
@@ -71,14 +71,14 @@ DROP TABLE IF EXISTS generator.document_outbox CASCADE;
 
 CREATE TABLE generator.document_outbox
 (
-    id                UUID                    NOT NULL,
-    saga_id           UUID                    NOT NULL,
-    created_at        TIMESTAMP WITH TIME ZONE NOT NULL,
+    id                UUID                        NOT NULL,
+    saga_id           UUID                        NOT NULL,
+    created_at        TIMESTAMP WITH TIME ZONE    NOT NULL,
     processed_at      TIMESTAMP WITH TIME ZONE,
-    type              VARCHAR(255)            NOT NULL,
-    payload           TEXT                    NOT NULL,
+    type              VARCHAR(255)                NOT NULL,
+    payload           TEXT                        NOT NULL,
     generation_status generator.generation_status NOT NULL,
-    outbox_status     generator.outbox_status NOT NULL,
+    outbox_status     generator.outbox_status     NOT NULL,
     version           INTEGER DEFAULT 0,
     CONSTRAINT document_outbox_pkey PRIMARY KEY (id)
 );
@@ -95,5 +95,7 @@ CREATE UNIQUE INDEX document_outbox_type_saga_id_generation_status_outbox_status
     ON generator.document_outbox (type, saga_id, generation_status, outbox_status);
 
 
-SELECT * FROM generator.document_generation dg;
-SELECT * FROM generator.document_outbox do2 ;
+SELECT *
+FROM generator.document_generation dg;
+SELECT *
+FROM generator.document_outbox do2;

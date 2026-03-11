@@ -91,6 +91,7 @@ curl --request POST \
 ```
 
 avro
+
 ```
 mvn -f "C:\proyectos\DOCUMENT-NOTIFICATION-SYSTEM\document-notification-system\pom.xml" -pl infraestructure/kafka/kafka-model -am generate-sources
 ```

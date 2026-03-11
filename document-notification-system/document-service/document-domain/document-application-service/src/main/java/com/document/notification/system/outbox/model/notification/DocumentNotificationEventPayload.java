@@ -17,36 +17,36 @@ import java.util.List;
 @Builder
 @AllArgsConstructor
 public class DocumentNotificationEventPayload {
-	@JsonProperty
-	private String documentId;
+    @JsonProperty
+    private String documentId;
 
-	@JsonProperty
-	private String customerId;
+    @JsonProperty
+    private String customerId;
 
-	@JsonProperty
-	private ZonedDateTime createdAt;
+    @JsonProperty
+    private ZonedDateTime createdAt;
 
-	@JsonProperty
-	private String documentNotificationStatus;
+    @JsonProperty
+    private String documentNotificationStatus;
 
-	@JsonProperty
-	private String recipientId;
+    @JsonProperty
+    private String recipientId;
 
-	@JsonProperty
-	private String subject;
+    @JsonProperty
+    private String subject;
 
-	@JsonProperty
-	private String message;
+    @JsonProperty
+    private String message;
 
-	@JsonProperty
-	private String fileName;
+    @JsonProperty
+    private String fileName;
 
-	@JsonProperty
-	private String contentType;
+    @JsonProperty
+    private String contentType;
 
-	@JsonProperty
-	private String contentBase64;
+    @JsonProperty
+    private String contentBase64;
 
-	@JsonProperty
-	private List<String> failureMessages;
+    @JsonProperty
+    private List<String> failureMessages;
 }

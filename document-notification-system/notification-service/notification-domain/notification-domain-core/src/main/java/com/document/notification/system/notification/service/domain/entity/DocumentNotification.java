@@ -18,8 +18,8 @@ public class DocumentNotification extends AggregateRoot<NotificationId> {
     private final CustomerId customerId;
     private final Recipient recipient;
     private final NotificationContent notificationContent;
-    private NotificationStatus notificationStatus;
     private final List<String> failureMessages;
+    private NotificationStatus notificationStatus;
 
     public DocumentNotification(NotificationId id,
                                 DocumentId documentId,

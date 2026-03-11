@@ -67,7 +67,7 @@ public class NotificationOutboxHelper {
     @Transactional
     public void save(DocumentNotificationOutboxMessage documentNotificationOutboxMessage) {
         DocumentNotificationOutboxMessage savedNotification = notificationOutboxRepository.save(documentNotificationOutboxMessage);
-        if(Objects.isNull(savedNotification)) {
+        if (Objects.isNull(savedNotification)) {
             log.error("Failed to save DocumentNotificationOutboxMessage with id: {}", documentNotificationOutboxMessage.getId());
             throw new DocumentDomainException("Failed to save DocumentNotificationOutboxMessage with id: " + documentNotificationOutboxMessage.getId());
         }

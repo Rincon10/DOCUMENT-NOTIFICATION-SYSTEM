@@ -15,4 +15,5 @@ import org.springframework.context.annotation.Configuration;
 public class DocumentServiceConfigData {
     // topics a los cual deberia publicar
     private String generatorRequestTopicName;
+    private String notificationRequestTopicName;
 }
