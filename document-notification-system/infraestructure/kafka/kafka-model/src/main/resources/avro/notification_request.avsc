@@ -1,0 +1,125 @@
+{
+  "namespace": "com.document.notification.system.kafka.document.avro.model",
+  "type": "record",
+  "name": "NotificationRequestAvroModel",
+  "fields": [
+	{
+	  "name": "id",
+	  "type": {
+		"type": "string",
+		"logicalType": "uuid"
+	  }
+	},
+	{
+	  "name": "sagaId",
+	  "type": {
+		"type": "string",
+		"logicalType": "uuid"
+	  }
+	},
+	{
+	  "name": "customerId",
+	  "type": {
+		"type": "string",
+		"logicalType": "uuid"
+	  }
+	},
+	{
+	  "name": "documentId",
+	  "type": {
+		"type": "string",
+		"logicalType": "uuid"
+	  }
+	},
+	{
+	  "name": "createdAt",
+	  "type": {
+		"type": "long",
+		"logicalType": "timestamp-millis"
+	  }
+	},
+	{
+	  "name": "documentNotificationStatus",
+	  "type": {
+		"type": "enum",
+		"name": "DocumentNotificationStatus",
+		"symbols": [
+		  "GENERATED"
+		]
+	  },
+	  "doc": "Document notification status emitted by document-service before notification processing"
+	},
+	{
+	  "name": "recipientId",
+	  "type": {
+		"type": "string",
+		"avro.java.string": "String"
+	  },
+	  "doc": "Notification target, for example an email address"
+	},
+	{
+	  "name": "subject",
+	  "type": {
+		"type": "string",
+		"avro.java.string": "String"
+	  },
+	  "doc": "Notification subject"
+	},
+	{
+	  "name": "message",
+	  "type": {
+		"type": "string",
+		"avro.java.string": "String"
+	  },
+	  "doc": "Notification body content"
+	},
+	{
+	  "name": "fileName",
+	  "type": [
+		"null",
+		{
+		  "type": "string",
+		  "avro.java.string": "String"
+		}
+	  ],
+	  "default": null,
+	  "doc": "Optional attachment file name"
+	},
+	{
+	  "name": "contentType",
+	  "type": [
+		"null",
+		{
+		  "type": "string",
+		  "avro.java.string": "String"
+		}
+	  ],
+	  "default": null,
+	  "doc": "Optional MIME type for the attachment"
+	},
+	{
+	  "name": "contentBase64",
+	  "type": [
+		"null",
+		{
+		  "type": "string",
+		  "avro.java.string": "String"
+		}
+	  ],
+	  "default": null,
+	  "doc": "Optional attachment content encoded as Base64"
+	},
+	{
+	  "name": "failureMessages",
+	  "type": {
+		"type": "array",
+		"items": {
+		  "type": "string",
+		  "avro.java.string": "String"
+		}
+	  },
+	  "doc": "Validation or processing issues collected before sending the notification"
+	}
+  ]
+}
+

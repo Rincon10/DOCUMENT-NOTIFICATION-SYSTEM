@@ -1,0 +1,76 @@
+{
+  "namespace": "com.document.notification.system.kafka.document.avro.model",
+  "type": "record",
+  "name": "NotificationResponseAvroModel",
+  "fields": [
+	{
+	  "name": "id",
+	  "type": {
+		"type": "string",
+		"logicalType": "uuid"
+	  }
+	},
+	{
+	  "name": "sagaId",
+	  "type": {
+		"type": "string",
+		"logicalType": "uuid"
+	  }
+	},
+	{
+	  "name": "notificationId",
+	  "type": {
+		"type": "string",
+		"logicalType": "uuid"
+	  }
+	},
+	{
+	  "name": "documentId",
+	  "type": {
+		"type": "string",
+		"logicalType": "uuid"
+	  }
+	},
+	{
+	  "name": "recipientId",
+	  "type": {
+		"type": "string",
+		"avro.java.string": "String"
+	  },
+	  "doc": "Notification target that was processed"
+	},
+	{
+	  "name": "createdAt",
+	  "type": {
+		"type": "long",
+		"logicalType": "timestamp-millis"
+	  }
+	},
+	{
+	  "name": "notificationStatus",
+	  "type": {
+		"type": "enum",
+		"name": "NotificationStatus",
+		"symbols": [
+		  "NOTIFICATION_PENDING",
+		  "NOTIFICATION_SENT",
+		  "NOTIFICATION_CANCELLED",
+		  "NOTIFICATION_FAILED"
+		]
+	  },
+	  "doc": "Final processing status returned by notification-service"
+	},
+	{
+	  "name": "failureMessages",
+	  "type": {
+		"type": "array",
+		"items": {
+		  "type": "string",
+		  "avro.java.string": "String"
+		}
+	  },
+	  "doc": "Business or technical errors produced while sending the notification"
+	}
+  ]
+}
+
