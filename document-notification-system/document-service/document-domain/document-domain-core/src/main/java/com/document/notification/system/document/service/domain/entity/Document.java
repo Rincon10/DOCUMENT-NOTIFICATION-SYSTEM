@@ -28,17 +28,16 @@ public class Document extends AggregateRoot<DocumentId> {
     private final StreetAddress deliveryAddress;
     private final DocumentType documentType;
     private final List<DocumentItem> documentItems;
-    private DocumentStatus documentStatus;
-
-    private List<String> failureMessages;
     private final LocalDate periodStartDate;
     private final LocalDate periodEndDate;
+    private DocumentStatus documentStatus;
+    private List<String> failureMessages;
     @Setter
     private String fileName;
 
 
     @Builder
-    public Document(DocumentId documentId, CustomerId customerId, StreetAddress deliveryAddress, DocumentType documentType, List<DocumentItem> documentItems, DocumentStatus documentStatus, LocalDate periodStartDate, LocalDate periodEndDate, List<String> failureMessages,String fileName) {
+    public Document(DocumentId documentId, CustomerId customerId, StreetAddress deliveryAddress, DocumentType documentType, List<DocumentItem> documentItems, DocumentStatus documentStatus, LocalDate periodStartDate, LocalDate periodEndDate, List<String> failureMessages, String fileName) {
         setId(documentId);
         this.customerId = customerId;
         this.deliveryAddress = deliveryAddress;

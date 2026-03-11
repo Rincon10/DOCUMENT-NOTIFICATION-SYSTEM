@@ -5,7 +5,9 @@ import com.document.notification.system.dto.message.GenerationResponse;
 import com.document.notification.system.kafka.document.avro.model.CustomerAvroModel;
 import com.document.notification.system.kafka.document.avro.model.GeneratorRequestAvroModel;
 import com.document.notification.system.kafka.document.avro.model.GeneratorResponseAvroModel;
+import com.document.notification.system.kafka.document.avro.model.NotificationRequestAvroModel;
 import com.document.notification.system.outbox.model.generator.DocumentGenerationEventPayload;
+import com.document.notification.system.outbox.model.notification.DocumentNotificationEventPayload;
 
 public interface IDocumentMessagingDataMapper {
 
@@ -14,4 +16,6 @@ public interface IDocumentMessagingDataMapper {
     GenerationResponse generatorResponseAvroModelToGenerationResponse(GeneratorResponseAvroModel generatorResponseAvroModel);
 
     GeneratorRequestAvroModel documentGenerationEventPayloadToGeneratorRequestAvroModel(String sagaId, DocumentGenerationEventPayload documentGenerationEventPayload);
+
+    NotificationRequestAvroModel documentNotificationEventPayloadToNotificationRequestAvroModel(String sagaId, DocumentNotificationEventPayload documentNotificationEventPayload);
 }

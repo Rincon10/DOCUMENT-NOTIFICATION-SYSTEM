@@ -17,7 +17,7 @@ import org.springframework.stereotype.Component;
 @Slf4j
 @Component
 @AllArgsConstructor
-public class DocumentNotificationSaga implements SagaStep<NotificationResponse>{
+public class DocumentNotificationSaga implements SagaStep<NotificationResponse> {
     private final IDocumentDataMapper documentDataMapper;
     private final IDocumentDomainService documentDomainService;
     private final IDocumentSagaHelper documentSagaHelper;

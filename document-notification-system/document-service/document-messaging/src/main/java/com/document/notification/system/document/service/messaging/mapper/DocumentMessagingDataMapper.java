@@ -2,19 +2,19 @@ package com.document.notification.system.document.service.messaging.mapper;
 
 import com.document.notification.system.dto.message.CustomerModel;
 import com.document.notification.system.dto.message.GenerationResponse;
-import com.document.notification.system.kafka.document.avro.model.CustomerAvroModel;
-import com.document.notification.system.kafka.document.avro.model.DocumentGenerationStatus;
-import com.document.notification.system.kafka.document.avro.model.DocumentStatus;
-import com.document.notification.system.kafka.document.avro.model.DocumentType;
-import com.document.notification.system.kafka.document.avro.model.GeneratorRequestAvroModel;
-import com.document.notification.system.kafka.document.avro.model.GeneratorResponseAvroModel;
+import com.document.notification.system.domain.valueobject.GenerationStatus;
+import com.document.notification.system.kafka.document.avro.model.*;
 import com.document.notification.system.outbox.model.generator.DocumentGenerationEventPayload;
+import com.document.notification.system.outbox.model.notification.DocumentNotificationEventPayload;
 import org.apache.commons.lang3.StringUtils;
 import org.springframework.stereotype.Component;
 
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.Locale;
+import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.UUID;
 
 /**
@@ -26,12 +26,26 @@ import java.util.UUID;
 public class DocumentMessagingDataMapper implements IDocumentMessagingDataMapper {
     @Override
     public CustomerModel customerAvroModeltoCustomerModel(CustomerAvroModel customerAvroModel) {
-        throw new UnsupportedOperationException("Method not implemented yet");
+        return CustomerModel.builder()
+                .id(customerAvroModel.getId())
+                .username(customerAvroModel.getUsername())
+                .firstName(customerAvroModel.getFirstName())
+                .lastName(customerAvroModel.getLastName())
+                .build();
     }
 
     @Override
     public GenerationResponse generatorResponseAvroModelToGenerationResponse(GeneratorResponseAvroModel generatorResponseAvroModel) {
-        throw new UnsupportedOperationException("Method not implemented yet");
+        return GenerationResponse.builder()
+                .id(UUID.fromString(generatorResponseAvroModel.getId()))
+                .sagaId(UUID.fromString(generatorResponseAvroModel.getSagaId()))
+                .generatorId(UUID.fromString(generatorResponseAvroModel.getGeneratorId()))
+                .customerId(UUID.fromString(generatorResponseAvroModel.getCustomerId()))
+                .documentId(UUID.fromString(generatorResponseAvroModel.getDocumentId()))
+                .createdAt(generatorResponseAvroModel.getCreatedAt())
+                .generationStatus(mapGenerationStatus(generatorResponseAvroModel.getGenerationStatus()))
+                .failureMessages(safeList(generatorResponseAvroModel.getFailureMessages()))
+                .build();
     }
 
     @Override
@@ -62,6 +76,46 @@ public class DocumentMessagingDataMapper implements IDocumentMessagingDataMapper
                 .build();
     }
 
+    @Override
+    public NotificationRequestAvroModel documentNotificationEventPayloadToNotificationRequestAvroModel(String sagaId, DocumentNotificationEventPayload documentNotificationEventPayload) {
+        return NotificationRequestAvroModel.newBuilder()
+                .setId(UUID.randomUUID().toString())
+                .setSagaId(sagaId)
+                .setCustomerId(documentNotificationEventPayload.getCustomerId())
+                .setDocumentId(documentNotificationEventPayload.getDocumentId())
+                .setCreatedAt(documentNotificationEventPayload.getCreatedAt().toInstant())
+                .setDocumentNotificationStatus(mapDocumentNotificationStatus())
+                .setRecipientId(resolveRecipientId(documentNotificationEventPayload))
+                .setSubject(buildNotificationSubject(documentNotificationEventPayload))
+                .setMessage(buildNotificationMessage(documentNotificationEventPayload))
+                .setFileName(documentNotificationEventPayload.getFileName())
+                .setContentType(StringUtils.defaultIfBlank(documentNotificationEventPayload.getContentType(), "application/octet-stream"))
+                .setContentBase64(documentNotificationEventPayload.getContentBase64())
+                .setFailureMessages(safeList(documentNotificationEventPayload.getFailureMessages()))
+                .build();
+    }
+
+    private DocumentNotificationStatus mapDocumentNotificationStatus() {
+        return DocumentNotificationStatus.GENERATED;
+    }
+
+    private List<String> safeList(List<String> values) {
+        return values == null ? Collections.emptyList() : values;
+    }
+
+    private String resolveRecipientId(DocumentNotificationEventPayload payload) {
+        return StringUtils.defaultIfBlank(payload.getRecipientId(), payload.getCustomerId());
+    }
+
+    private String buildNotificationSubject(DocumentNotificationEventPayload payload) {
+        return StringUtils.defaultIfBlank(payload.getSubject(), "Document generated - " + payload.getDocumentId());
+    }
+
+    private String buildNotificationMessage(DocumentNotificationEventPayload payload) {
+        return StringUtils.defaultIfBlank(payload.getMessage(),
+                "Your document " + payload.getDocumentId() + " has been generated successfully.");
+    }
+
     private DocumentGenerationStatus mapDocumentGenerationStatus(String status) {
         String normalizedStatus = StringUtils.trimToEmpty(status).toUpperCase(Locale.ROOT);
         return switch (normalizedStatus) {
@@ -79,6 +133,15 @@ public class DocumentMessagingDataMapper implements IDocumentMessagingDataMapper
         return switch (normalizedStatus) {
             case "CANCELLED", "GENERATION_CANCELLED" -> DocumentStatus.CANCELLED;
             default -> DocumentStatus.PENDING;
+        };
+    }
+
+    private GenerationStatus mapGenerationStatus(com.document.notification.system.kafka.document.avro.model.GenerationStatus generationStatus) {
+        String normalizedStatus = Objects.isNull(generationStatus) ? "GENERATION_FAILED" : generationStatus.name();
+        return switch (normalizedStatus) {
+            case "GENERATION_COMPLETED" -> GenerationStatus.GENERATION_COMPLETED;
+            case "GENERATION_CANCELLED" -> GenerationStatus.GENERATION_CANCELLED;
+            default -> GenerationStatus.GENERATION_FAILED;
         };
     }
 

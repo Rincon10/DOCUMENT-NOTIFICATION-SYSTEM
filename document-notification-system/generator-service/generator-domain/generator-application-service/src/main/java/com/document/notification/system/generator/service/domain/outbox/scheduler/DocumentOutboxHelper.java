@@ -77,6 +77,6 @@ public class DocumentOutboxHelper {
     }
 
     public Optional<List<DocumentOutboxMessage>> getDocumentOutboxMessageByOutboxStatus(OutboxStatus outboxStatus) {
-         return documentOutboxRepository.findByTypeAndOutboxStatus(SAGA_NAME, outboxStatus);
+        return documentOutboxRepository.findByTypeAndOutboxStatus(SAGA_NAME, outboxStatus);
     }
 }

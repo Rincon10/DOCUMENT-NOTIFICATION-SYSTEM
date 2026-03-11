@@ -189,7 +189,7 @@ CREATE TABLE "document".notification_outbox
     processed_at  TIMESTAMP,
     type          VARCHAR(255)             NOT NULL,
     payload       TEXT                     NOT NULL,
-    saga_status   "document".saga_status  NOT NULL,
+    saga_status   "document".saga_status   NOT NULL,
     outbox_status "document".outbox_status NOT NULL,
     version       INTEGER DEFAULT 0,
     CONSTRAINT notification_outbox_pkey PRIMARY KEY (id),
