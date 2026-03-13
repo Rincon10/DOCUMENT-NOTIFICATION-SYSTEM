@@ -1,0 +1,12 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(find /c/Users/camilo.rincons/Desktop/DOCUMENT-NOTIFICATION-SYSTEM/document-notification-system/document-service -name \"*Notification*\" -o -name \"*notification*\" 2>/dev/null | grep -E \"\\\\.java$|\\\\.sql$\")",
+      "Bash(find /c/Users/camilo.rincons/Desktop/DOCUMENT-NOTIFICATION-SYSTEM/document-notification-system/common -name \"*Notification*\" -o -name \"*notification*\" 2>/dev/null | grep \"\\\\.java$\")",
+      "Bash(grep -r \"import.*OutboxStatus\\\\|import.*SagaStatus\\\\|import.*SagaConstants\" /c/Users/camilo.rincons/Desktop/DOCUMENT-NOTIFICATION-SYSTEM/document-notification-system/document-service --include=\"*.java\" 2>/dev/null | head -5)",
+      "Bash(git log:*)",
+      "Bash(git -C document-notification-system show 550496a:document-service/document-domain/document-application-service/src/main/java/com/document/notification/system/outbox/model/notification/DocumentNotificationEventPayload.java 2>/dev/null)",
+      "Bash(git ls-tree:*)"
+    ]
+  }
+}
