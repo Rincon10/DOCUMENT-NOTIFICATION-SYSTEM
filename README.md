@@ -28,16 +28,55 @@ El siguiente diagrama ilustra la aplicación de los principios de Domain-Driven 
 
 ![Arquitectura DDD](docs/00-arquitectura-DDD.png)
 
-## Estructura típica del repositorio
-(La estructura concreta puede diferir según la implementación; aquí se muestran capas conceptuales)
+## Estructura del repositorio
 
-- domain/            -> Entidades, agregados, value objects, eventos de dominio
-- application/       -> Casos de uso, orquestadores de flujos de negocio
-- adapters/          -> Adaptadores entrantes (HTTP, gRPC) y salientes (DB, Broker)
-- infrastructure/    -> 
-- config/            -> 
-- tests/             -> Pruebas unitarias, de integración y contract tests
-- docs/              -> Diagramas, decisiones arquitectónicas (ADR)
+```
+DOCUMENT-NOTIFICATION-SYSTEM/
+├── docs/                                    # Diagramas de arquitectura y documentación
+│   ├── 00-arquitectura-DDD.png
+│   ├── 00-flujo-generarl-arquitectura.png
+│   ├── 01-arquitectura-componente-document.png
+│   ├── 02-dependency-graph-document.png
+│   ├── 03-dependency-graph-generator.png
+│   ├── 04-dependency-graph-notification.png
+│   └── 05-dependency-graph-all.png
+│
+├── document-notification-system/            # Proyecto principal Maven multi-módulo
+│   ├── document-service/                    # Bounded Context: Gestión de documentos
+│   │   ├── document-domain/
+│   │   │   ├── document-domain-core/        # Entidades, agregados, value objects
+│   │   │   └── document-application-service/ # Casos de uso, puertos, DTOs
+│   │   ├── document-dataaccess/             # Adaptadores de persistencia (JPA)
+│   │   ├── document-application-api/        # Adaptadores de entrada (REST Controllers)
+│   │   ├── document-messaging/              # Adaptadores de mensajería (Kafka)
+│   │   └── document-container/              # Configuración Spring Boot, composición
+│   │
+│   ├── generator-service/                   # Bounded Context: Generación de documentos
+│   │   └── [misma estructura hexagonal]
+│   │
+│   ├── notification-service/                # Bounded Context: Envío de notificaciones
+│   │   └── [misma estructura hexagonal]
+│   │
+│   └── docker-compose.yml                   # Infraestructura (PostgreSQL, Kafka, etc.)
+│
+├── .github/                                 # GitHub Actions y templates
+├── .claude/                                 # Configuración de Claude Code
+├── README.md
+└── .gitignore
+```
+
+### Convenciones de nomenclatura
+
+Cada bounded context sigue la misma estructura de capas:
+
+| Capa | Módulo | Responsabilidad |
+|------|--------|-----------------|
+| **Domain** | `domain-core` | Entidades, agregados, value objects, eventos de dominio |
+| **Application** | `application-service` | Casos de uso, puertos (interfaces), DTOs, command handlers |
+| **Infrastructure** | `dataaccess` | Adaptadores de salida: repositorios JPA, mappers |
+| **Infrastructure** | `application-api` | Adaptadores de entrada: controllers REST, exception handlers |
+| **Infrastructure** | `messaging` | Adaptadores de mensajería: Kafka producers/consumers |
+| **Bootstrap** | `container` | Configuración Spring Boot, inyección de dependencias |
 
 ## Arquitectura general del sistema
 El siguiente diagrama muestra el flujo general de la arquitectura del sistema, ilustrando cómo los diferentes componentes interactúan entre sí en un entorno distribuido. Se puede observar la separación de responsabilidades, la comunicación entre servicios, y cómo fluyen los datos desde la entrada hasta la entrega de notificaciones.
