@@ -8,9 +8,6 @@ import com.document.notification.system.generator.service.domain.ports.output.re
 import lombok.AllArgsConstructor;
 import org.springframework.stereotype.Component;
 
-import java.util.Optional;
-import java.util.UUID;
-
 /**
  * @author Ivan Camilo Rincon Saavedra
  * @version 1.0
@@ -28,10 +25,5 @@ public class DocumentGenerationRepositoryImpl implements DocumentGenerationRepos
         DocumentGenerationEntity entity = documentGenerationDataMapper.documentGenerationToDocumentGenerationEntity(documentGeneration);
         documentGenerationJpaRepository.save(entity);
         return documentGeneration;
-    }
-
-    @Override
-    public Optional<DocumentGeneration> findByDocumentId(UUID documentId) {
-        return Optional.empty();
     }
 }
