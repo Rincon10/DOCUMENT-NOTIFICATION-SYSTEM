@@ -268,7 +268,7 @@ VALUES ('550e8400-e29b-41d4-a716-446655440000', 'camilo.rincon@gmail.com', 'Cami
 
 -- Insert sample customers for testing
 INSERT INTO customer.customers (id, username, first_name, last_name)
-VALUES ('550e8400-e29b-41d4-a716-446655440001', 'juan.perez@gmail.com', 'Juan', 'Perez'),
+VALUES ('550e8400-e29b-41d4-a716-446655440001', 'proyectobizagig3@gmail.com', 'Camilo', 'Rincon'),
        ('550e8400-e29b-41d4-a716-446655440002', 'maria.garcia@gmail.com', 'Maria', 'Garcia'),
        ('550e8400-e29b-41d4-a716-446655440003', 'carlos.lopez@gmail.com', 'Carlos',
         'Lopez') ON CONFLICT (id) DO NOTHING;
