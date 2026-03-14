@@ -2,6 +2,23 @@
 
 Un sistema de notificaciones distribuido orientado a documentos, diseñado con principios de arquitecturas limpias (Clean Architecture) y prácticas de diseño como Hexagonal Architecture y Domain-Driven Design (DDD). El objetivo es servir como base sólida y extensible para ejecutar notificaciones en entornos distribuidos con buena separación de responsabilidades, alta testabilidad y capacidad de evolución.
 
+## Tabla de contenidos
+
+- [Visión general](#visión-general)
+- [Arquitectura basada en Domain-Driven Design](#arquitectura-basada-en-domain-driven-design)
+- [Estructura del repositorio](#estructura-del-repositorio)
+- [Arquitectura general del sistema](#arquitectura-general-del-sistema)
+- [Arquitectura del componente Document Service](#arquitectura-del-componente-document-service)
+- [Arquitectura del componente Generator Service](#arquitectura-del-componente-generator-service)
+- [Arquitectura del componente Notification Service](#arquitectura-del-componente-notification-service)
+- [Grafo de dependencias completo del sistema](#grafo-de-dependencias-completo-del-sistema)
+- [Principios arquitectónicos aplicados](#principios-arquitectónicos-aplicados)
+- [Flujo de notificación (alto nivel)](#flujo-de-notificación-alto-nivel)
+- [Tecnologías y patterns recomendados](#tecnologías-y-patterns-recomendados)
+- [Cómo empezar](#cómo-empezar-resumen)
+- [Buenas prácticas y recomendaciones](#buenas-prácticas-y-recomendaciones)
+- [Contribuir](#contribuir)
+
 ## Visión general
 Este repositorio contiene el código fuente y la estructura para un sistema que produce, enruta y entrega notificaciones relacionadas con documentos (por ejemplo: creación, actualización, expiración, aprobaciones). Está pensado para ser desplegado de forma distribuida, integrándose con brokers de mensajería, colas y/o eventos y exponiendo adaptadores (API, webhook, colas) según las necesidades.
 
@@ -82,7 +99,7 @@ El grafo resultante (ubicado en la carpeta `target/`) debe mostrar que:
 - `application-service` solo depende de `domain-core` y `common-domain`
 - Los módulos de infraestructura (`dataaccess`, `application-api`) dependen de las capas internas
 
-![Grafo de dependencias del proyecto](docs/02-dependency-graph-document.png.png)
+![Grafo de dependencias del proyecto](docs/02-dependency-graph-document.png)
 
 > **Nota:** Si el grafo muestra dependencias incorrectas (por ejemplo, `domain-core` dependiendo de `dataaccess`), es señal de una violación arquitectónica que debe corregirse para mantener la integridad del diseño DDD.
 
@@ -108,7 +125,45 @@ Esta organización permite sustituir cualquier tecnología de infraestructura si
 
 ![Arquitectura del componente Document Service](docs/01-arquitectura-componente-document.png)
 
-## Principios arquitectónicos aplicados
+## Arquitectura del componente Generator Service
+
+El componente **Generator Service** es responsable de la generación de documentos y reportes, siguiendo la misma estructura hexagonal que el Document Service. Este servicio procesa solicitudes de generación de documentos, aplicando plantillas y transformando datos en formatos específicos (PDF, Word, Excel, etc.).
+
+El diagrama de dependencias muestra cómo se organizan las capas internas del servicio:
+
+![Grafo de dependencias del Generator Service](docs/03-dependency-graph-generator.png)
+
+### Responsabilidades principales
+- Generación de documentos a partir de plantillas
+- Conversión entre formatos de archivo
+- Procesamiento batch de reportes
+- Gestión de metadatos de documentos generados
+
+## Arquitectura del componente Notification Service
+
+El componente **Notification Service** gestiona el envío de notificaciones a través de múltiples canales (email, SMS, push notifications, webhooks). Implementa el patrón Strategy para soportar diferentes proveedores de notificaciones y garantiza la entrega confiable mediante colas de mensajes.
+
+El grafo de dependencias ilustra la estructura interna del servicio:
+
+![Grafo de dependencias del Notification Service](docs/04-dependency-graph-notification.png)
+
+### Responsabilidades principales
+- Envío de notificaciones por múltiples canales
+- Gestión de preferencias de notificación de usuarios
+- Plantillas de notificaciones personalizables
+- Tracking de estado de entrega y reintentos
+
+## Grafo de dependencias completo del sistema
+
+El siguiente diagrama muestra el grafo de dependencias agregado de todo el proyecto, incluyendo las relaciones entre los tres bounded contexts (Document, Generator y Notification) y sus módulos internos:
+
+![Grafo de dependencias completo del sistema](docs/05-dependency-graph-all.png)
+
+Este grafo permite visualizar:
+- La independencia entre los diferentes bounded contexts
+- Las dependencias internas de cada servicio siguiendo DDD
+- La relación entre los módulos de dominio, aplicación e infraestructura
+- Posibles acoplamientos que deban refactorizarse
 El proyecto está guiado por varias prácticas y patrones de arquitectura limpia, entre los que destacan:
 
 - Hexagonal Architecture (Ports & Adapters)
@@ -147,11 +202,57 @@ El proyecto está guiado por varias prácticas y patrones de arquitectura limpia
 - Contenerización: Docker + orquestación (Kubernetes) para despliegue distribuido.
 
 ## Cómo empezar (resumen)
+
+### Prerrequisitos
+- Java 17 o superior
+- Maven 3.8+
+- Docker y Docker Compose (para infraestructura)
+- Git
+
+### Instalación y ejecución
+
 1. Clona el repositorio:
+```bash
+git clone https://github.com/Rincon10/DOCUMENT-NOTIFICATION-SYSTEM.git
+cd DOCUMENT-NOTIFICATION-SYSTEM
 ```
-   git clone https://github.com/Rincon10/DOCUMENT-NOTIFICATION-SYSTEM.git
+
+2. Inicia la infraestructura (bases de datos, Kafka, etc.):
+```bash
+cd document-notification-system
+ docker-compose up -d
 ```
-3.
+
+3. Compila el proyecto:
+```bash
+mvn clean install
+```
+
+4. Ejecuta los servicios individualmente:
+```bash
+# Document Service
+mvn -pl document-service/document-container spring-boot:run
+
+# Generator Service
+mvn -pl generator-service/generator-container spring-boot:run
+
+# Notification Service
+mvn -pl notification-service/notification-container spring-boot:run
+```
+
+### Verificación de la arquitectura
+
+Para validar que las dependencias siguen las reglas de DDD, genera los grafos de dependencias:
+
+```bash
+# Grafo individual de cada módulo
+mvn com.github.ferstl:depgraph-maven-plugin:graph
+
+# Grafo agregado completo
+mvn com.github.ferstl:depgraph-maven-plugin:aggregate -DcreateImage=true -DreduceEdges=false -Dscope=compile "-Dincludes=com.document.notification.system*:*"
+```
+
+Los grafos generados se encuentran en `target/dependency-graph.png` de cada módulo.
 ## Buenas prácticas y recomendaciones
 - Mantiene la lógica de negocio en el dominio y los casos de uso; evita lógica de negocio en controladores o adaptadores.
 - Prefiere pruebas unitarias en el dominio y pruebas de integración atómicas para adaptadores.
