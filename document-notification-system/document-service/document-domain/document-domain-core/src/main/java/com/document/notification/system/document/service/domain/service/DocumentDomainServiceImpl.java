@@ -42,12 +42,15 @@ public class DocumentDomainServiceImpl implements IDocumentDomainService {
 
     @Override
     public DocumentCancelledEvent cancelDocumentGeneration(Document document, List<String> errors) {
-        document.cancel(errors);
-        return null;
+        document.initCancel(errors);
+        log.info("Document with id: {} started cancel for generation", document.getId().getValue());
+        return new DocumentCancelledEvent(document, DateUtils.getZoneDateTimeByUTCZoneId());
     }
 
     @Override
     public void cancelDocument(Document document, List<String> errors) {
+        document.cancel(errors);
+        log.info("Document with id: {} is cancelled", document.getId().getValue());
 
     }
 }
