@@ -95,3 +95,15 @@ avro
 ```
 mvn -f "C:\proyectos\DOCUMENT-NOTIFICATION-SYSTEM\document-notification-system\pom.xml" -pl infraestructure/kafka/kafka-model -am generate-sources
 ```
+
+## Generating graphics for each module 
+
+
+```bash
+mvn com.github.ferstl:depgraph-maven-plugin:graph
+```
+
+or 
+```bash
+mvn com.github.ferstl:depgraph-maven-plugin:aggregate -DcreateImage=true -DreduceEdges=false -Dscope=compile "-Dincludes=com.document.notification.system*:*"
+```
