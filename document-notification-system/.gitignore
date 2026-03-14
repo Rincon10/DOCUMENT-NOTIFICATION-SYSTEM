@@ -35,4 +35,9 @@ build/
 ### VS Code ###
 .vscode/
 
+# Environment files
+.env
+.env.*
+!.env.example
+
 infrastructure/docker-compose/volumes/**/**
