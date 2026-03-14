@@ -11,6 +11,8 @@ notification-service:
   notification-response-topic-name: notification-response
   outbox-scheduler-fixed-rate: 10000
   outbox-scheduler-initial-delay: 10000
+  mail:
+    from: no-reply@document-notification-system.com
 
 spring:
   jpa:
@@ -25,6 +27,20 @@ spring:
     init:
       ##schema-locations: classpath:init-schema.sql
       mode: always
+  mail:
+    host: localhost
+    port: 1025
+    username:
+    password:
+    properties:
+      mail:
+        smtp:
+          auth: false
+          starttls:
+            enable: false
+        transport:
+          protocol: smtp
+
 kafka-config:
   bootstrap-servers: localhost:19092, localhost:29092, localhost:39092
   schema-registry-url-key: schema.registry.url

@@ -10,10 +10,12 @@ import com.document.notification.system.notification.service.domain.outbox.sched
 import com.document.notification.system.notification.service.domain.ports.output.message.publisher.NotificationResponseMessagePublisher;
 import com.document.notification.system.notification.service.domain.ports.output.repository.DocumentNotificationRepository;
 import com.document.notification.system.notification.service.domain.service.INotificationDomainService;
+import com.document.notification.system.notification.service.domain.valueobject.NotificationData;
 import com.document.notification.system.notification.service.domain.valueobject.NotificationStatus;
 import com.document.notification.system.outbox.OutboxStatus;
 import lombok.AllArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.apache.commons.lang3.StringUtils;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -46,8 +48,10 @@ public class NotificationRequestHelperImpl implements NotificationRequestHelper 
         DocumentNotification documentNotification = notificationDataMapper
                 .notificationRequestToDocumentNotification(notificationRequest);
 
+        NotificationData notificationData = getNotificationData(notificationRequest);
+
         NotificationEvent notificationEvent = notificationDomainService
-                .validateAndSendNotification(documentNotification, failureMessages);
+                .validateAndSendNotification(documentNotification, failureMessages, notificationData);
 
         documentNotificationRepository.save(documentNotification);
         log.info("Document notification saved with id: {}", documentNotification.getId().getValue());
@@ -61,6 +65,15 @@ public class NotificationRequestHelperImpl implements NotificationRequestHelper 
                 UUID.fromString(notificationRequest.getSagaId()));
 
         log.info("Notification processing completed for document id: {}", notificationRequest.getDocumentId());
+    }
+
+    private NotificationData getNotificationData(NotificationRequest notificationRequest) {
+        return NotificationData.builder()
+                .documentId(StringUtils.trimToNull(notificationRequest.getDocumentId()))
+                .customerId(StringUtils.trimToNull(notificationRequest.getCustomerId()))
+                .requestId(StringUtils.trimToNull(notificationRequest.getId()))
+                .sagaId(StringUtils.trimToNull(notificationRequest.getSagaId()))
+                .build();
     }
 
     private boolean publishIfOutboxMessageProcessedForNotification(NotificationRequest notificationRequest,
