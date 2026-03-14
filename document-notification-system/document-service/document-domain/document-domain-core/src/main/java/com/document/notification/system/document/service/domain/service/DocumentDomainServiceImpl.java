@@ -28,16 +28,21 @@ public class DocumentDomainServiceImpl implements IDocumentDomainService {
 
     @Override
     public DocumentGeneratedEvent generateDocument(Document document) {
-        return null;
+        document.generate();
+        log.info("Document with id: {} is generated", document.getId().getValue());
+        return new DocumentGeneratedEvent(document, DateUtils.getZoneDateTimeByUTCZoneId());
     }
 
     @Override
     public void notificateDocument(Document document) {
+        document.sent();
+        log.info("Document with id: {} is sent it", document.getId().getValue());
 
     }
 
     @Override
     public DocumentCancelledEvent cancelDocumentGeneration(Document document, List<String> errors) {
+        document.cancel(errors);
         return null;
     }
 
