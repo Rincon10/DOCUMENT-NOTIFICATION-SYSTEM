@@ -28,6 +28,7 @@ public class DocumentNotificationRepositoryImpl implements DocumentNotificationR
 
     @Override
     public Optional<DocumentNotification> findByDocumentId(UUID documentId) {
-        return Optional.empty();
+        return documentNotificationJpaRepository.findByDocumentId(documentId)
+                .map(documentNotificationDataMapper::documentNotificationEntityToDocumentNotification);
     }
 }

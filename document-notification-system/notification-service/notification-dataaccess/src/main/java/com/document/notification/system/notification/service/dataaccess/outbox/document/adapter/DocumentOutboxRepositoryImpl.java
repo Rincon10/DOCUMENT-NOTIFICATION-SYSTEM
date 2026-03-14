@@ -31,11 +31,10 @@ public class DocumentOutboxRepositoryImpl implements DocumentOutboxRepository {
 
     @Override
     public Optional<List<DocumentOutboxMessage>> findByTypeAndOutboxStatus(String type, OutboxStatus status) {
-        return Optional.of(documentOutboxRepository.findByTypeAndOutboxStatus(type, status)
-                .orElseThrow(() -> new RuntimeException("Document Outbox object was not found for type " + type))
-                .stream()
-                .map(documentOutboxDataAccessMapper::mapDocumentOutboxEntityToDocumentOutboxMessage)
-                .toList());
+        return documentOutboxRepository.findByTypeAndOutboxStatus(type, status)
+                .map(entities -> entities.stream()
+                        .map(documentOutboxDataAccessMapper::mapDocumentOutboxEntityToDocumentOutboxMessage)
+                        .toList());
     }
 
     @Override
