@@ -1,15 +1,16 @@
 package com.document.notification.system.saga;
 
+import com.document.notification.system.document.service.domain.entity.Document;
 import com.document.notification.system.document.service.domain.exception.DocumentDomainException;
+import com.document.notification.system.document.service.domain.exception.DocumentNotFoundException;
+import com.document.notification.system.domain.valueobject.DocumentId;
 import com.document.notification.system.domain.valueobject.DocumentStatus;
+import com.document.notification.system.ports.output.repository.IDocumentRepository;
 import lombok.AllArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 
-import java.util.Collections;
-import java.util.EnumMap;
-import java.util.Map;
-import java.util.Objects;
+import java.util.*;
 
 /**
  * @author Ivan Camilo Rincon Saavedra
@@ -22,6 +23,7 @@ import java.util.Objects;
 public class DocumentSagaHelper implements IDocumentSagaHelper {
 
     private static final Map<DocumentStatus, SagaStatus> STATUS_MAPPING = createStatusMapping();
+    private final IDocumentRepository documentRepository;
 
     private static Map<DocumentStatus, SagaStatus> createStatusMapping() {
         Map<DocumentStatus, SagaStatus> map = new EnumMap<>(DocumentStatus.class);
@@ -39,5 +41,13 @@ public class DocumentSagaHelper implements IDocumentSagaHelper {
             throw new DocumentDomainException("DocumentStatus cannot be null");
         }
         return STATUS_MAPPING.getOrDefault(documentStatus, SagaStatus.STARTED);
+    }
+
+    @Override
+    public Document findDocument(String documentId) {
+        return documentRepository.findById(new DocumentId(UUID.fromString(documentId))).orElseThrow(() -> {
+            log.error("Document with id: {} was not found in the database", documentId);
+            return new DocumentNotFoundException("Document with id: " + documentId + " was not found in the database");
+        });
     }
 }

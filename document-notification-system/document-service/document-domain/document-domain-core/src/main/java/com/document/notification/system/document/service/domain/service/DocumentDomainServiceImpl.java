@@ -1,9 +1,13 @@
 package com.document.notification.system.document.service.domain.service;
 
 import com.document.notification.system.document.service.domain.entity.Document;
+import com.document.notification.system.document.service.domain.event.DocumentCancelledEvent;
 import com.document.notification.system.document.service.domain.event.DocumentCreatedEvent;
+import com.document.notification.system.document.service.domain.event.DocumentGeneratedEvent;
 import com.document.notification.system.domain.utils.DateUtils;
 import lombok.extern.slf4j.Slf4j;
+
+import java.util.List;
 
 /**
  * @author Ivan Camilo Rincon Saavedra
@@ -20,5 +24,25 @@ public class DocumentDomainServiceImpl implements IDocumentDomainService {
         log.info("Document with id: {} is initiated", document.getId().getValue());
 
         return new DocumentCreatedEvent(document, DateUtils.getZoneDateTimeByUTCZoneId());
+    }
+
+    @Override
+    public DocumentGeneratedEvent generateDocument(Document document) {
+        return null;
+    }
+
+    @Override
+    public void notificateDocument(Document document) {
+
+    }
+
+    @Override
+    public DocumentCancelledEvent cancelDocumentGeneration(Document document, List<String> errors) {
+        return null;
+    }
+
+    @Override
+    public void cancelDocument(Document document, List<String> errors) {
+
     }
 }
