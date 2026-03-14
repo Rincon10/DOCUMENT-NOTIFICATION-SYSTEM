@@ -7,6 +7,4 @@ import java.util.UUID;
 
 public interface DocumentGenerationRepository {
     DocumentGeneration save(DocumentGeneration documentGeneration);
-
-    Optional<DocumentGeneration> findByDocumentId(UUID documentId);
 }

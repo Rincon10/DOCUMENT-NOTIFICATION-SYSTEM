@@ -8,9 +8,6 @@ import com.document.notification.system.notification.service.domain.ports.output
 import lombok.AllArgsConstructor;
 import org.springframework.stereotype.Component;
 
-import java.util.Optional;
-import java.util.UUID;
-
 @Component
 @AllArgsConstructor
 public class DocumentNotificationRepositoryImpl implements DocumentNotificationRepository {
@@ -24,11 +21,5 @@ public class DocumentNotificationRepositoryImpl implements DocumentNotificationR
                 .documentNotificationToDocumentNotificationEntity(documentNotification);
         documentNotificationJpaRepository.save(entity);
         return documentNotification;
-    }
-
-    @Override
-    public Optional<DocumentNotification> findByDocumentId(UUID documentId) {
-        return documentNotificationJpaRepository.findByDocumentId(documentId)
-                .map(documentNotificationDataMapper::documentNotificationEntityToDocumentNotification);
     }
 }

@@ -7,6 +7,4 @@ import java.util.UUID;
 
 public interface DocumentNotificationRepository {
     DocumentNotification save(DocumentNotification documentNotification);
-
-    Optional<DocumentNotification> findByDocumentId(UUID documentId);
 }
