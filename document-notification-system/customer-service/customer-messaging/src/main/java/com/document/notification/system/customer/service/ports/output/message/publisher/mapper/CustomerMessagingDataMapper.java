@@ -7,7 +7,7 @@ import org.springframework.stereotype.Component;
 /**
  * @author Ivan Camilo Rincon Saavedra
  * @version 1.0
- * @since 22/02/2026
+ * @since 14/03/2026
  */
 @Component
 public class CustomerMessagingDataMapper {
