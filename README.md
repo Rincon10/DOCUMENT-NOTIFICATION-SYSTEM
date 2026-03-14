@@ -1,5 +1,11 @@
 # DOCUMENT-NOTIFICATION-SYSTEM
 
+[![Java](https://img.shields.io/badge/Java-17-orange.svg)](https://openjdk.org/projects/jdk/17/)
+[![Maven](https://img.shields.io/badge/Maven-3.8-blue.svg)](https://maven.apache.org/)
+[![Spring Boot](https://img.shields.io/badge/Spring%20Boot-3.x-brightgreen.svg)](https://spring.io/projects/spring-boot)
+[![Architecture](https://img.shields.io/badge/Architecture-Hexagonal%20%7C%20DDD-blueviolet.svg)]()
+[![License](https://img.shields.io/badge/License-MIT-yellow.svg)]()
+
 Un sistema de notificaciones distribuido orientado a documentos, diseñado con principios de arquitecturas limpias (Clean Architecture) y prácticas de diseño como Hexagonal Architecture y Domain-Driven Design (DDD). El objetivo es servir como base sólida y extensible para ejecutar notificaciones en entornos distribuidos con buena separación de responsabilidades, alta testabilidad y capacidad de evolución.
 
 ## Tabla de contenidos
@@ -203,6 +209,9 @@ Este grafo permite visualizar:
 - Las dependencias internas de cada servicio siguiendo DDD
 - La relación entre los módulos de dominio, aplicación e infraestructura
 - Posibles acoplamientos que deban refactorizarse
+
+## Principios arquitectónicos aplicados
+
 El proyecto está guiado por varias prácticas y patrones de arquitectura limpia, entre los que destacan:
 
 - Hexagonal Architecture (Ports & Adapters)
@@ -234,11 +243,38 @@ El proyecto está guiado por varias prácticas y patrones de arquitectura limpia
 5. Mecanismos de reintento y idempotencia aseguran entrega segura en un entorno distribuido.
 
 ## Tecnologías y patterns recomendados
-- Brokers/Streams: Kafka, RabbitMQ, Redis Streams o AWS SNS/SQS (según el entorno).
-- Bases de datos: PostgreSQL (como fuente de verdad) + almacenes de consulta (Redis, Elastic) para lecturas rápidas.
-- Observabilidad: Tracing (OpenTelemetry), métricas (Prometheus), logs estructurados.
-- Pruebas: Unitarias en el dominio y tests de contratos entre adaptadores e infra.
-- Contenerización: Docker + orquestación (Kubernetes) para despliegue distribuido.
+
+### Stack tecnológico actual
+
+| Categoría | Tecnología | Uso |
+|-----------|------------|-----|
+| **Lenguaje** | Java 17+ | Desarrollo de servicios |
+| **Framework** | Spring Boot 3.x | Contenedor de aplicación |
+| **Build** | Maven | Gestión de dependencias y build |
+| **Persistencia** | PostgreSQL | Base de datos relacional |
+| **Mensajería** | Apache Kafka | Comunicación asíncrona entre servicios |
+| **Mailing** | Java Mail / SMTP | Envío de notificaciones por email |
+| **Contenerización** | Docker | Despliegue de infraestructura |
+| **Testing** | JUnit 5, Mockito, TestContainers | Pruebas unitarias e integración |
+
+### Patterns aplicados
+
+| Pattern | Descripción | Implementación |
+|---------|-------------|----------------|
+| **Hexagonal Architecture** | Separación entre lógica de negocio e infraestructura | Ports & Adapters en cada servicio |
+| **Domain-Driven Design** | Modelado del negocio centrado en el dominio | Bounded contexts, entidades, agregados |
+| **CQRS** | Separación de comandos y consultas | Diferentes modelos para lectura/escritura |
+| **Event-Driven** | Comunicación mediante eventos | Kafka producers/consumers |
+| **Outbox Pattern** | Garantía de entrega de eventos | Tabla outbox para eventos pendientes |
+| **Saga Pattern** | Gestión de transacciones distribuidas | Orquestación de procesos entre servicios |
+
+### Infraestructura recomendada para producción
+
+- **Brokers/Streams**: Apache Kafka, RabbitMQ, Redis Streams o AWS SNS/SQS
+- **Bases de datos**: PostgreSQL (fuente de verdad) + Redis/Elasticsearch (lecturas rápidas)
+- **Observabilidad**: OpenTelemetry (tracing), Prometheus (métricas), Grafana (visualización), ELK (logs)
+- **Orquestación**: Kubernetes con Helm charts
+- **CI/CD**: GitHub Actions, Jenkins o GitLab CI
 
 ## Cómo empezar (resumen)
 
@@ -293,14 +329,87 @@ mvn com.github.ferstl:depgraph-maven-plugin:aggregate -DcreateImage=true -Dreduc
 
 Los grafos generados se encuentran en `target/dependency-graph.png` de cada módulo.
 ## Buenas prácticas y recomendaciones
-- Mantiene la lógica de negocio en el dominio y los casos de uso; evita lógica de negocio en controladores o adaptadores.
-- Prefiere pruebas unitarias en el dominio y pruebas de integración atómicas para adaptadores.
-- Define contratos claros entre bounded contexts vía eventos de dominio documentados.
-- Implementa idempotencia en consumidores de eventos y en endpoints expuestos públicamente.
-- Gestiona versiones de eventos y migraciones del esquema de mensajes con cuidado.
+
+### Desarrollo
+
+- **Mantén la lógica de negocio en el dominio**: Los casos de uso orquestan, pero las reglas de negocio viven en `domain-core`. Evita lógica de negocio en controladores o adaptadores.
+- **Dependencias unidireccionales**: Las capas externas dependen de las internas, nunca al revés. El dominio no conoce frameworks ni infraestructura.
+- **Inmutabilidad**: Prefiere value objects inmutables para garantizar consistencia y thread-safety.
+- **Lenguaje ubicuo**: Usa el mismo vocabulario del negocio en código, eventos y documentación.
+
+### Testing
+
+- **Pirámide de tests**: Mayoría de tests unitarios en el dominio, menos tests de integración, pocos tests E2E.
+- **Tests de contratos**: Verifica que los eventos publicados cumplen el esquema esperado por los consumidores.
+- **TestContainers**: Usa contenedores reales para tests de integración con bases de datos y brokers.
+
+### Arquitectura distribuida
+
+- **Idempotencia**: Implementa idempotencia en consumidores de eventos y endpoints públicos para manejar reintentos.
+- **Eventos de dominio versionados**: Gestiona versiones de eventos y migraciones de esquema con cuidado.
+- **Contratos claros**: Documenta los eventos de dominio que cruzan bounded contexts (payload, version, semántica).
+- **Circuit Breaker**: Implementa circuit breakers para llamadas a servicios externos.
+- **Dead Letter Queues**: Configura DLQ para mensajes que fallan procesamiento repetidamente.
+
+### Seguridad
+
+- **Validación en boundaries**: Valida todas las entradas en los adaptadores de entrada (controllers, listeners).
+- **Sanitización**: Limpia datos antes de persistir o renderizar.
+- **Autenticación/Autorización**: Implementa JWT/OAuth2 en los adaptadores de entrada.
 
 ## Contribuir
-Si quieres contribuir:
-- Lee los ADRs y la documentación en docs/ para entender las decisiones de diseño.
-- Abre issues para discusiones de diseño antes de cambios grandes.
-- Las PRs deben incluir tests relevantes y actualizar la documentación si cambian APIs o contratos.
+
+¡Las contribuciones son bienvenidas! Este proyecto busca ser una referencia de arquitectura limpia en Java.
+
+### Proceso de contribución
+
+1. **Lee la documentación**: Revisa los ADRs y diagramas en `docs/` para entender las decisiones de diseño.
+2. **Discute antes de implementar**: Abre un issue para discusiones de diseño antes de cambios grandes.
+3. **Fork y branch**: Crea un fork y trabaja en una feature branch (`git checkout -b feature/nueva-funcionalidad`).
+4. **Commits convencionales**: Usa [Conventional Commits](https://www.conventionalcommits.org/):
+   - `feat:` nueva funcionalidad
+   - `fix:` corrección de bug
+   - `docs:` cambios en documentación
+   - `refactor:` refactorización de código
+   - `test:` cambios en tests
+5. **Pull Request**: Las PRs deben incluir:
+   - Tests relevantes (unitarios y/o de integración)
+   - Documentación actualizada si cambian APIs o contratos
+   - Descripción clara del cambio y motivación
+   - Verificación de que no viola las reglas de arquitectura (`mvn com.github.ferstl:depgraph-maven-plugin:graph`)
+
+### Verificación de calidad
+
+Antes de enviar tu PR, asegúrate de:
+
+```bash
+# Compilar sin errores
+mvn clean compile
+
+# Tests pasando
+mvn test
+
+# Verificar reglas de arquitectura (no debe haber dependencias de dominio hacia infraestructura)
+mvn com.github.ferstl:depgraph-maven-plugin:graph
+```
+
+### Código de conducta
+
+- Sé respetuoso y constructivo en las discusiones
+- Prioriza la claridad sobre la complejidad
+- Documenta las decisiones arquitectónicas importantes
+- Ayuda a mantener la calidad del código
+
+## Autores
+
+- **Rincon10** - *Trabajo inicial* - [GitHub](https://github.com/Rincon10)
+
+## Licencia
+
+Este proyecto está licenciado bajo la Licencia MIT - ver el archivo [LICENSE](LICENSE) para detalles.
+
+---
+
+<p align="center">
+  <i>Construido con ❤️ siguiendo principios de Domain-Driven Design y Clean Architecture</i>
+</p>
