@@ -82,7 +82,7 @@ El grafo resultante (ubicado en la carpeta `target/`) debe mostrar que:
 - `application-service` solo depende de `domain-core` y `common-domain`
 - Los módulos de infraestructura (`dataaccess`, `application-api`) dependen de las capas internas
 
-![Grafo de dependencias del proyecto](docs/02-dependency-graph.png)
+![Grafo de dependencias del proyecto](docs/02-dependency-graph-document.png.png)
 
 > **Nota:** Si el grafo muestra dependencias incorrectas (por ejemplo, `domain-core` dependiendo de `dataaccess`), es señal de una violación arquitectónica que debe corregirse para mantener la integridad del diseño DDD.
 
