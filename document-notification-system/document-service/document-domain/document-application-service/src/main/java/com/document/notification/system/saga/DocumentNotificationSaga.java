@@ -1,18 +1,16 @@
 package com.document.notification.system.saga;
 
 import com.document.notification.system.document.service.domain.entity.Document;
-import com.document.notification.system.document.service.domain.event.DocumentCreatedEvent;
-import com.document.notification.system.document.service.domain.exception.DocumentNotFoundException;
+import com.document.notification.system.document.service.domain.exception.DocumentDomainException;
 import com.document.notification.system.document.service.domain.service.IDocumentDomainService;
-import com.document.notification.system.domain.valueobject.DocumentId;
+import com.document.notification.system.domain.utils.DateUtils;
 import com.document.notification.system.domain.valueobject.DocumentStatus;
 import com.document.notification.system.dto.message.NotificationResponse;
 import com.document.notification.system.mapper.IDocumentDataMapper;
-import com.document.notification.system.outbox.OutboxStatus;
+import com.document.notification.system.outbox.model.generator.DocumentGenerationOutboxMessage;
 import com.document.notification.system.outbox.model.notification.DocumentNotificationOutboxMessage;
 import com.document.notification.system.outbox.scheduler.generator.GeneratorOutboxHelper;
 import com.document.notification.system.outbox.scheduler.notification.NotificationOutboxHelper;
-import com.document.notification.system.ports.output.repository.IDocumentRepository;
 import lombok.AllArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
@@ -54,19 +52,38 @@ public class DocumentNotificationSaga implements SagaStep<NotificationResponse> 
 
         DocumentNotificationOutboxMessage documentNotificationOutboxMessage = optionalDocumentNotificationOutboxMessage.get();
 
-
-
-        Document document  = completeNotificationForDocument(notificationResponse);
+        Document document = completeNotificationForDocument(notificationResponse);
 
         // Saga orchestrator handling the following steps of the saga, if any exception is thrown here the transaction will be rolled back and the message will be retried later by the outbox scheduler
-        SagaStatus sagaStatus = documentSagaHelper.documentStatusToSagaStatus(documentCreatedEvent.getDocument().getDocumentStatus());
+        SagaStatus sagaStatus = documentSagaHelper.documentStatusToSagaStatus(document.getDocumentStatus());
 
-        DocumentNotificationOutboxMessage notificationOutboxMessageUpdated = getUpdatedNotificationOutboxMessage(documentNotificationOutboxMessage, documentCreatedEvent.getDocument().getDocumentStatus(), sagaStatus);
+        DocumentNotificationOutboxMessage notificationOutboxMessageUpdated = getUpdatedNotificationOutboxMessage(documentNotificationOutboxMessage, document.getDocumentStatus(), sagaStatus);
 
         // updating states for notification outbox
         notificationOutboxHelper.save(notificationOutboxMessageUpdated);
 
-        log.info("Document with id: {} notification is completed", documentCreatedEvent.getDocument().getId().getValue());
+        DocumentGenerationOutboxMessage documentGenerationOutboxMessage = getUpdatedGenerationOutboxMessage(documentNotificationOutboxMessage.getSagaId().toString(), document.getDocumentStatus(), sagaStatus);
+
+        generatorOutboxHelper.save(documentGenerationOutboxMessage);
+
+        log.info("Document with id: {} notification is completed", document.getId().getValue());
+    }
+
+    private DocumentGenerationOutboxMessage getUpdatedGenerationOutboxMessage(String sagaId,
+                                                                              DocumentStatus documentStatus,
+                                                                              SagaStatus sagaStatus) {
+        Optional<DocumentGenerationOutboxMessage> documentGenerationOutboxMessageOptional = generatorOutboxHelper
+                .getGenerationOutboxMessageBySagaIdAndSagaStatus(UUID.fromString(sagaId), SagaStatus.PROCESSING);
+
+        if (documentGenerationOutboxMessageOptional.isEmpty()) {
+            throw new DocumentDomainException("Generation outbox message cannot be found in " +
+                    SagaStatus.PROCESSING.name() + " state");
+        }
+        DocumentGenerationOutboxMessage documentGenerationOutboxMessage = documentGenerationOutboxMessageOptional.get();
+        documentGenerationOutboxMessage.setProcessedAt(DateUtils.getZoneDateTimeByUTCZoneId());
+        documentGenerationOutboxMessage.setDocumentStatus(documentStatus);
+        documentGenerationOutboxMessage.setSagaStatus(sagaStatus);
+        return documentGenerationOutboxMessage;
     }
 
     private DocumentNotificationOutboxMessage getUpdatedNotificationOutboxMessage(DocumentNotificationOutboxMessage documentNotificationOutboxMessage,
@@ -84,10 +101,10 @@ public class DocumentNotificationSaga implements SagaStep<NotificationResponse> 
         Document document = documentSagaHelper.findDocument(notificationResponse.getDocumentId());
 
 
-        DocumentCreatedEvent documentCreatedEvent = documentDomainService.validateAndInitiateDocument(document);
-        documentRepository.save(documentCreatedEvent.getDocument());
+        documentDomainService.notificateDocument(document);
+        Document documentSaved = documentSagaHelper.save(document);
 
-        return documentCreatedEvent;
+        return documentSaved;
     }
 
     @Override
@@ -95,7 +112,7 @@ public class DocumentNotificationSaga implements SagaStep<NotificationResponse> 
     public void compensate(NotificationResponse notificationResponse) {
         log.info("Compensating notification for document with id: {}", notificationResponse.getDocumentId());
 
-        Optional<DocumentNotificationOutboxMessage> optionalDocumentNotificationOutboxMessage = notificationOutboxHelper.getDocumentNotificationOutboxMessageBySagaIdAndSagaStatus(UUID.fromString(notificationResponse.getSagaId()), SagaStatus.STARTED);
+        Optional<DocumentNotificationOutboxMessage> optionalDocumentNotificationOutboxMessage = notificationOutboxHelper.getDocumentNotificationOutboxMessageBySagaIdAndSagaStatus(UUID.fromString(notificationResponse.getSagaId()), SagaStatus.PROCESSING);
         if (optionalDocumentNotificationOutboxMessage.isEmpty()) {
             log.info("Document Notification Outbox Message was already processed or compensated! for saga id: {}", notificationResponse.getSagaId());
             return;
@@ -103,11 +120,6 @@ public class DocumentNotificationSaga implements SagaStep<NotificationResponse> 
 
         DocumentNotificationOutboxMessage documentNotificationOutboxMessage = optionalDocumentNotificationOutboxMessage.get();
 
-        // Update saga status to COMPENSATING
-        documentNotificationOutboxMessage.setSagaStatus(SagaStatus.COMPENSATING);
-        documentNotificationOutboxMessage.setDocumentStatus(DocumentStatus.CANCELLING);
-        notificationOutboxHelper.save(documentNotificationOutboxMessage);
-
-        log.info("Document with id: {} notification is being compensated", notificationResponse.getDocumentId());
+        throw new RuntimeException("not implemnted yet");
     }
 }
