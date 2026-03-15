@@ -182,16 +182,17 @@ DROP TABLE IF EXISTS "document".notification_outbox CASCADE;
 
 CREATE TABLE "document".notification_outbox
 (
-    id            UUID                     NOT NULL,
-    saga_id       UUID                     NOT NULL,
-    document_id   UUID                     NOT NULL,
-    created_at    TIMESTAMP                NOT NULL,
-    processed_at  TIMESTAMP,
-    type          VARCHAR(255)             NOT NULL,
-    payload       TEXT                     NOT NULL,
-    saga_status   "document".saga_status   NOT NULL,
-    outbox_status "document".outbox_status NOT NULL,
-    version       INTEGER DEFAULT 0,
+    id              UUID                       NOT NULL,
+    saga_id         UUID                       NOT NULL,
+    document_id     UUID                       NOT NULL,
+    created_at      TIMESTAMP                  NOT NULL,
+    processed_at    TIMESTAMP,
+    type            VARCHAR(255)               NOT NULL,
+    payload         TEXT                       NOT NULL,
+    saga_status     "document".saga_status     NOT NULL,
+    document_status "document".document_status NOT NULL,
+    outbox_status   "document".outbox_status   NOT NULL,
+    version         INTEGER DEFAULT 0,
     CONSTRAINT notification_outbox_pkey PRIMARY KEY (id),
     CONSTRAINT notification_outbox_document_fk FOREIGN KEY (document_id)
         REFERENCES "document".documents (id) ON DELETE CASCADE ON UPDATE CASCADE
@@ -276,3 +277,11 @@ VALUES ('550e8400-e29b-41d4-a716-446655440001', 'proyectobizagig3@gmail.com', 'C
 -- Refresh the materialized view with initial data
 REFRESH
 MATERIALIZED VIEW "document".customers;
+
+
+
+
+
+SELECT * FROM "document".documents;
+
+SELECT * FROM "document".generation_outbox
