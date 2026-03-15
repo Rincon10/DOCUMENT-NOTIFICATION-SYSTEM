@@ -50,4 +50,9 @@ public class DocumentSagaHelper implements IDocumentSagaHelper {
             return new DocumentNotFoundException("Document with id: " + documentId + " was not found in the database");
         });
     }
+
+    @Override
+    public Document save(Document document) {
+        return documentRepository.save(document);
+    }
 }
