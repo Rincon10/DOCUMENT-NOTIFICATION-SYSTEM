@@ -85,4 +85,10 @@ public class GeneratorOutboxHelper {
     public void deletePaymentOutboxMessageByOutboxStatusAndSagaStatus(String sagaName, OutboxStatus outboxStatus, SagaStatus... sagaStatus) {
         generatorOutboxRepository.deleteByTypeAndOutboxStatusAndSagaStatus(sagaName, outboxStatus, sagaStatus);
     }
+
+    @Transactional(readOnly = true)
+    public Optional<DocumentGenerationOutboxMessage> getGenerationOutboxMessageBySagaIdAndSagaStatus(UUID sagaId,
+                                                                                                     SagaStatus... sagaStatus) {
+        return generatorOutboxRepository.findByTypeAndSagaIdAndSagaStatus(SagaConstants.SAGA_NAME, sagaId, sagaStatus);
+    }
 }

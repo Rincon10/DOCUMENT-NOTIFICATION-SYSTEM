@@ -9,4 +9,6 @@ public interface IDocumentSagaHelper {
     SagaStatus documentStatusToSagaStatus(DocumentStatus documentStatus);
 
     Document findDocument(@NotNull String documentId);
+
+    Document save(Document document);
 }
