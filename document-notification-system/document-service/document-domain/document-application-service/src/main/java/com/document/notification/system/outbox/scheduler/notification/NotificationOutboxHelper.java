@@ -44,6 +44,7 @@ public class NotificationOutboxHelper {
                 .builder()
                 .id(UUID.randomUUID())
                 .sagaId(sagaId)
+                .documentId(UUID.fromString(documentNotificationEventPayload.getDocumentId()) )
                 .createdAt(documentNotificationEventPayload.getCreatedAt())
                 .type(SagaConstants.SAGA_NAME)
                 .payload(payloadJson)
