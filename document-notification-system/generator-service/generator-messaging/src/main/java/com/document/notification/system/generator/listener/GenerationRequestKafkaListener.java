@@ -47,12 +47,6 @@ public class GenerationRequestKafkaListener implements KafkaConsumer<GeneratorRe
                 partitions.toString(),
                 offsets.toString());
         messages.forEach(generatorRequestAvroModel -> {
-            log.info("Received message with key: {} from partition: {} with offset: {} for document id: {} and saga id: {}",
-                    keys.get(messages.indexOf(generatorRequestAvroModel)),
-                    partitions.get(messages.indexOf(generatorRequestAvroModel)),
-                    offsets.get(messages.indexOf(generatorRequestAvroModel)),
-                    generatorRequestAvroModel.getDocumentId(),
-                    generatorRequestAvroModel.getSagaId());
             try {
 
                 DocumentGenerationStatus documentGenerationStatus = generatorRequestAvroModel.getDocumentGenerationStatus();

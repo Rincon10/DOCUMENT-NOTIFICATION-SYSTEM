@@ -58,6 +58,9 @@ public class GeneratorOutboxScheduler implements OutboxScheduler {
                     generationRequestMessagePublisher.publish(outboxMessage, this::updateOutboxStatus));
             log.info("{} DocumentGenerationOutboxMessage sent to message bus!", outboxMessages.size());
         }
+        else {
+            log.info("No generation outbox message with STARTED status is found for processing!");
+        }
 
     }
 }

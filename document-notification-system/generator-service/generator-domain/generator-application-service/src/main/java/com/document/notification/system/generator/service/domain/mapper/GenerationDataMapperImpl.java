@@ -29,6 +29,7 @@ public class GenerationDataMapperImpl implements GenerationDataMapper {
                 .generationId(new GenerationId(UUID.fromString(generationRequest.getDocumentId())))
                 .documentId(new DocumentId(UUID.fromString(generationRequest.getDocumentId())))
                 .customerId(new CustomerId(UUID.fromString(generationRequest.getCustomerId())))
+                .documentType(MapperUtils.safeOrDefault(() -> DocumentType.valueOf(generationRequest.getDocumentType()), null))
                 .fileExtension(MapperUtils.safeOrDefault(() -> DocumentType.valueOf(generationRequest.getDocumentType()), null))
                 .build();
     }

@@ -49,11 +49,12 @@ public class GeneratorOutboxRepositoryImpl implements GeneratorOutboxRepository 
 
     @Override
     public Optional<DocumentGenerationOutboxMessage> findByTypeAndSagaIdAndSagaStatus(String type, UUID sagaId, SagaStatus... sagaStatus) {
-        return Optional.empty();
+        Optional<GenerationOutboxEntity> generationOutboxEntity = jpaRepository.findByTypeAndSagaIdAndSagaStatusIn(type, sagaId, Arrays.asList(sagaStatus));
+        return generationOutboxEntity.map(generationOutboxDataAccessMapper::mapGenerationOutboxEntityToDocumentGenerationOutboxMessage);
     }
 
     @Override
     public void deleteByTypeAndOutboxStatusAndSagaStatus(String type, OutboxStatus outboxStatus, SagaStatus... sagaStatus) {
-
+        jpaRepository.deleteByTypeAndOutboxStatusAndSagaStatusIn(type, outboxStatus, Arrays.asList(sagaStatus));
     }
 }
