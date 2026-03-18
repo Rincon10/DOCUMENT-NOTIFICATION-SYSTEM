@@ -5,6 +5,7 @@ import com.document.notification.system.document.service.domain.entity.DocumentI
 import com.document.notification.system.document.service.domain.entity.Item;
 import com.document.notification.system.document.service.domain.event.DocumentCreatedEvent;
 import com.document.notification.system.document.service.domain.event.DocumentEvent;
+import com.document.notification.system.document.service.domain.event.DocumentGeneratedEvent;
 import com.document.notification.system.document.service.domain.valueobject.StreetAddress;
 import com.document.notification.system.domain.valueobject.CustomerId;
 import com.document.notification.system.domain.valueobject.DocumentGenerationStatus;
@@ -123,6 +124,20 @@ public class DocumentDataMapper implements IDocumentDataMapper {
     @Override
     public DocumentNotificationEventPayload documentCreatedEventToDocumentNotificationEventPayload(DocumentEvent documentCreatedEvent) {
         Document document = documentCreatedEvent.getDocument();
+
+        // Check if this is a DocumentGeneratedEvent with content
+        String fileName = document.getFileName();
+        String contentType = null;
+        String contentBase64 = null;
+        Long fileSizeInBytes = null;
+
+        if (documentCreatedEvent instanceof DocumentGeneratedEvent generatedEvent) {
+            fileName = generatedEvent.getFileName() != null ? generatedEvent.getFileName() : fileName;
+            contentType = generatedEvent.getContentType();
+            contentBase64 = generatedEvent.getContentBase64();
+            fileSizeInBytes = generatedEvent.getFileSizeInBytes();
+        }
+
         return DocumentNotificationEventPayload.builder()
                 .documentId(document.getId().getValue().toString())
                 .customerId(document.getCustomerId().getValue().toString())
@@ -130,7 +145,9 @@ public class DocumentDataMapper implements IDocumentDataMapper {
                 .documentNotificationStatus(DocumentNotificationStatus.GENERATED.name())
                 .documentType(document.getDocumentType().name())
                 .recipientId(document.getCustomerId().getValue().toString())
-                .fileName(document.getFileName())
+                .fileName(fileName)
+                .contentType(contentType)
+                .contentBase64(contentBase64)
                 .failureMessages(document.getFailureMessages())
                 .build();
     }

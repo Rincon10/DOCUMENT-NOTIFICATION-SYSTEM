@@ -45,6 +45,10 @@ public class DocumentMessagingDataMapper implements IDocumentMessagingDataMapper
                 .createdAt(generatorResponseAvroModel.getCreatedAt())
                 .generationStatus(mapGenerationStatus(generatorResponseAvroModel.getGenerationStatus()))
                 .failureMessages(safeList(generatorResponseAvroModel.getFailureMessages()))
+                .fileName(generatorResponseAvroModel.getFileName())
+                .contentType(generatorResponseAvroModel.getContentType())
+                .contentBase64(generatorResponseAvroModel.getContentBase64())
+                .fileSizeInBytes(generatorResponseAvroModel.getFileSizeInBytes())
                 .build();
     }
 

@@ -107,7 +107,15 @@ public class DocumentGenerationSaga implements SagaStep<GenerationResponse> {
         DocumentGeneratedEvent documentCreatedEvent = documentDomainService.generateDocument(document);
         documentRepository.save(documentCreatedEvent.getDocument());
 
-        return documentCreatedEvent;
+        // Create a new event with the generated content from the response
+        return new DocumentGeneratedEvent(
+                documentCreatedEvent.getDocument(),
+                documentCreatedEvent.getCreatedAt(),
+                generationResponse.getFileName(),
+                generationResponse.getContentType(),
+                generationResponse.getContentBase64(),
+                generationResponse.getFileSizeInBytes()
+        );
     }
 
     @Override
