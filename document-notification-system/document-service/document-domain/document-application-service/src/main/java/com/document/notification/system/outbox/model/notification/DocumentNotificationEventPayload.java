@@ -45,6 +45,9 @@ public class DocumentNotificationEventPayload {
     private String contentType;
 
     @JsonProperty
+    private String documentType;
+
+    @JsonProperty
     private String contentBase64;
 
     @JsonProperty

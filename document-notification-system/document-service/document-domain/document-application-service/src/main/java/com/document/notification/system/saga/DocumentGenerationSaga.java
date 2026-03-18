@@ -2,6 +2,7 @@ package com.document.notification.system.saga;
 
 import com.document.notification.system.document.service.domain.entity.Document;
 import com.document.notification.system.document.service.domain.event.DocumentCreatedEvent;
+import com.document.notification.system.document.service.domain.event.DocumentGeneratedEvent;
 import com.document.notification.system.document.service.domain.exception.DocumentNotFoundException;
 import com.document.notification.system.document.service.domain.service.IDocumentDomainService;
 import com.document.notification.system.domain.valueobject.DocumentId;
@@ -58,7 +59,7 @@ public class DocumentGenerationSaga implements SagaStep<GenerationResponse> {
         DocumentGenerationOutboxMessage documentGenerationOutboxMessage = optionalDocumentGenerationOutboxMessage.get();
 
         // Calling document-domain-core to update the document state and saving all on the repository, if any exception is thrown here the transaction will be rolled back and the message will be retried later by the outbox scheduler
-        DocumentCreatedEvent documentCreatedEvent = completeGenerationForDocument(generationResponse);
+        DocumentGeneratedEvent documentCreatedEvent = completeGenerationForDocument(generationResponse);
 
         // Saga orchestor handling the following steps of the saga, if any exception is thrown here the transaction will be rolled back and the message will be retried later by the outbox scheduler
         SagaStatus sagaStatus = documentSagaHelper.documentStatusToSagaStatus(documentCreatedEvent.getDocument().getDocumentStatus());
@@ -99,11 +100,11 @@ public class DocumentGenerationSaga implements SagaStep<GenerationResponse> {
         });
     }
 
-    private DocumentCreatedEvent completeGenerationForDocument(GenerationResponse generationResponse) {
+    private DocumentGeneratedEvent completeGenerationForDocument(GenerationResponse generationResponse) {
         log.info("Completing generation for document with id: {}", generationResponse.getDocumentId());
 
         Document document = findDocument(generationResponse.getDocumentId());
-        DocumentCreatedEvent documentCreatedEvent = documentDomainService.validateAndInitiateDocument(document);
+        DocumentGeneratedEvent documentCreatedEvent = documentDomainService.generateDocument(document);
         documentRepository.save(documentCreatedEvent.getDocument());
 
         return documentCreatedEvent;
