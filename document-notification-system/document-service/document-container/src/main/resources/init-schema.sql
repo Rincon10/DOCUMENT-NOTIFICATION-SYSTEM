@@ -31,7 +31,7 @@ CREATE TYPE "document".document_status AS ENUM ('PENDING', 'GENERATED', 'SENT', 
 
 -- Document Type Enum (for future use)
 DROP TYPE IF EXISTS "document".document_type;
-CREATE TYPE "document".document_type AS ENUM ('INVOICE', 'RECEIPT', 'STATEMENT', 'OTHER');
+CREATE TYPE "document".document_type AS ENUM ('PDF', 'HTML', 'XML');
 
 -- Saga Status Enum
 DROP TYPE IF EXISTS "document".saga_status;
@@ -184,15 +184,15 @@ DROP TABLE IF EXISTS "document".notification_outbox CASCADE;
 CREATE TABLE "document".notification_outbox
 (
     id              UUID                       NOT NULL,
-    saga_id         UUID                       NOT NULL,
-    document_id     UUID                       NOT NULL,
-    created_at      TIMESTAMP                  NOT NULL,
+    saga_id         UUID                       ,
+    document_id     UUID                       ,
+    created_at      TIMESTAMP                  ,
     processed_at    TIMESTAMP,
-    type            VARCHAR(255)               NOT NULL,
-    payload         TEXT                       NOT NULL,
-    saga_status     "document".saga_status     NOT NULL,
-    document_status "document".document_status NOT NULL,
-    outbox_status   "document".outbox_status   NOT NULL,
+    type            VARCHAR(255)               ,
+    payload         TEXT                       ,
+    saga_status     "document".saga_status     ,
+    document_status "document".document_status ,
+    outbox_status   "document".outbox_status   ,
     version         INTEGER DEFAULT 0,
     CONSTRAINT notification_outbox_pkey PRIMARY KEY (id),
     CONSTRAINT notification_outbox_document_fk FOREIGN KEY (document_id)
@@ -284,5 +284,5 @@ MATERIALIZED VIEW "document".customers;
 
 
 SELECT * FROM "document".documents;
-
-SELECT * FROM "document".generation_outbox
+SELECT * FROM "document".generation_outbox;
+SELECT * FROM "document".notification_outbox;

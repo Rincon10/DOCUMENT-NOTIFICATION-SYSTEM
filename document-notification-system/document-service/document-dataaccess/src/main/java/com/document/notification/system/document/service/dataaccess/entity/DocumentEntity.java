@@ -60,7 +60,7 @@ public class DocumentEntity {
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
-    private DocumentType documentType;
+    private DocumentType documentType = DocumentType.PDF;
 
     private String failureMessages;
 
