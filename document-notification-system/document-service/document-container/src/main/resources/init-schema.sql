@@ -87,6 +87,7 @@ CREATE TABLE "document".documents
     created_at             TIMESTAMP                  NOT NULL,
     updated_at             TIMESTAMP,
     document_status        "document".document_status NOT NULL,
+    document_type          "document".document_type   NOT NULL,
     failure_messages       TEXT,
     CONSTRAINT documents_pkey PRIMARY KEY (id),
     CONSTRAINT documents_customer_fk FOREIGN KEY (customer_id)
