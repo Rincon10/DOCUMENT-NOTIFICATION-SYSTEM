@@ -17,6 +17,7 @@ public class NotificationOutboxDataAccessMapperImpl implements NotificationOutbo
         return NotificationOutboxEntity.builder()
                 .id(documentNotificationOutboxMessage.getId())
                 .sagaId(documentNotificationOutboxMessage.getSagaId())
+                .documentId(documentNotificationOutboxMessage.getDocumentId())
                 .createdAt(documentNotificationOutboxMessage.getCreatedAt())
                 .processedAt(documentNotificationOutboxMessage.getProcessedAt())
                 .type(documentNotificationOutboxMessage.getType())
