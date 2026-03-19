@@ -1,5 +1,6 @@
 package com.document.notification.system.notification.service.adapter;
 
+import com.document.notification.system.domain.valueobject.DocumentType;
 import com.document.notification.system.notification.service.domain.exception.NotificationDomainException;
 import com.document.notification.system.notification.service.domain.service.INotificationSender;
 import com.document.notification.system.notification.service.domain.valueobject.NotificationChannel;
@@ -68,9 +69,7 @@ public class EmailNotificationSender implements INotificationSender {
 
             if (hasAttachment) {
                 byte[] decodedContent = Base64.getDecoder().decode(notificationContent.getContentBase64());
-                String mimeType = notificationContent.getContentType() != null
-                        ? notificationContent.getContentType()
-                        : "application/octet-stream";
+                String mimeType = resolveAttachmentMimeType(notificationContent.getContentType());
 
                 helper.addAttachment(
                         notificationContent.getFileName(),
@@ -142,5 +141,10 @@ public class EmailNotificationSender implements INotificationSender {
                     .append(label).append(":</strong></td><td>")
                     .append(value).append("</td></tr>");
         }
+    }
+
+    private String resolveAttachmentMimeType(String contentType) {
+        String mimeType = DocumentType.resolveMimeType(contentType);
+        return mimeType != null ? mimeType : "application/octet-stream";
     }
 }
