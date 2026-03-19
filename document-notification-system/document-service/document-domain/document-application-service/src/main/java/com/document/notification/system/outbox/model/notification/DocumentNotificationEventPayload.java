@@ -33,6 +33,9 @@ public class DocumentNotificationEventPayload {
     private String recipientId;
 
     @JsonProperty
+    private String recipientEmail;
+
+    @JsonProperty
     private String subject;
 
     @JsonProperty

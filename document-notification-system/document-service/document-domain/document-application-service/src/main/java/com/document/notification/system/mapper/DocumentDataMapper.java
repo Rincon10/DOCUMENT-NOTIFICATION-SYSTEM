@@ -131,11 +131,14 @@ public class DocumentDataMapper implements IDocumentDataMapper {
         String contentBase64 = null;
         Long fileSizeInBytes = null;
 
+        String recipientEmail = null;
+
         if (documentCreatedEvent instanceof DocumentGeneratedEvent generatedEvent) {
             fileName = generatedEvent.getFileName() != null ? generatedEvent.getFileName() : fileName;
             contentType = generatedEvent.getContentType();
             contentBase64 = generatedEvent.getContentBase64();
             fileSizeInBytes = generatedEvent.getFileSizeInBytes();
+            recipientEmail = generatedEvent.getRecipientEmail();
         }
 
         return DocumentNotificationEventPayload.builder()
@@ -145,6 +148,7 @@ public class DocumentDataMapper implements IDocumentDataMapper {
                 .documentNotificationStatus(DocumentNotificationStatus.GENERATED.name())
                 .documentType(document.getDocumentType().name())
                 .recipientId(document.getCustomerId().getValue().toString())
+                .recipientEmail(recipientEmail)
                 .fileName(fileName)
                 .contentType(contentType)
                 .contentBase64(contentBase64)
