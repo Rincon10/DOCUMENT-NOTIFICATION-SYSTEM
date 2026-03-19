@@ -14,10 +14,10 @@ import org.apache.avro.message.SchemaStore;
 
 @org.apache.avro.specific.AvroGenerated
 public class NotificationRequestAvroModel extends org.apache.avro.specific.SpecificRecordBase implements org.apache.avro.specific.SpecificRecord {
-  private static final long serialVersionUID = 7786465273634545675L;
+  private static final long serialVersionUID = -7771258273573259947L;
 
 
-  public static final org.apache.avro.Schema SCHEMA$ = new org.apache.avro.Schema.Parser().parse("{\"type\":\"record\",\"name\":\"NotificationRequestAvroModel\",\"namespace\":\"com.document.notification.system.kafka.document.avro.model\",\"fields\":[{\"name\":\"id\",\"type\":{\"type\":\"string\",\"logicalType\":\"uuid\"}},{\"name\":\"sagaId\",\"type\":{\"type\":\"string\",\"logicalType\":\"uuid\"}},{\"name\":\"customerId\",\"type\":{\"type\":\"string\",\"logicalType\":\"uuid\"}},{\"name\":\"documentId\",\"type\":{\"type\":\"string\",\"logicalType\":\"uuid\"}},{\"name\":\"createdAt\",\"type\":{\"type\":\"long\",\"logicalType\":\"timestamp-millis\"}},{\"name\":\"documentNotificationStatus\",\"type\":{\"type\":\"enum\",\"name\":\"DocumentNotificationStatus\",\"symbols\":[\"GENERATED\"]},\"doc\":\"Document notification status emitted by document-service before notification processing\"},{\"name\":\"recipientId\",\"type\":{\"type\":\"string\",\"avro.java.string\":\"String\"},\"doc\":\"Notification target, for example an email address\"},{\"name\":\"subject\",\"type\":{\"type\":\"string\",\"avro.java.string\":\"String\"},\"doc\":\"Notification subject\"},{\"name\":\"message\",\"type\":{\"type\":\"string\",\"avro.java.string\":\"String\"},\"doc\":\"Notification body content\"},{\"name\":\"fileName\",\"type\":[\"null\",{\"type\":\"string\",\"avro.java.string\":\"String\"}],\"doc\":\"Optional attachment file name\",\"default\":null},{\"name\":\"contentType\",\"type\":[\"null\",{\"type\":\"string\",\"avro.java.string\":\"String\"}],\"doc\":\"Optional MIME type for the attachment\",\"default\":null},{\"name\":\"contentBase64\",\"type\":[\"null\",{\"type\":\"string\",\"avro.java.string\":\"String\"}],\"doc\":\"Optional attachment content encoded as Base64\",\"default\":null},{\"name\":\"failureMessages\",\"type\":{\"type\":\"array\",\"items\":{\"type\":\"string\",\"avro.java.string\":\"String\"}},\"doc\":\"Validation or processing issues collected before sending the notification\"}]}");
+  public static final org.apache.avro.Schema SCHEMA$ = new org.apache.avro.Schema.Parser().parse("{\"type\":\"record\",\"name\":\"NotificationRequestAvroModel\",\"namespace\":\"com.document.notification.system.kafka.document.avro.model\",\"fields\":[{\"name\":\"id\",\"type\":{\"type\":\"string\",\"logicalType\":\"uuid\"}},{\"name\":\"sagaId\",\"type\":{\"type\":\"string\",\"logicalType\":\"uuid\"}},{\"name\":\"customerId\",\"type\":{\"type\":\"string\",\"logicalType\":\"uuid\"}},{\"name\":\"documentId\",\"type\":{\"type\":\"string\",\"logicalType\":\"uuid\"}},{\"name\":\"createdAt\",\"type\":{\"type\":\"long\",\"logicalType\":\"timestamp-millis\"}},{\"name\":\"documentNotificationStatus\",\"type\":{\"type\":\"enum\",\"name\":\"DocumentNotificationStatus\",\"symbols\":[\"GENERATED\"]},\"doc\":\"Document notification status emitted by document-service before notification processing\"},{\"name\":\"recipientId\",\"type\":{\"type\":\"string\",\"avro.java.string\":\"String\"},\"doc\":\"Customer UUID identifier\"},{\"name\":\"recipientEmail\",\"type\":{\"type\":\"string\",\"avro.java.string\":\"String\"},\"doc\":\"Customer email address used as the notification target\"},{\"name\":\"subject\",\"type\":{\"type\":\"string\",\"avro.java.string\":\"String\"},\"doc\":\"Notification subject\"},{\"name\":\"message\",\"type\":{\"type\":\"string\",\"avro.java.string\":\"String\"},\"doc\":\"Notification body content\"},{\"name\":\"fileName\",\"type\":[\"null\",{\"type\":\"string\",\"avro.java.string\":\"String\"}],\"doc\":\"Optional attachment file name\",\"default\":null},{\"name\":\"contentType\",\"type\":[\"null\",{\"type\":\"string\",\"avro.java.string\":\"String\"}],\"doc\":\"Optional MIME type for the attachment\",\"default\":null},{\"name\":\"contentBase64\",\"type\":[\"null\",{\"type\":\"string\",\"avro.java.string\":\"String\"}],\"doc\":\"Optional attachment content encoded as Base64\",\"default\":null},{\"name\":\"failureMessages\",\"type\":{\"type\":\"array\",\"items\":{\"type\":\"string\",\"avro.java.string\":\"String\"}},\"doc\":\"Validation or processing issues collected before sending the notification\"}]}");
   public static org.apache.avro.Schema getClassSchema() { return SCHEMA$; }
 
   private static final SpecificData MODEL$ = new SpecificData();
@@ -83,8 +83,10 @@ public class NotificationRequestAvroModel extends org.apache.avro.specific.Speci
   private java.time.Instant createdAt;
   /** Document notification status emitted by document-service before notification processing */
   private com.document.notification.system.kafka.document.avro.model.DocumentNotificationStatus documentNotificationStatus;
-  /** Notification target, for example an email address */
+  /** Customer UUID identifier */
   private java.lang.String recipientId;
+  /** Customer email address used as the notification target */
+  private java.lang.String recipientEmail;
   /** Notification subject */
   private java.lang.String subject;
   /** Notification body content */
@@ -113,7 +115,8 @@ public class NotificationRequestAvroModel extends org.apache.avro.specific.Speci
    * @param documentId The new value for documentId
    * @param createdAt The new value for createdAt
    * @param documentNotificationStatus Document notification status emitted by document-service before notification processing
-   * @param recipientId Notification target, for example an email address
+   * @param recipientId Customer UUID identifier
+   * @param recipientEmail Customer email address used as the notification target
    * @param subject Notification subject
    * @param message Notification body content
    * @param fileName Optional attachment file name
@@ -121,7 +124,7 @@ public class NotificationRequestAvroModel extends org.apache.avro.specific.Speci
    * @param contentBase64 Optional attachment content encoded as Base64
    * @param failureMessages Validation or processing issues collected before sending the notification
    */
-  public NotificationRequestAvroModel(java.lang.String id, java.lang.String sagaId, java.lang.String customerId, java.lang.String documentId, java.time.Instant createdAt, com.document.notification.system.kafka.document.avro.model.DocumentNotificationStatus documentNotificationStatus, java.lang.String recipientId, java.lang.String subject, java.lang.String message, java.lang.String fileName, java.lang.String contentType, java.lang.String contentBase64, java.util.List<java.lang.String> failureMessages) {
+  public NotificationRequestAvroModel(java.lang.String id, java.lang.String sagaId, java.lang.String customerId, java.lang.String documentId, java.time.Instant createdAt, com.document.notification.system.kafka.document.avro.model.DocumentNotificationStatus documentNotificationStatus, java.lang.String recipientId, java.lang.String recipientEmail, java.lang.String subject, java.lang.String message, java.lang.String fileName, java.lang.String contentType, java.lang.String contentBase64, java.util.List<java.lang.String> failureMessages) {
     this.id = id;
     this.sagaId = sagaId;
     this.customerId = customerId;
@@ -129,6 +132,7 @@ public class NotificationRequestAvroModel extends org.apache.avro.specific.Speci
     this.createdAt = createdAt.truncatedTo(java.time.temporal.ChronoUnit.MILLIS);
     this.documentNotificationStatus = documentNotificationStatus;
     this.recipientId = recipientId;
+    this.recipientEmail = recipientEmail;
     this.subject = subject;
     this.message = message;
     this.fileName = fileName;
@@ -149,12 +153,13 @@ public class NotificationRequestAvroModel extends org.apache.avro.specific.Speci
     case 4: return createdAt;
     case 5: return documentNotificationStatus;
     case 6: return recipientId;
-    case 7: return subject;
-    case 8: return message;
-    case 9: return fileName;
-    case 10: return contentType;
-    case 11: return contentBase64;
-    case 12: return failureMessages;
+    case 7: return recipientEmail;
+    case 8: return subject;
+    case 9: return message;
+    case 10: return fileName;
+    case 11: return contentType;
+    case 12: return contentBase64;
+    case 13: return failureMessages;
     default: throw new IndexOutOfBoundsException("Invalid index: " + field$);
     }
   }
@@ -166,6 +171,7 @@ public class NotificationRequestAvroModel extends org.apache.avro.specific.Speci
       null,
       null,
       new org.apache.avro.data.TimeConversions.TimestampMillisConversion(),
+      null,
       null,
       null,
       null,
@@ -193,12 +199,13 @@ public class NotificationRequestAvroModel extends org.apache.avro.specific.Speci
     case 4: createdAt = (java.time.Instant)value$; break;
     case 5: documentNotificationStatus = (com.document.notification.system.kafka.document.avro.model.DocumentNotificationStatus)value$; break;
     case 6: recipientId = value$ != null ? value$.toString() : null; break;
-    case 7: subject = value$ != null ? value$.toString() : null; break;
-    case 8: message = value$ != null ? value$.toString() : null; break;
-    case 9: fileName = value$ != null ? value$.toString() : null; break;
-    case 10: contentType = value$ != null ? value$.toString() : null; break;
-    case 11: contentBase64 = value$ != null ? value$.toString() : null; break;
-    case 12: failureMessages = (java.util.List<java.lang.String>)value$; break;
+    case 7: recipientEmail = value$ != null ? value$.toString() : null; break;
+    case 8: subject = value$ != null ? value$.toString() : null; break;
+    case 9: message = value$ != null ? value$.toString() : null; break;
+    case 10: fileName = value$ != null ? value$.toString() : null; break;
+    case 11: contentType = value$ != null ? value$.toString() : null; break;
+    case 12: contentBase64 = value$ != null ? value$.toString() : null; break;
+    case 13: failureMessages = (java.util.List<java.lang.String>)value$; break;
     default: throw new IndexOutOfBoundsException("Invalid index: " + field$);
     }
   }
@@ -308,7 +315,7 @@ public class NotificationRequestAvroModel extends org.apache.avro.specific.Speci
 
   /**
    * Gets the value of the 'recipientId' field.
-   * @return Notification target, for example an email address
+   * @return Customer UUID identifier
    */
   public java.lang.String getRecipientId() {
     return recipientId;
@@ -317,11 +324,29 @@ public class NotificationRequestAvroModel extends org.apache.avro.specific.Speci
 
   /**
    * Sets the value of the 'recipientId' field.
-   * Notification target, for example an email address
+   * Customer UUID identifier
    * @param value the value to set.
    */
   public void setRecipientId(java.lang.String value) {
     this.recipientId = value;
+  }
+
+  /**
+   * Gets the value of the 'recipientEmail' field.
+   * @return Customer email address used as the notification target
+   */
+  public java.lang.String getRecipientEmail() {
+    return recipientEmail;
+  }
+
+
+  /**
+   * Sets the value of the 'recipientEmail' field.
+   * Customer email address used as the notification target
+   * @param value the value to set.
+   */
+  public void setRecipientEmail(java.lang.String value) {
+    this.recipientEmail = value;
   }
 
   /**
@@ -480,8 +505,10 @@ public class NotificationRequestAvroModel extends org.apache.avro.specific.Speci
     private java.time.Instant createdAt;
     /** Document notification status emitted by document-service before notification processing */
     private com.document.notification.system.kafka.document.avro.model.DocumentNotificationStatus documentNotificationStatus;
-    /** Notification target, for example an email address */
+    /** Customer UUID identifier */
     private java.lang.String recipientId;
+    /** Customer email address used as the notification target */
+    private java.lang.String recipientEmail;
     /** Notification subject */
     private java.lang.String subject;
     /** Notification body content */
@@ -534,29 +561,33 @@ public class NotificationRequestAvroModel extends org.apache.avro.specific.Speci
         this.recipientId = data().deepCopy(fields()[6].schema(), other.recipientId);
         fieldSetFlags()[6] = other.fieldSetFlags()[6];
       }
-      if (isValidValue(fields()[7], other.subject)) {
-        this.subject = data().deepCopy(fields()[7].schema(), other.subject);
+      if (isValidValue(fields()[7], other.recipientEmail)) {
+        this.recipientEmail = data().deepCopy(fields()[7].schema(), other.recipientEmail);
         fieldSetFlags()[7] = other.fieldSetFlags()[7];
       }
-      if (isValidValue(fields()[8], other.message)) {
-        this.message = data().deepCopy(fields()[8].schema(), other.message);
+      if (isValidValue(fields()[8], other.subject)) {
+        this.subject = data().deepCopy(fields()[8].schema(), other.subject);
         fieldSetFlags()[8] = other.fieldSetFlags()[8];
       }
-      if (isValidValue(fields()[9], other.fileName)) {
-        this.fileName = data().deepCopy(fields()[9].schema(), other.fileName);
+      if (isValidValue(fields()[9], other.message)) {
+        this.message = data().deepCopy(fields()[9].schema(), other.message);
         fieldSetFlags()[9] = other.fieldSetFlags()[9];
       }
-      if (isValidValue(fields()[10], other.contentType)) {
-        this.contentType = data().deepCopy(fields()[10].schema(), other.contentType);
+      if (isValidValue(fields()[10], other.fileName)) {
+        this.fileName = data().deepCopy(fields()[10].schema(), other.fileName);
         fieldSetFlags()[10] = other.fieldSetFlags()[10];
       }
-      if (isValidValue(fields()[11], other.contentBase64)) {
-        this.contentBase64 = data().deepCopy(fields()[11].schema(), other.contentBase64);
+      if (isValidValue(fields()[11], other.contentType)) {
+        this.contentType = data().deepCopy(fields()[11].schema(), other.contentType);
         fieldSetFlags()[11] = other.fieldSetFlags()[11];
       }
-      if (isValidValue(fields()[12], other.failureMessages)) {
-        this.failureMessages = data().deepCopy(fields()[12].schema(), other.failureMessages);
+      if (isValidValue(fields()[12], other.contentBase64)) {
+        this.contentBase64 = data().deepCopy(fields()[12].schema(), other.contentBase64);
         fieldSetFlags()[12] = other.fieldSetFlags()[12];
+      }
+      if (isValidValue(fields()[13], other.failureMessages)) {
+        this.failureMessages = data().deepCopy(fields()[13].schema(), other.failureMessages);
+        fieldSetFlags()[13] = other.fieldSetFlags()[13];
       }
     }
 
@@ -594,29 +625,33 @@ public class NotificationRequestAvroModel extends org.apache.avro.specific.Speci
         this.recipientId = data().deepCopy(fields()[6].schema(), other.recipientId);
         fieldSetFlags()[6] = true;
       }
-      if (isValidValue(fields()[7], other.subject)) {
-        this.subject = data().deepCopy(fields()[7].schema(), other.subject);
+      if (isValidValue(fields()[7], other.recipientEmail)) {
+        this.recipientEmail = data().deepCopy(fields()[7].schema(), other.recipientEmail);
         fieldSetFlags()[7] = true;
       }
-      if (isValidValue(fields()[8], other.message)) {
-        this.message = data().deepCopy(fields()[8].schema(), other.message);
+      if (isValidValue(fields()[8], other.subject)) {
+        this.subject = data().deepCopy(fields()[8].schema(), other.subject);
         fieldSetFlags()[8] = true;
       }
-      if (isValidValue(fields()[9], other.fileName)) {
-        this.fileName = data().deepCopy(fields()[9].schema(), other.fileName);
+      if (isValidValue(fields()[9], other.message)) {
+        this.message = data().deepCopy(fields()[9].schema(), other.message);
         fieldSetFlags()[9] = true;
       }
-      if (isValidValue(fields()[10], other.contentType)) {
-        this.contentType = data().deepCopy(fields()[10].schema(), other.contentType);
+      if (isValidValue(fields()[10], other.fileName)) {
+        this.fileName = data().deepCopy(fields()[10].schema(), other.fileName);
         fieldSetFlags()[10] = true;
       }
-      if (isValidValue(fields()[11], other.contentBase64)) {
-        this.contentBase64 = data().deepCopy(fields()[11].schema(), other.contentBase64);
+      if (isValidValue(fields()[11], other.contentType)) {
+        this.contentType = data().deepCopy(fields()[11].schema(), other.contentType);
         fieldSetFlags()[11] = true;
       }
-      if (isValidValue(fields()[12], other.failureMessages)) {
-        this.failureMessages = data().deepCopy(fields()[12].schema(), other.failureMessages);
+      if (isValidValue(fields()[12], other.contentBase64)) {
+        this.contentBase64 = data().deepCopy(fields()[12].schema(), other.contentBase64);
         fieldSetFlags()[12] = true;
+      }
+      if (isValidValue(fields()[13], other.failureMessages)) {
+        this.failureMessages = data().deepCopy(fields()[13].schema(), other.failureMessages);
+        fieldSetFlags()[13] = true;
       }
     }
 
@@ -865,7 +900,7 @@ public class NotificationRequestAvroModel extends org.apache.avro.specific.Speci
 
     /**
       * Gets the value of the 'recipientId' field.
-      * Notification target, for example an email address
+      * Customer UUID identifier
       * @return The value.
       */
     public java.lang.String getRecipientId() {
@@ -875,7 +910,7 @@ public class NotificationRequestAvroModel extends org.apache.avro.specific.Speci
 
     /**
       * Sets the value of the 'recipientId' field.
-      * Notification target, for example an email address
+      * Customer UUID identifier
       * @param value The value of 'recipientId'.
       * @return This builder.
       */
@@ -888,7 +923,7 @@ public class NotificationRequestAvroModel extends org.apache.avro.specific.Speci
 
     /**
       * Checks whether the 'recipientId' field has been set.
-      * Notification target, for example an email address
+      * Customer UUID identifier
       * @return True if the 'recipientId' field has been set, false otherwise.
       */
     public boolean hasRecipientId() {
@@ -898,12 +933,56 @@ public class NotificationRequestAvroModel extends org.apache.avro.specific.Speci
 
     /**
       * Clears the value of the 'recipientId' field.
-      * Notification target, for example an email address
+      * Customer UUID identifier
       * @return This builder.
       */
     public com.document.notification.system.kafka.document.avro.model.NotificationRequestAvroModel.Builder clearRecipientId() {
       recipientId = null;
       fieldSetFlags()[6] = false;
+      return this;
+    }
+
+    /**
+      * Gets the value of the 'recipientEmail' field.
+      * Customer email address used as the notification target
+      * @return The value.
+      */
+    public java.lang.String getRecipientEmail() {
+      return recipientEmail;
+    }
+
+
+    /**
+      * Sets the value of the 'recipientEmail' field.
+      * Customer email address used as the notification target
+      * @param value The value of 'recipientEmail'.
+      * @return This builder.
+      */
+    public com.document.notification.system.kafka.document.avro.model.NotificationRequestAvroModel.Builder setRecipientEmail(java.lang.String value) {
+      validate(fields()[7], value);
+      this.recipientEmail = value;
+      fieldSetFlags()[7] = true;
+      return this;
+    }
+
+    /**
+      * Checks whether the 'recipientEmail' field has been set.
+      * Customer email address used as the notification target
+      * @return True if the 'recipientEmail' field has been set, false otherwise.
+      */
+    public boolean hasRecipientEmail() {
+      return fieldSetFlags()[7];
+    }
+
+
+    /**
+      * Clears the value of the 'recipientEmail' field.
+      * Customer email address used as the notification target
+      * @return This builder.
+      */
+    public com.document.notification.system.kafka.document.avro.model.NotificationRequestAvroModel.Builder clearRecipientEmail() {
+      recipientEmail = null;
+      fieldSetFlags()[7] = false;
       return this;
     }
 
@@ -924,9 +1003,9 @@ public class NotificationRequestAvroModel extends org.apache.avro.specific.Speci
       * @return This builder.
       */
     public com.document.notification.system.kafka.document.avro.model.NotificationRequestAvroModel.Builder setSubject(java.lang.String value) {
-      validate(fields()[7], value);
+      validate(fields()[8], value);
       this.subject = value;
-      fieldSetFlags()[7] = true;
+      fieldSetFlags()[8] = true;
       return this;
     }
 
@@ -936,7 +1015,7 @@ public class NotificationRequestAvroModel extends org.apache.avro.specific.Speci
       * @return True if the 'subject' field has been set, false otherwise.
       */
     public boolean hasSubject() {
-      return fieldSetFlags()[7];
+      return fieldSetFlags()[8];
     }
 
 
@@ -947,7 +1026,7 @@ public class NotificationRequestAvroModel extends org.apache.avro.specific.Speci
       */
     public com.document.notification.system.kafka.document.avro.model.NotificationRequestAvroModel.Builder clearSubject() {
       subject = null;
-      fieldSetFlags()[7] = false;
+      fieldSetFlags()[8] = false;
       return this;
     }
 
@@ -968,9 +1047,9 @@ public class NotificationRequestAvroModel extends org.apache.avro.specific.Speci
       * @return This builder.
       */
     public com.document.notification.system.kafka.document.avro.model.NotificationRequestAvroModel.Builder setMessage(java.lang.String value) {
-      validate(fields()[8], value);
+      validate(fields()[9], value);
       this.message = value;
-      fieldSetFlags()[8] = true;
+      fieldSetFlags()[9] = true;
       return this;
     }
 
@@ -980,7 +1059,7 @@ public class NotificationRequestAvroModel extends org.apache.avro.specific.Speci
       * @return True if the 'message' field has been set, false otherwise.
       */
     public boolean hasMessage() {
-      return fieldSetFlags()[8];
+      return fieldSetFlags()[9];
     }
 
 
@@ -991,7 +1070,7 @@ public class NotificationRequestAvroModel extends org.apache.avro.specific.Speci
       */
     public com.document.notification.system.kafka.document.avro.model.NotificationRequestAvroModel.Builder clearMessage() {
       message = null;
-      fieldSetFlags()[8] = false;
+      fieldSetFlags()[9] = false;
       return this;
     }
 
@@ -1012,9 +1091,9 @@ public class NotificationRequestAvroModel extends org.apache.avro.specific.Speci
       * @return This builder.
       */
     public com.document.notification.system.kafka.document.avro.model.NotificationRequestAvroModel.Builder setFileName(java.lang.String value) {
-      validate(fields()[9], value);
+      validate(fields()[10], value);
       this.fileName = value;
-      fieldSetFlags()[9] = true;
+      fieldSetFlags()[10] = true;
       return this;
     }
 
@@ -1024,7 +1103,7 @@ public class NotificationRequestAvroModel extends org.apache.avro.specific.Speci
       * @return True if the 'fileName' field has been set, false otherwise.
       */
     public boolean hasFileName() {
-      return fieldSetFlags()[9];
+      return fieldSetFlags()[10];
     }
 
 
@@ -1035,7 +1114,7 @@ public class NotificationRequestAvroModel extends org.apache.avro.specific.Speci
       */
     public com.document.notification.system.kafka.document.avro.model.NotificationRequestAvroModel.Builder clearFileName() {
       fileName = null;
-      fieldSetFlags()[9] = false;
+      fieldSetFlags()[10] = false;
       return this;
     }
 
@@ -1056,9 +1135,9 @@ public class NotificationRequestAvroModel extends org.apache.avro.specific.Speci
       * @return This builder.
       */
     public com.document.notification.system.kafka.document.avro.model.NotificationRequestAvroModel.Builder setContentType(java.lang.String value) {
-      validate(fields()[10], value);
+      validate(fields()[11], value);
       this.contentType = value;
-      fieldSetFlags()[10] = true;
+      fieldSetFlags()[11] = true;
       return this;
     }
 
@@ -1068,7 +1147,7 @@ public class NotificationRequestAvroModel extends org.apache.avro.specific.Speci
       * @return True if the 'contentType' field has been set, false otherwise.
       */
     public boolean hasContentType() {
-      return fieldSetFlags()[10];
+      return fieldSetFlags()[11];
     }
 
 
@@ -1079,7 +1158,7 @@ public class NotificationRequestAvroModel extends org.apache.avro.specific.Speci
       */
     public com.document.notification.system.kafka.document.avro.model.NotificationRequestAvroModel.Builder clearContentType() {
       contentType = null;
-      fieldSetFlags()[10] = false;
+      fieldSetFlags()[11] = false;
       return this;
     }
 
@@ -1100,9 +1179,9 @@ public class NotificationRequestAvroModel extends org.apache.avro.specific.Speci
       * @return This builder.
       */
     public com.document.notification.system.kafka.document.avro.model.NotificationRequestAvroModel.Builder setContentBase64(java.lang.String value) {
-      validate(fields()[11], value);
+      validate(fields()[12], value);
       this.contentBase64 = value;
-      fieldSetFlags()[11] = true;
+      fieldSetFlags()[12] = true;
       return this;
     }
 
@@ -1112,7 +1191,7 @@ public class NotificationRequestAvroModel extends org.apache.avro.specific.Speci
       * @return True if the 'contentBase64' field has been set, false otherwise.
       */
     public boolean hasContentBase64() {
-      return fieldSetFlags()[11];
+      return fieldSetFlags()[12];
     }
 
 
@@ -1123,7 +1202,7 @@ public class NotificationRequestAvroModel extends org.apache.avro.specific.Speci
       */
     public com.document.notification.system.kafka.document.avro.model.NotificationRequestAvroModel.Builder clearContentBase64() {
       contentBase64 = null;
-      fieldSetFlags()[11] = false;
+      fieldSetFlags()[12] = false;
       return this;
     }
 
@@ -1144,9 +1223,9 @@ public class NotificationRequestAvroModel extends org.apache.avro.specific.Speci
       * @return This builder.
       */
     public com.document.notification.system.kafka.document.avro.model.NotificationRequestAvroModel.Builder setFailureMessages(java.util.List<java.lang.String> value) {
-      validate(fields()[12], value);
+      validate(fields()[13], value);
       this.failureMessages = value;
-      fieldSetFlags()[12] = true;
+      fieldSetFlags()[13] = true;
       return this;
     }
 
@@ -1156,7 +1235,7 @@ public class NotificationRequestAvroModel extends org.apache.avro.specific.Speci
       * @return True if the 'failureMessages' field has been set, false otherwise.
       */
     public boolean hasFailureMessages() {
-      return fieldSetFlags()[12];
+      return fieldSetFlags()[13];
     }
 
 
@@ -1167,7 +1246,7 @@ public class NotificationRequestAvroModel extends org.apache.avro.specific.Speci
       */
     public com.document.notification.system.kafka.document.avro.model.NotificationRequestAvroModel.Builder clearFailureMessages() {
       failureMessages = null;
-      fieldSetFlags()[12] = false;
+      fieldSetFlags()[13] = false;
       return this;
     }
 
@@ -1183,12 +1262,13 @@ public class NotificationRequestAvroModel extends org.apache.avro.specific.Speci
         record.createdAt = fieldSetFlags()[4] ? this.createdAt : (java.time.Instant) defaultValue(fields()[4]);
         record.documentNotificationStatus = fieldSetFlags()[5] ? this.documentNotificationStatus : (com.document.notification.system.kafka.document.avro.model.DocumentNotificationStatus) defaultValue(fields()[5]);
         record.recipientId = fieldSetFlags()[6] ? this.recipientId : (java.lang.String) defaultValue(fields()[6]);
-        record.subject = fieldSetFlags()[7] ? this.subject : (java.lang.String) defaultValue(fields()[7]);
-        record.message = fieldSetFlags()[8] ? this.message : (java.lang.String) defaultValue(fields()[8]);
-        record.fileName = fieldSetFlags()[9] ? this.fileName : (java.lang.String) defaultValue(fields()[9]);
-        record.contentType = fieldSetFlags()[10] ? this.contentType : (java.lang.String) defaultValue(fields()[10]);
-        record.contentBase64 = fieldSetFlags()[11] ? this.contentBase64 : (java.lang.String) defaultValue(fields()[11]);
-        record.failureMessages = fieldSetFlags()[12] ? this.failureMessages : (java.util.List<java.lang.String>) defaultValue(fields()[12]);
+        record.recipientEmail = fieldSetFlags()[7] ? this.recipientEmail : (java.lang.String) defaultValue(fields()[7]);
+        record.subject = fieldSetFlags()[8] ? this.subject : (java.lang.String) defaultValue(fields()[8]);
+        record.message = fieldSetFlags()[9] ? this.message : (java.lang.String) defaultValue(fields()[9]);
+        record.fileName = fieldSetFlags()[10] ? this.fileName : (java.lang.String) defaultValue(fields()[10]);
+        record.contentType = fieldSetFlags()[11] ? this.contentType : (java.lang.String) defaultValue(fields()[11]);
+        record.contentBase64 = fieldSetFlags()[12] ? this.contentBase64 : (java.lang.String) defaultValue(fields()[12]);
+        record.failureMessages = fieldSetFlags()[13] ? this.failureMessages : (java.util.List<java.lang.String>) defaultValue(fields()[13]);
         return record;
       } catch (org.apache.avro.AvroMissingFieldException e) {
         throw e;
