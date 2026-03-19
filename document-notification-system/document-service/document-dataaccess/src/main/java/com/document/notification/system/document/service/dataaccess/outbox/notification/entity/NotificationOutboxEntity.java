@@ -25,6 +25,7 @@ public class NotificationOutboxEntity {
     @Id
     private UUID id;
     private UUID sagaId;
+    private UUID documentId;
     private ZonedDateTime createdAt;
     private ZonedDateTime processedAt;
     private String type;
