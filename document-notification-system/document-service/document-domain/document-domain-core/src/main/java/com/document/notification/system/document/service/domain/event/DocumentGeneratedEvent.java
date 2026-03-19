@@ -16,6 +16,7 @@ public class DocumentGeneratedEvent extends DocumentEvent {
     private final String contentType;
     private final String contentBase64;
     private final Long fileSizeInBytes;
+    private final String recipientEmail;
 
     public DocumentGeneratedEvent(Document document, ZonedDateTime createdAt) {
         super(document, createdAt);
@@ -23,15 +24,18 @@ public class DocumentGeneratedEvent extends DocumentEvent {
         this.contentType = null;
         this.contentBase64 = null;
         this.fileSizeInBytes = null;
+        this.recipientEmail = null;
     }
 
     public DocumentGeneratedEvent(Document document, ZonedDateTime createdAt,
                                   String fileName, String contentType,
-                                  String contentBase64, Long fileSizeInBytes) {
+                                  String contentBase64, Long fileSizeInBytes,
+                                  String recipientEmail) {
         super(document, createdAt);
         this.fileName = fileName;
         this.contentType = contentType;
         this.contentBase64 = contentBase64;
         this.fileSizeInBytes = fileSizeInBytes;
+        this.recipientEmail = recipientEmail;
     }
 }

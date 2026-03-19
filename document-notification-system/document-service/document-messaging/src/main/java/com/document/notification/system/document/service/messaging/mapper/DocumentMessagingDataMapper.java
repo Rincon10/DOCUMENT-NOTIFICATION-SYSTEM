@@ -90,6 +90,7 @@ public class DocumentMessagingDataMapper implements IDocumentMessagingDataMapper
                 .setCreatedAt(documentNotificationEventPayload.getCreatedAt().toInstant())
                 .setDocumentNotificationStatus(mapDocumentNotificationStatus())
                 .setRecipientId(resolveRecipientId(documentNotificationEventPayload))
+                .setRecipientEmail(documentNotificationEventPayload.getRecipientEmail())
                 .setSubject(buildNotificationSubject(documentNotificationEventPayload))
                 .setMessage(buildNotificationMessage(documentNotificationEventPayload))
                 .setFileName(documentNotificationEventPayload.getFileName())

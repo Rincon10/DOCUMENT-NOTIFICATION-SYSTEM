@@ -14,6 +14,7 @@ import com.document.notification.system.outbox.model.generator.DocumentGeneratio
 import com.document.notification.system.outbox.model.notification.DocumentNotificationEventPayload;
 import com.document.notification.system.outbox.scheduler.generator.GeneratorOutboxHelper;
 import com.document.notification.system.outbox.scheduler.notification.NotificationOutboxHelper;
+import com.document.notification.system.ports.output.repository.CustomerRepository;
 import com.document.notification.system.ports.output.repository.IDocumentRepository;
 import lombok.AllArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -39,6 +40,7 @@ public class DocumentGenerationSaga implements SagaStep<GenerationResponse> {
 
     private final IDocumentDomainService documentDomainService;
     private final IDocumentRepository documentRepository;
+    private final CustomerRepository customerRepository;
     private final GeneratorOutboxHelper generatorOutboxHelper;
     private final NotificationOutboxHelper notificationOutboxHelper;
     private final IDocumentSagaHelper documentSagaHelper;
@@ -107,6 +109,11 @@ public class DocumentGenerationSaga implements SagaStep<GenerationResponse> {
         DocumentGeneratedEvent documentCreatedEvent = documentDomainService.generateDocument(document);
         documentRepository.save(documentCreatedEvent.getDocument());
 
+        String recipientEmail = customerRepository.findCustomer(document.getCustomerId().getValue())
+                .map(customer -> customer.getUsername())
+                .orElseThrow(() -> new DocumentNotFoundException(
+                        "Customer with id: " + document.getCustomerId().getValue() + " was not found"));
+
         // Create a new event with the generated content from the response
         return new DocumentGeneratedEvent(
                 documentCreatedEvent.getDocument(),
@@ -114,7 +121,8 @@ public class DocumentGenerationSaga implements SagaStep<GenerationResponse> {
                 generationResponse.getFileName(),
                 generationResponse.getContentType(),
                 generationResponse.getContentBase64(),
-                generationResponse.getFileSizeInBytes()
+                generationResponse.getFileSizeInBytes(),
+                recipientEmail
         );
     }
 

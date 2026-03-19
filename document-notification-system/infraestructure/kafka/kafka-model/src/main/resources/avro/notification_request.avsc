@@ -55,7 +55,15 @@
         "type": "string",
         "avro.java.string": "String"
       },
-      "doc": "Notification target, for example an email address"
+      "doc": "Customer UUID identifier"
+    },
+    {
+      "name": "recipientEmail",
+      "type": {
+        "type": "string",
+        "avro.java.string": "String"
+      },
+      "doc": "Customer email address used as the notification target"
     },
     {
       "name": "subject",
