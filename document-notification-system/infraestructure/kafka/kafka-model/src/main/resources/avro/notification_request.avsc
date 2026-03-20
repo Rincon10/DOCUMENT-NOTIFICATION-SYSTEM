@@ -44,7 +44,8 @@
         "type": "enum",
         "name": "DocumentNotificationStatus",
         "symbols": [
-          "GENERATED"
+          "GENERATED",
+          "SENT"
         ]
       },
       "doc": "Document notification status emitted by document-service before notification processing"

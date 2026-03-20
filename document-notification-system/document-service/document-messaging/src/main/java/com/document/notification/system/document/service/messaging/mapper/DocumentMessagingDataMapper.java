@@ -2,6 +2,8 @@ package com.document.notification.system.document.service.messaging.mapper;
 
 import com.document.notification.system.dto.message.CustomerModel;
 import com.document.notification.system.dto.message.GenerationResponse;
+import com.document.notification.system.dto.message.NotificationResponse;
+import com.document.notification.system.domain.valueobject.DocumentNotificationStatus;
 import com.document.notification.system.domain.valueobject.GenerationStatus;
 import com.document.notification.system.kafka.document.avro.model.*;
 import com.document.notification.system.outbox.model.generator.DocumentGenerationEventPayload;
@@ -53,6 +55,19 @@ public class DocumentMessagingDataMapper implements IDocumentMessagingDataMapper
     }
 
     @Override
+    public NotificationResponse notificationResponseAvroModelToNotificationResponse(NotificationResponseAvroModel notificationResponseAvroModel) {
+        return NotificationResponse.builder()
+                .id(notificationResponseAvroModel.getId())
+                .sagaId(notificationResponseAvroModel.getSagaId())
+                .documentId(notificationResponseAvroModel.getDocumentId())
+                .recipentId(notificationResponseAvroModel.getRecipientId())
+                .createdAt(notificationResponseAvroModel.getCreatedAt())
+                .documentNotificationStatus(DocumentNotificationStatus.valueOf(notificationResponseAvroModel.getNotificationStatus().name()))
+                .failureMessages(safeList(notificationResponseAvroModel.getFailureMessages()))
+                .build();
+    }
+
+    @Override
     public GeneratorRequestAvroModel documentGenerationEventPayloadToGeneratorRequestAvroModel(String sagaId, DocumentGenerationEventPayload documentGenerationEventPayload) {
         Map<String, String> metadata = new HashMap<>();
         metadata.put("source", "document-service");
@@ -88,7 +103,7 @@ public class DocumentMessagingDataMapper implements IDocumentMessagingDataMapper
                 .setCustomerId(documentNotificationEventPayload.getCustomerId())
                 .setDocumentId(documentNotificationEventPayload.getDocumentId())
                 .setCreatedAt(documentNotificationEventPayload.getCreatedAt().toInstant())
-                .setDocumentNotificationStatus(mapDocumentNotificationStatus())
+                .setDocumentNotificationStatus(com.document.notification.system.kafka.document.avro.model.DocumentNotificationStatus.valueOf(documentNotificationEventPayload.getDocumentNotificationStatus()))
                 .setRecipientId(resolveRecipientId(documentNotificationEventPayload))
                 .setRecipientEmail(documentNotificationEventPayload.getRecipientEmail())
                 .setSubject(buildNotificationSubject(documentNotificationEventPayload))
@@ -98,10 +113,6 @@ public class DocumentMessagingDataMapper implements IDocumentMessagingDataMapper
                 .setContentBase64(documentNotificationEventPayload.getContentBase64())
                 .setFailureMessages(safeList(documentNotificationEventPayload.getFailureMessages()))
                 .build();
-    }
-
-    private DocumentNotificationStatus mapDocumentNotificationStatus() {
-        return DocumentNotificationStatus.GENERATED;
     }
 
     private List<String> safeList(List<String> values) {
@@ -154,4 +165,5 @@ public class DocumentMessagingDataMapper implements IDocumentMessagingDataMapper
         String documentType = StringUtils.trimToEmpty(payload.getDocumentType()).toLowerCase(Locale.ROOT);
         return "document-" + payload.getDocumentId() + (documentType.isEmpty() ? "" : "." + documentType);
     }
+
 }

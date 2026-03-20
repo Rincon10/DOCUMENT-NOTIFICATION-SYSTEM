@@ -145,7 +145,7 @@ public class DocumentDataMapper implements IDocumentDataMapper {
                 .documentId(document.getId().getValue().toString())
                 .customerId(document.getCustomerId().getValue().toString())
                 .createdAt(documentCreatedEvent.getCreatedAt())
-                .documentNotificationStatus(DocumentNotificationStatus.GENERATED.name())
+                .documentNotificationStatus(DocumentNotificationStatus.SENT.name())
                 .documentType(document.getDocumentType().name())
                 .recipientId(document.getCustomerId().getValue().toString())
                 .recipientEmail(recipientEmail)
