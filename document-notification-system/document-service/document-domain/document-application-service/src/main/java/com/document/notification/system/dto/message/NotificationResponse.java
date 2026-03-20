@@ -1,6 +1,8 @@
 package com.document.notification.system.dto.message;
 
 import com.document.notification.system.domain.valueobject.DocumentNotificationStatus;
+import com.document.notification.system.domain.valueobject.NotificationDocumentStatus;
+import com.document.notification.system.domain.valueobject.NotificationStatus;
 import jakarta.validation.constraints.NotNull;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -28,6 +30,6 @@ public class NotificationResponse {
     private String recipentId;
 
     private Instant createdAt;
-    private DocumentNotificationStatus documentNotificationStatus;
+    private NotificationStatus documentNotificationStatus;
     private List<String> failureMessages;
 }

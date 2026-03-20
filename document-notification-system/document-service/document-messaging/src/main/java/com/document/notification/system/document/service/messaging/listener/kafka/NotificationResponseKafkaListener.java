@@ -48,6 +48,8 @@ public class NotificationResponseKafkaListener implements KafkaConsumer<Notifica
                 NotificationResponse notificationResponse = documentMessagingDataMapper
                         .notificationResponseAvroModelToNotificationResponse(notificationResponseAvroModel);
 
+
+
                 if (NotificationStatus.NOTIFICATION_SENT == notificationResponseAvroModel.getNotificationStatus()) {
                     log.info("Processing successful notification for document id: {}", notificationResponseAvroModel.getDocumentId());
                     notificationResponseMessageListener.notificationCompleted(notificationResponse);

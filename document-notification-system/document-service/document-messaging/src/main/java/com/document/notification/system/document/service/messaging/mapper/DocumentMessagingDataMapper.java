@@ -3,7 +3,7 @@ package com.document.notification.system.document.service.messaging.mapper;
 import com.document.notification.system.dto.message.CustomerModel;
 import com.document.notification.system.dto.message.GenerationResponse;
 import com.document.notification.system.dto.message.NotificationResponse;
-import com.document.notification.system.domain.valueobject.DocumentNotificationStatus;
+import com.document.notification.system.domain.valueobject.NotificationDocumentStatus;
 import com.document.notification.system.domain.valueobject.GenerationStatus;
 import com.document.notification.system.kafka.document.avro.model.*;
 import com.document.notification.system.outbox.model.generator.DocumentGenerationEventPayload;
@@ -62,7 +62,7 @@ public class DocumentMessagingDataMapper implements IDocumentMessagingDataMapper
                 .documentId(notificationResponseAvroModel.getDocumentId())
                 .recipentId(notificationResponseAvroModel.getRecipientId())
                 .createdAt(notificationResponseAvroModel.getCreatedAt())
-                .documentNotificationStatus(DocumentNotificationStatus.valueOf(notificationResponseAvroModel.getNotificationStatus().name()))
+                .documentNotificationStatus(com.document.notification.system.domain.valueobject.NotificationStatus.valueOf(notificationResponseAvroModel.getNotificationStatus().name()))
                 .failureMessages(safeList(notificationResponseAvroModel.getFailureMessages()))
                 .build();
     }
@@ -160,6 +160,7 @@ public class DocumentMessagingDataMapper implements IDocumentMessagingDataMapper
             default -> GenerationStatus.GENERATION_FAILED;
         };
     }
+
 
     private String buildFileName(DocumentGenerationEventPayload payload) {
         String documentType = StringUtils.trimToEmpty(payload.getDocumentType()).toLowerCase(Locale.ROOT);
