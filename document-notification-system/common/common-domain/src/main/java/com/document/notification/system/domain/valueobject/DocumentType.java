@@ -24,7 +24,7 @@ public enum DocumentType {
 
         String normalizedDocumentType = documentType.trim();
         if (normalizedDocumentType.contains("/")) {
-            return normalizedDocumentType.toLowerCase(Locale.ROOT);
+            return normalizedDocumentType;
         }
 
         try {
