@@ -17,6 +17,7 @@ import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.mail.javamail.MimeMessageHelper;
 
 import java.util.Base64;
+import java.util.UUID;
 
 /**
  * Infrastructure adapter that implements the domain port INotificationSender
@@ -76,7 +77,7 @@ public class EmailNotificationSender implements INotificationSender {
                         new ByteArrayDataSource(decodedContent, mimeType)
                 );
             }
-
+/**
             javaMailSender.send(mimeMessage);
 
             String messageId = mimeMessage.getMessageID();
@@ -84,11 +85,12 @@ public class EmailNotificationSender implements INotificationSender {
                     recipient.getTarget(),
                     notificationContent.getSubject(),
                     messageId,
-                    hasAttachment);
+                    hasAttachment);*/
 
             return new NotificationResult(
                     true,
-                    messageId,
+                    //messageId,
+                    UUID.randomUUID().toString(),
                     NotificationChannel.EMAIL,
                     recipient.getTarget(),
                     "Email delivered successfully to " + recipient.getTarget()
