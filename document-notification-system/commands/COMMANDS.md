@@ -52,9 +52,8 @@ save/view cluster
 curl --request POST \
   --url http://localhost:8181/documents \
   --header 'Content-Type: application/json' \
-  --cookie JSESSIONID=92634E8E640A5C12037D8775B05AF65A \
   --data '{
-  "customerId": "550e8400-e29b-41d4-a716-446655440000",
+  "customerId": "550e8400-e29b-41d4-a716-446655440001",
   "labels": [
     {
       "itemId": "123e4567-e89b-12d3-a456-426614174001",
