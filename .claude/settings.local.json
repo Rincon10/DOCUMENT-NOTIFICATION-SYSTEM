@@ -1,7 +1,11 @@
 {
   "permissions": {
     "allow": [
-      "Bash(cd:*)"
+      "Bash(cd:*)",
+      "Bash(xargs grep:*)",
+      "Bash(mvn generate-sources:*)",
+      "Bash(mvn clean:*)",
+      "Bash(rm:*)"
     ]
   }
 }
