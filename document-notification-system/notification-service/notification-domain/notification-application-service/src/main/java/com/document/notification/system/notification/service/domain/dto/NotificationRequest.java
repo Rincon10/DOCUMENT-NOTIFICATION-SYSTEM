@@ -19,6 +19,7 @@ public class NotificationRequest {
     private Instant createdAt;
     private DocumentNotificationStatus documentNotificationStatus;
     private String recipientId;
+    private String recipientEmail;
     private String subject;
     private String message;
     private String fileName;

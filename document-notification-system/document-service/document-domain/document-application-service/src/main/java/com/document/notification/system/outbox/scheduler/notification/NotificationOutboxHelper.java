@@ -44,6 +44,7 @@ public class NotificationOutboxHelper {
                 .builder()
                 .id(UUID.randomUUID())
                 .sagaId(sagaId)
+                .documentId(UUID.fromString(documentNotificationEventPayload.getDocumentId()) )
                 .createdAt(documentNotificationEventPayload.getCreatedAt())
                 .type(SagaConstants.SAGA_NAME)
                 .payload(payloadJson)
@@ -56,6 +57,11 @@ public class NotificationOutboxHelper {
     }
 
     @Transactional(readOnly = true)
+    public Optional<DocumentNotificationOutboxMessage> getDocumentNotificationOutboxMessageBySagaIdAndSagaStatus(UUID sagaId, SagaStatus sagaStatus) {
+        return notificationOutboxRepository.findByTypeAndSagaIdAndSagaStatus(SagaConstants.SAGA_NAME, sagaId, sagaStatus);
+    }
+
+    @Transactional(readOnly = true)
     public Optional<List<DocumentNotificationOutboxMessage>> getNotificationOutboxMessageByOutboxStatusAndSagaStatus(OutboxStatus outboxStatus, SagaStatus... sagaStatus) {
         return notificationOutboxRepository.findByTypeAndOutboxStatusAndSagaStatus(
                 SagaConstants.SAGA_NAME,
@@ -63,6 +69,8 @@ public class NotificationOutboxHelper {
                 sagaStatus
         );
     }
+
+
 
     @Transactional
     public void save(DocumentNotificationOutboxMessage documentNotificationOutboxMessage) {

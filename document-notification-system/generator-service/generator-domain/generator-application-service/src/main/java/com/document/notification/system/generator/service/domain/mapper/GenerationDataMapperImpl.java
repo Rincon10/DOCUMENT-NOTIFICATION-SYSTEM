@@ -29,7 +29,9 @@ public class GenerationDataMapperImpl implements GenerationDataMapper {
                 .generationId(new GenerationId(UUID.fromString(generationRequest.getDocumentId())))
                 .documentId(new DocumentId(UUID.fromString(generationRequest.getDocumentId())))
                 .customerId(new CustomerId(UUID.fromString(generationRequest.getCustomerId())))
+                .documentType(MapperUtils.safeOrDefault(() -> DocumentType.valueOf(generationRequest.getDocumentType()), null))
                 .fileExtension(MapperUtils.safeOrDefault(() -> DocumentType.valueOf(generationRequest.getDocumentType()), null))
+                .documentName(generationRequest.getFileName())
                 .build();
     }
 
@@ -43,9 +45,12 @@ public class GenerationDataMapperImpl implements GenerationDataMapper {
                 .documentId(documentGeneration.getDocumentId().getValue().toString())
                 .createdAt(generationEvent.getCreatedAt())
                 .generationStatus(documentGeneration.getGenerationStatus().name())
+                .fileName(documentGeneration.getDocumentName())
                 .failureMessages(generationEvent.getFailureMessages())
                 .contentBase64(documentGeneration.getGeneratedContentBase64())
-                .contentType(documentGeneration.getDocumentType().name())
+                .contentType(documentGeneration.getDocumentType() != null
+                        ? documentGeneration.getDocumentType().getMimeType()
+                        : null)
                 .build();
     }
 

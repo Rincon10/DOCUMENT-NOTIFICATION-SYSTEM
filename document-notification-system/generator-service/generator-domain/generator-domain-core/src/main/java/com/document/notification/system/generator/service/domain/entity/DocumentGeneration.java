@@ -36,6 +36,7 @@ public class DocumentGeneration extends AggregateRoot<GenerationId> {
     private GenerationStatus generationStatus;
     private LocalDateTime createdAt;
     private String generatedContentBase64;
+    private String documentName;
 
     @Builder
     public DocumentGeneration(GenerationId generationId,
@@ -45,7 +46,8 @@ public class DocumentGeneration extends AggregateRoot<GenerationId> {
                               LocalDateTime createdAt,
                               DocumentType fileExtension,
                               DocumentType documentType,
-                              String generatedContentBase64) {
+                              String generatedContentBase64,
+                              String documentName) {
         this.generationId = generationId;
         this.documentId = documentId;
         this.customerId = customerId;
@@ -54,11 +56,16 @@ public class DocumentGeneration extends AggregateRoot<GenerationId> {
         this.fileExtension = fileExtension;
         this.documentType = documentType;
         this.generatedContentBase64 = generatedContentBase64;
+        this.documentName = documentName;
     }
 
     public void initializateGeneration() {
         setId(new GenerationId(UUID.randomUUID()));
         this.createdAt = DateUtils.getZoneDateTimeByUTCZoneId().toLocalDateTime();
+        if (this.documentName == null || this.documentName.isBlank()) {
+            String extension = documentType != null ? documentType.name().toLowerCase() : "pdf";
+            this.documentName = "document-" + documentId.getValue() + "." + extension;
+        }
     }
 
     public void validateGeneration(List<String> validationErrors, String fileExtension) {

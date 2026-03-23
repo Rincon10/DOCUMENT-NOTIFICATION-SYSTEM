@@ -31,7 +31,7 @@ CREATE TYPE "document".document_status AS ENUM ('PENDING', 'GENERATED', 'SENT', 
 
 -- Document Type Enum (for future use)
 DROP TYPE IF EXISTS "document".document_type;
-CREATE TYPE "document".document_type AS ENUM ('INVOICE', 'RECEIPT', 'STATEMENT', 'OTHER');
+CREATE TYPE "document".document_type AS ENUM ('PDF', 'HTML', 'XML');
 
 -- Saga Status Enum
 DROP TYPE IF EXISTS "document".saga_status;
@@ -87,6 +87,7 @@ CREATE TABLE "document".documents
     created_at             TIMESTAMP                  NOT NULL,
     updated_at             TIMESTAMP,
     document_status        "document".document_status NOT NULL,
+    document_type          "document".document_type   NOT NULL,
     failure_messages       TEXT,
     CONSTRAINT documents_pkey PRIMARY KEY (id),
     CONSTRAINT documents_customer_fk FOREIGN KEY (customer_id)
@@ -182,16 +183,17 @@ DROP TABLE IF EXISTS "document".notification_outbox CASCADE;
 
 CREATE TABLE "document".notification_outbox
 (
-    id            UUID                     NOT NULL,
-    saga_id       UUID                     NOT NULL,
-    document_id   UUID                     NOT NULL,
-    created_at    TIMESTAMP                NOT NULL,
-    processed_at  TIMESTAMP,
-    type          VARCHAR(255)             NOT NULL,
-    payload       TEXT                     NOT NULL,
-    saga_status   "document".saga_status   NOT NULL,
-    outbox_status "document".outbox_status NOT NULL,
-    version       INTEGER DEFAULT 0,
+    id              UUID                       NOT NULL,
+    saga_id         UUID                       ,
+    document_id     UUID                       ,
+    created_at      TIMESTAMP                  ,
+    processed_at    TIMESTAMP,
+    type            VARCHAR(255)               ,
+    payload         TEXT                       ,
+    saga_status     "document".saga_status     ,
+    document_status "document".document_status ,
+    outbox_status   "document".outbox_status   ,
+    version         INTEGER DEFAULT 0,
     CONSTRAINT notification_outbox_pkey PRIMARY KEY (id),
     CONSTRAINT notification_outbox_document_fk FOREIGN KEY (document_id)
         REFERENCES "document".documents (id) ON DELETE CASCADE ON UPDATE CASCADE
@@ -268,7 +270,7 @@ VALUES ('550e8400-e29b-41d4-a716-446655440000', 'camilo.rincon@gmail.com', 'Cami
 
 -- Insert sample customers for testing
 INSERT INTO customer.customers (id, username, first_name, last_name)
-VALUES ('550e8400-e29b-41d4-a716-446655440001', 'juan.perez@gmail.com', 'Juan', 'Perez'),
+VALUES ('550e8400-e29b-41d4-a716-446655440001', 'proyectobizagig3@gmail.com', 'Camilo', 'Rincon'),
        ('550e8400-e29b-41d4-a716-446655440002', 'maria.garcia@gmail.com', 'Maria', 'Garcia'),
        ('550e8400-e29b-41d4-a716-446655440003', 'carlos.lopez@gmail.com', 'Carlos',
         'Lopez') ON CONFLICT (id) DO NOTHING;
@@ -276,3 +278,11 @@ VALUES ('550e8400-e29b-41d4-a716-446655440001', 'juan.perez@gmail.com', 'Juan', 
 -- Refresh the materialized view with initial data
 REFRESH
 MATERIALIZED VIEW "document".customers;
+
+
+
+
+
+SELECT * FROM "document".documents;
+SELECT * FROM "document".generation_outbox;
+SELECT * FROM "document".notification_outbox;

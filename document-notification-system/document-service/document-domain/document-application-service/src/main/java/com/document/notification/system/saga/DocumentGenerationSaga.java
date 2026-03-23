@@ -2,6 +2,7 @@ package com.document.notification.system.saga;
 
 import com.document.notification.system.document.service.domain.entity.Document;
 import com.document.notification.system.document.service.domain.event.DocumentCreatedEvent;
+import com.document.notification.system.document.service.domain.event.DocumentGeneratedEvent;
 import com.document.notification.system.document.service.domain.exception.DocumentNotFoundException;
 import com.document.notification.system.document.service.domain.service.IDocumentDomainService;
 import com.document.notification.system.domain.valueobject.DocumentId;
@@ -13,6 +14,7 @@ import com.document.notification.system.outbox.model.generator.DocumentGeneratio
 import com.document.notification.system.outbox.model.notification.DocumentNotificationEventPayload;
 import com.document.notification.system.outbox.scheduler.generator.GeneratorOutboxHelper;
 import com.document.notification.system.outbox.scheduler.notification.NotificationOutboxHelper;
+import com.document.notification.system.ports.output.repository.CustomerRepository;
 import com.document.notification.system.ports.output.repository.IDocumentRepository;
 import lombok.AllArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -38,6 +40,7 @@ public class DocumentGenerationSaga implements SagaStep<GenerationResponse> {
 
     private final IDocumentDomainService documentDomainService;
     private final IDocumentRepository documentRepository;
+    private final CustomerRepository customerRepository;
     private final GeneratorOutboxHelper generatorOutboxHelper;
     private final NotificationOutboxHelper notificationOutboxHelper;
     private final IDocumentSagaHelper documentSagaHelper;
@@ -58,7 +61,7 @@ public class DocumentGenerationSaga implements SagaStep<GenerationResponse> {
         DocumentGenerationOutboxMessage documentGenerationOutboxMessage = optionalDocumentGenerationOutboxMessage.get();
 
         // Calling document-domain-core to update the document state and saving all on the repository, if any exception is thrown here the transaction will be rolled back and the message will be retried later by the outbox scheduler
-        DocumentCreatedEvent documentCreatedEvent = completeGenerationForDocument(generationResponse);
+        DocumentGeneratedEvent documentCreatedEvent = completeGenerationForDocument(generationResponse);
 
         // Saga orchestor handling the following steps of the saga, if any exception is thrown here the transaction will be rolled back and the message will be retried later by the outbox scheduler
         SagaStatus sagaStatus = documentSagaHelper.documentStatusToSagaStatus(documentCreatedEvent.getDocument().getDocumentStatus());
@@ -99,14 +102,28 @@ public class DocumentGenerationSaga implements SagaStep<GenerationResponse> {
         });
     }
 
-    private DocumentCreatedEvent completeGenerationForDocument(GenerationResponse generationResponse) {
+    private DocumentGeneratedEvent completeGenerationForDocument(GenerationResponse generationResponse) {
         log.info("Completing generation for document with id: {}", generationResponse.getDocumentId());
 
         Document document = findDocument(generationResponse.getDocumentId());
-        DocumentCreatedEvent documentCreatedEvent = documentDomainService.validateAndInitiateDocument(document);
+        DocumentGeneratedEvent documentCreatedEvent = documentDomainService.generateDocument(document);
         documentRepository.save(documentCreatedEvent.getDocument());
 
-        return documentCreatedEvent;
+        String recipientEmail = customerRepository.findCustomer(document.getCustomerId().getValue())
+                .map(customer -> customer.getUsername())
+                .orElseThrow(() -> new DocumentNotFoundException(
+                        "Customer with id: " + document.getCustomerId().getValue() + " was not found"));
+
+        // Create a new event with the generated content from the response
+        return new DocumentGeneratedEvent(
+                documentCreatedEvent.getDocument(),
+                documentCreatedEvent.getCreatedAt(),
+                generationResponse.getFileName(),
+                generationResponse.getContentType(),
+                generationResponse.getContentBase64(),
+                generationResponse.getFileSizeInBytes(),
+                recipientEmail
+        );
     }
 
     @Override

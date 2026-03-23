@@ -4,9 +4,12 @@ import com.document.notification.system.document.service.domain.entity.Document;
 import com.document.notification.system.document.service.domain.entity.DocumentItem;
 import com.document.notification.system.document.service.domain.entity.Item;
 import com.document.notification.system.document.service.domain.event.DocumentCreatedEvent;
+import com.document.notification.system.document.service.domain.event.DocumentEvent;
+import com.document.notification.system.document.service.domain.event.DocumentGeneratedEvent;
 import com.document.notification.system.document.service.domain.valueobject.StreetAddress;
 import com.document.notification.system.domain.valueobject.CustomerId;
 import com.document.notification.system.domain.valueobject.DocumentGenerationStatus;
+import com.document.notification.system.domain.valueobject.DocumentNotificationStatus;
 import com.document.notification.system.domain.valueobject.Money;
 import com.document.notification.system.dto.create.*;
 import com.document.notification.system.outbox.model.generator.DocumentGenerationEventPayload;
@@ -100,7 +103,7 @@ public class DocumentDataMapper implements IDocumentDataMapper {
     }
 
     @Override
-    public DocumentGenerationEventPayload documentCreatedEventToDocumentGenerationEventPayload(DocumentCreatedEvent documentCreatedEvent) {
+    public DocumentGenerationEventPayload documentCreatedEventToDocumentGenerationEventPayload(DocumentEvent documentCreatedEvent) {
         Document document = documentCreatedEvent.getDocument();
         return DocumentGenerationEventPayload.builder()
                 .documentId(documentCreatedEvent.getDocument().getId().getValue().toString())
@@ -115,6 +118,41 @@ public class DocumentDataMapper implements IDocumentDataMapper {
                 .documentStatus(document.getDocumentStatus().name())
                 .itemCount(document.getDocumentItems() != null ? document.getDocumentItems().size() : 0)
                 .metadata(buildMetadata(document))
+                .build();
+    }
+
+    @Override
+    public DocumentNotificationEventPayload documentCreatedEventToDocumentNotificationEventPayload(DocumentEvent documentCreatedEvent) {
+        Document document = documentCreatedEvent.getDocument();
+
+        // Check if this is a DocumentGeneratedEvent with content
+        String fileName = document.getFileName();
+        String contentType = null;
+        String contentBase64 = null;
+        Long fileSizeInBytes = null;
+
+        String recipientEmail = null;
+
+        if (documentCreatedEvent instanceof DocumentGeneratedEvent generatedEvent) {
+            fileName = generatedEvent.getFileName() != null ? generatedEvent.getFileName() : fileName;
+            contentType = generatedEvent.getContentType();
+            contentBase64 = generatedEvent.getContentBase64();
+            fileSizeInBytes = generatedEvent.getFileSizeInBytes();
+            recipientEmail = generatedEvent.getRecipientEmail();
+        }
+
+        return DocumentNotificationEventPayload.builder()
+                .documentId(document.getId().getValue().toString())
+                .customerId(document.getCustomerId().getValue().toString())
+                .createdAt(documentCreatedEvent.getCreatedAt())
+                .documentNotificationStatus(DocumentNotificationStatus.GENERATED.name())
+                .documentType(document.getDocumentType().name())
+                .recipientId(document.getCustomerId().getValue().toString())
+                .recipientEmail(recipientEmail)
+                .fileName(fileName)
+                .contentType(contentType)
+                .contentBase64(contentBase64)
+                .failureMessages(document.getFailureMessages())
                 .build();
     }
 
@@ -148,8 +186,5 @@ public class DocumentDataMapper implements IDocumentDataMapper {
         return metadata;
     }
 
-    @Override
-    public DocumentNotificationEventPayload documentCreatedEventToDocumentNotificationEventPayload(DocumentCreatedEvent documentCreatedEvent) {
-        throw new UnsupportedOperationException("Not implemented yet");
-    }
+
 }
