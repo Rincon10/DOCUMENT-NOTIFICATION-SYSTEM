@@ -112,9 +112,10 @@ mvn com.github.ferstl:depgraph-maven-plugin:aggregate -DcreateImage=true -Dreduc
 
 ## Newman - Mass Load Testing
 
-Install Newman globally:
+Install Newman and reporters:
 ```bash
 npm install -g newman
+npm install -g newman-reporter-html
 ```
 
 Run 500 requests with 100ms delay between each:
@@ -125,6 +126,11 @@ newman run commands/postman/create-document-collection.json -n 500 --delay-reque
 Run 1000 requests with detailed report:
 ```bash
 newman run commands/postman/create-document-collection.json -n 1000 --delay-request 100 --reporters cli,json --reporter-json-export commands/postman/results.json
+```
+
+Run with HTML report:
+```bash
+newman run commands/postman/create-document-collection.json -n 500 --delay-request 100 --reporters cli,html --reporter-html-export commands/postman/report.html
 ```
 
 Run with custom base URL (e.g., different environment):
