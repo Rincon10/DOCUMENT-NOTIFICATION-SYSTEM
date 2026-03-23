@@ -33,6 +33,7 @@ import java.util.UUID;
 @AllArgsConstructor
 public class EmailNotificationSender implements INotificationSender {
 
+
     private final JavaMailSender javaMailSender;
     private final String fromAddress;
 
@@ -77,20 +78,25 @@ public class EmailNotificationSender implements INotificationSender {
                         new ByteArrayDataSource(decodedContent, mimeType)
                 );
             }
-/**
-            javaMailSender.send(mimeMessage);
 
-            String messageId = mimeMessage.getMessageID();
+            String messageId = UUID.randomUUID().toString();
+            boolean callEmailSender = true; //test porpouses
+            if(callEmailSender){
+                messageId =  mimeMessage.getMessageID();
+                javaMailSender.send(mimeMessage);
+            }
+
+
+
             log.info("Email sent successfully to: {} | Subject: {} | MessageId: {} | Has attachment: {}",
                     recipient.getTarget(),
                     notificationContent.getSubject(),
                     messageId,
-                    hasAttachment);*/
+                    hasAttachment);
 
             return new NotificationResult(
                     true,
-                    //messageId,
-                    UUID.randomUUID().toString(),
+                    messageId,
                     NotificationChannel.EMAIL,
                     recipient.getTarget(),
                     "Email delivered successfully to " + recipient.getTarget()
