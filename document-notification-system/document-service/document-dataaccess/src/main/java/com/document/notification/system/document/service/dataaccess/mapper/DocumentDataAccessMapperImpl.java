@@ -11,6 +11,7 @@ import com.document.notification.system.domain.constants.GlobalConstants;
 import com.document.notification.system.domain.utils.DateUtils;
 import com.document.notification.system.domain.valueobject.CustomerId;
 import com.document.notification.system.domain.valueobject.DocumentId;
+import com.document.notification.system.domain.valueobject.DocumentType;
 import com.document.notification.system.domain.valueobject.Money;
 import org.springframework.stereotype.Component;
 
@@ -57,6 +58,7 @@ public class DocumentDataAccessMapperImpl implements DocumentDataAccessMapperI {
                 .id(document.getId().getValue())
                 .customerId(document.getCustomerId().getValue())
                 .documentStatus(document.getDocumentStatus())
+                .documentType(document.getDocumentType())
                 .totalLateInterest(totalLateInterest)
                 .totalRegularInterest(totalRegularInterest)
                 .periodStartDate(document.getPeriodStartDate())
@@ -84,6 +86,7 @@ public class DocumentDataAccessMapperImpl implements DocumentDataAccessMapperI {
                 .deliveryAddress(addressEntityToStreetAddress(documentEntity.getAddress()))
                 .documentItems(documentItemEntitiesToDocumentItems(documentEntity.getItems(), documentEntity.getId()))
                 .documentStatus(documentEntity.getDocumentStatus())
+                .documentType(documentEntity.getDocumentType())
                 .periodStartDate(documentEntity.getPeriodStartDate())
                 .periodEndDate(documentEntity.getPeriodEndDate())
                 .failureMessages(documentEntity.getFailureMessages() != null ? List.of(documentEntity.getFailureMessages().split(GlobalConstants.FAILURE_MESSAGE_DELIMITER)) : Collections.emptyList())

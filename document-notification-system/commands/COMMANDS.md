@@ -52,9 +52,8 @@ save/view cluster
 curl --request POST \
   --url http://localhost:8181/documents \
   --header 'Content-Type: application/json' \
-  --cookie JSESSIONID=92634E8E640A5C12037D8775B05AF65A \
   --data '{
-  "customerId": "550e8400-e29b-41d4-a716-446655440000",
+  "customerId": "550e8400-e29b-41d4-a716-446655440001",
   "labels": [
     {
       "itemId": "123e4567-e89b-12d3-a456-426614174001",
@@ -94,4 +93,64 @@ avro
 
 ```
 mvn -f "C:\proyectos\DOCUMENT-NOTIFICATION-SYSTEM\document-notification-system\pom.xml" -pl infraestructure/kafka/kafka-model -am generate-sources
+```
+
+## Generating graphics for each module 
+
+
+```bash
+mvn com.github.ferstl:depgraph-maven-plugin:graph
+```
+
+or 
+```bash
+mvn com.github.ferstl:depgraph-maven-plugin:aggregate -DcreateImage=true -DreduceEdges=false -Dscope=compile "-Dincludes=com.document.notification.system*:*"
+```
+
+## .ENV
+
+
+## Newman - Mass Load Testing
+
+Install Newman and reporters:
+```bash
+npm install -g newman
+npm install -g newman-reporter-html
+```
+
+Run 500 requests with 100ms delay between each:
+```bash
+newman run commands/postman/create-document-collection.json -n 500 --delay-request 100
+```
+
+Run 1000 requests with detailed report:
+```bash
+newman run commands/postman/create-document-collection.json -n 1000 --delay-request 100 --reporters cli,json --reporter-json-export commands/postman/results.json
+```
+
+Run with HTML report:
+```bash
+newman run commands/postman/create-document-collection.json -n 500 --delay-request 100 --reporters cli,html --reporter-html-export commands/postman/report.html
+```
+
+Run with custom base URL (e.g., different environment):
+```bash
+newman run commands/postman/create-document-collection.json -n 500 --delay-request 100 --env-var "base_url=http://localhost:8181"
+```
+
+## .ENV
+
+
+```
+MAIL_FROM=some value
+MAIL_HOST=smtp.gmail.com
+MAIL_PORT=587
+MAIL_USERNAME=some value
+MAIL_PASSWORD=some value
+MAIL_SMTP_AUTH=true
+MAIL_SMTP_STARTTLS_ENABLE=true
+MAIL_SMTP_STARTTLS_REQUIRED=true
+MAIL_SMTP_CONNECTION_TIMEOUT=5000
+MAIL_SMTP_TIMEOUT=5000
+MAIL_SMTP_WRITE_TIMEOUT=5000
 ```

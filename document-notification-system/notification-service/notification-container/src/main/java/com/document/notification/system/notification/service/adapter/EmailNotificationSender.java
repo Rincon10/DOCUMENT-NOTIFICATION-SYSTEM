@@ -1,5 +1,6 @@
 package com.document.notification.system.notification.service.adapter;
 
+import com.document.notification.system.domain.valueobject.DocumentType;
 import com.document.notification.system.notification.service.domain.exception.NotificationDomainException;
 import com.document.notification.system.notification.service.domain.service.INotificationSender;
 import com.document.notification.system.notification.service.domain.valueobject.NotificationChannel;
@@ -16,6 +17,7 @@ import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.mail.javamail.MimeMessageHelper;
 
 import java.util.Base64;
+import java.util.UUID;
 
 /**
  * Infrastructure adapter that implements the domain port INotificationSender
@@ -30,6 +32,7 @@ import java.util.Base64;
 @Slf4j
 @AllArgsConstructor
 public class EmailNotificationSender implements INotificationSender {
+
 
     private final JavaMailSender javaMailSender;
     private final String fromAddress;
@@ -68,9 +71,7 @@ public class EmailNotificationSender implements INotificationSender {
 
             if (hasAttachment) {
                 byte[] decodedContent = Base64.getDecoder().decode(notificationContent.getContentBase64());
-                String mimeType = notificationContent.getContentType() != null
-                        ? notificationContent.getContentType()
-                        : "application/octet-stream";
+                String mimeType = resolveAttachmentMimeType(notificationContent.getContentType());
 
                 helper.addAttachment(
                         notificationContent.getFileName(),
@@ -78,9 +79,15 @@ public class EmailNotificationSender implements INotificationSender {
                 );
             }
 
-            javaMailSender.send(mimeMessage);
+            String messageId = UUID.randomUUID().toString();
+            boolean callEmailSender = true; //test porpouses
+            if(callEmailSender){
+                messageId =  mimeMessage.getMessageID();
+                javaMailSender.send(mimeMessage);
+            }
 
-            String messageId = mimeMessage.getMessageID();
+
+
             log.info("Email sent successfully to: {} | Subject: {} | MessageId: {} | Has attachment: {}",
                     recipient.getTarget(),
                     notificationContent.getSubject(),
@@ -142,5 +149,10 @@ public class EmailNotificationSender implements INotificationSender {
                     .append(label).append(":</strong></td><td>")
                     .append(value).append("</td></tr>");
         }
+    }
+
+    private String resolveAttachmentMimeType(String contentType) {
+        String mimeType = DocumentType.resolveMimeType(contentType);
+        return mimeType != null ? mimeType : "application/octet-stream";
     }
 }

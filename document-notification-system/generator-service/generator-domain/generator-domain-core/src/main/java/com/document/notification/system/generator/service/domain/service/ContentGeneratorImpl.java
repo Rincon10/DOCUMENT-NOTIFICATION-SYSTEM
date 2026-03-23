@@ -6,10 +6,14 @@ import com.document.notification.system.generator.service.domain.valueobject.Gen
 import com.document.notification.system.generator.service.domain.valueobject.GenerationContentData;
 import lombok.extern.slf4j.Slf4j;
 
+import java.io.ByteArrayOutputStream;
+import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
+import java.util.ArrayList;
 import java.util.Base64;
+import java.util.List;
 
 /**
  * Content generator implementation for creating documents
@@ -34,14 +38,13 @@ public class ContentGeneratorImpl implements IContentGenerator {
                 documentType, documentId, customerId);
 
         try {
-            String content = switch (documentType) {
+            String base64Content = switch (documentType) {
                 case PDF -> generatePdfContent(documentId, customerId, data);
-                case HTML -> generateHtmlContent(documentId, customerId, data);
+                case HTML -> encodeToBase64(generateHtmlContent(documentId, customerId, data));
                 default -> throw new GeneratorDomainException(
                         "Unsupported document type: " + documentType);
             };
 
-            String base64Content = encodeToBase64(content);
             log.info("Successfully generated {} content of size {} bytes",
                     documentType, base64Content.length());
 
@@ -54,41 +57,114 @@ public class ContentGeneratorImpl implements IContentGenerator {
         }
     }
 
-    // TO DO: Handle better using factory or strategy pattern for different document types
     private String generatePdfContent(String documentId, String customerId, GenerationContentData data) {
-        // Simple text content that simulates PDF structure
-        // In production, use Apache PDFBox or iText for real PDF generation
-        StringBuilder content = new StringBuilder();
-        content.append("%PDF-1.4\n");
-        content.append("% Simulated PDF Document\n");
-        content.append("1 0 obj\n");
-        content.append("<< /Type /Catalog /Pages 2 0 R >>\n");
-        content.append("endobj\n\n");
-        content.append("2 0 obj\n");
-        content.append("<< /Type /Pages /Kids [3 0 R] /Count 1 >>\n");
-        content.append("endobj\n\n");
-        content.append("3 0 obj\n");
-        content.append("<< /Type /Page /Parent 2 0 R /Contents 4 0 R >>\n");
-        content.append("endobj\n\n");
-        content.append("4 0 obj\n");
-        content.append("<< /Length 100 >>\n");
-        content.append("stream\n");
-        content.append("DOCUMENT GENERATED\n");
-        content.append("===================\n\n");
-        content.append("Document ID: ").append(documentId).append("\n");
-        content.append("Customer ID: ").append(customerId).append("\n");
-        content.append("Generated At: ").append(LocalDateTime.now().format(FORMATTER)).append("\n\n");
+        try {
+            byte[] pdfBytes = buildPdfBytes(documentId, customerId, data);
+            return Base64.getEncoder().encodeToString(pdfBytes);
+        } catch (IOException e) {
+            throw new GeneratorDomainException("Failed to generate PDF: " + e.getMessage());
+        }
+    }
 
-        if (data != null) {
-            content.append("Additional Data:\n");
-            appendContentData(content, data);
+    private byte[] buildPdfBytes(String documentId, String customerId, GenerationContentData data) throws IOException {
+        ByteArrayOutputStream out = new ByteArrayOutputStream();
+        List<Integer> offsets = new ArrayList<>();
+
+        // Header
+        write(out, "%PDF-1.4\n%\u00E2\u00E3\u00CF\u00D3\n");
+
+        // Object 1 - Catalog
+        offsets.add(out.size());
+        write(out, "1 0 obj\n<< /Type /Catalog /Pages 2 0 R >>\nendobj\n");
+
+        // Object 2 - Pages
+        offsets.add(out.size());
+        write(out, "2 0 obj\n<< /Type /Pages /Kids [3 0 R] /Count 1 >>\nendobj\n");
+
+        // Object 3 - Page
+        offsets.add(out.size());
+        write(out, "3 0 obj\n<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Contents 5 0 R /Resources << /Font << /F1 4 0 R >> >> >>\nendobj\n");
+
+        // Object 4 - Font
+        offsets.add(out.size());
+        write(out, "4 0 obj\n<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>\nendobj\n");
+
+        // Build page content stream
+        byte[] streamBytes = buildPageStream(documentId, customerId, data);
+
+        // Object 5 - Content stream
+        offsets.add(out.size());
+        write(out, "5 0 obj\n<< /Length " + streamBytes.length + " >>\nstream\n");
+        out.write(streamBytes);
+        write(out, "\nendstream\nendobj\n");
+
+        // Cross-reference table
+        int xrefOffset = out.size();
+        write(out, "xref\n");
+        write(out, "0 " + (offsets.size() + 1) + "\n");
+        write(out, "0000000000 65535 f \n");
+        for (int offset : offsets) {
+            write(out, String.format("%010d 00000 n \n", offset));
         }
 
-        content.append("\nendstream\n");
-        content.append("endobj\n");
-        content.append("%%EOF\n");
+        // Trailer
+        write(out, "trailer\n<< /Size " + (offsets.size() + 1) + " /Root 1 0 R >>\n");
+        write(out, "startxref\n" + xrefOffset + "\n%%EOF\n");
 
-        return content.toString();
+        return out.toByteArray();
+    }
+
+    private byte[] buildPageStream(String documentId, String customerId, GenerationContentData data) {
+        StringBuilder stream = new StringBuilder();
+        int y = 740;
+
+        stream.append("BT\n");
+
+        // Title
+        stream.append("/F1 18 Tf\n");
+        stream.append("50 ").append(y).append(" Td\n");
+        stream.append("(Document Generated) Tj\n");
+        y -= 40;
+
+        // Separator
+        stream.append("/F1 10 Tf\n");
+        stream.append("50 ").append(y).append(" Td\n");
+        stream.append("(========================================) Tj\n");
+        y -= 25;
+
+        // Document info
+        stream.append("/F1 11 Tf\n");
+        y = appendPdfLine(stream, "Document ID: " + documentId, y);
+        y = appendPdfLine(stream, "Customer ID: " + customerId, y);
+        y = appendPdfLine(stream, "Generated At: " + LocalDateTime.now().format(FORMATTER), y);
+        y -= 15;
+
+        if (data != null) {
+            y = appendPdfLine(stream, "--- Additional Data ---", y);
+            y -= 5;
+            if (data.getRequestId() != null) {
+                y = appendPdfLine(stream, "Request ID: " + data.getRequestId(), y);
+            }
+            if (data.getSagaId() != null) {
+                y = appendPdfLine(stream, "Saga ID: " + data.getSagaId(), y);
+            }
+        }
+
+        stream.append("ET\n");
+        return stream.toString().getBytes(StandardCharsets.US_ASCII);
+    }
+
+    private int appendPdfLine(StringBuilder stream, String text, int y) {
+        String escaped = escapePdfString(text);
+        stream.append("50 ").append(y).append(" Td\n");
+        stream.append("(").append(escaped).append(") Tj\n");
+        return y - 20;
+    }
+
+    private String escapePdfString(String text) {
+        return text.replace("\\", "\\\\")
+                   .replace("(", "\\(")
+                   .replace(")", "\\)");
     }
 
     private String generateHtmlContent(String documentId, String customerId, GenerationContentData data) {
@@ -138,28 +214,16 @@ public class ContentGeneratorImpl implements IContentGenerator {
         return Base64.getEncoder().encodeToString(contentBytes);
     }
 
-    private void appendContentData(StringBuilder content, GenerationContentData data) {
-        appendLine(content, "Generation ID", data.getGenerationId());
-        appendLine(content, "Document ID", data.getDocumentId());
-        appendLine(content, "Customer ID", data.getCustomerId());
-        //appendLine(content, "File Extension", data.getFileExtension());
-        appendLine(content, "Request ID", data.getRequestId());
-        appendLine(content, "Saga ID", data.getSagaId());
+    private void write(ByteArrayOutputStream out, String text) throws IOException {
+        out.write(text.getBytes(StandardCharsets.US_ASCII));
     }
 
     private void appendHtmlContentData(StringBuilder html, GenerationContentData data) {
         appendHtmlRow(html, "Generation ID", data.getGenerationId());
         appendHtmlRow(html, "Document ID", data.getDocumentId());
         appendHtmlRow(html, "Customer ID", data.getCustomerId());
-        //appendHtmlRow(html, "File Extension", data.getFileExtension());
         appendHtmlRow(html, "Request ID", data.getRequestId());
         appendHtmlRow(html, "Saga ID", data.getSagaId());
-    }
-
-    private void appendLine(StringBuilder content, String label, String value) {
-        if (value != null) {
-            content.append("  ").append(label).append(": ").append(value).append("\n");
-        }
     }
 
     private void appendHtmlRow(StringBuilder html, String label, String value) {

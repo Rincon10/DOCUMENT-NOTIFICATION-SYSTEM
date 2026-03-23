@@ -24,7 +24,7 @@ public class NotificationDataMapperImpl implements NotificationDataMapper {
                 new DocumentId(UUID.fromString(request.getDocumentId())),
                 new CustomerId(UUID.fromString(request.getCustomerId())),
                 Recipient.builder()
-                        .target(request.getRecipientId())
+                        .target(request.getRecipientEmail())
                         .channel(NotificationChannel.EMAIL)
                         .build(),
                 NotificationContent.builder()

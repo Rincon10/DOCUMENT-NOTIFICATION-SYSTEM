@@ -23,6 +23,7 @@ import java.util.UUID;
 public class DocumentNotificationOutboxMessage {
     private UUID id;
     private UUID sagaId;
+    private UUID documentId;
     private ZonedDateTime createdAt;
     private ZonedDateTime processedAt;
     private String type;

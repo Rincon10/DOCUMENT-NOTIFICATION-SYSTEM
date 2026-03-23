@@ -46,7 +46,8 @@ public class DocumentOutboxRepositoryImpl implements DocumentOutboxRepository {
 
     @Override
     public Optional<DocumentOutboxMessage> findByTypeAndSagaIdAndGenerationStatusAndOutboxStatus(String type, UUID sagaId, GenerationStatus generationStatus, OutboxStatus outboxStatus) {
-        throw new UnsupportedOperationException("Find operation is not supported for DocumentOutboxRepositoryImpl");
+        return documentOutboxRepository.findByTypeAndSagaIdAndGenerationStatusAndOutboxStatus(type, sagaId, generationStatus, outboxStatus)
+                .map(documentOutboxDataAccessMapper::mapDocumentOutboxEntityToDocumentOutboxMessage);
     }
 
     @Override

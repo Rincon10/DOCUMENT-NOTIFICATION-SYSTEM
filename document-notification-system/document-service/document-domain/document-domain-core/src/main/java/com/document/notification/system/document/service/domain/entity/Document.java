@@ -79,5 +79,28 @@ public class Document extends AggregateRoot<DocumentId> {
         }
     }
 
+    public void initCancel(List<String> failureMessages) {
+        if (documentStatus != DocumentStatus.GENERATED) {
+            throw new DocumentDomainException("Document is not in correct state for initCancel operation!");
+        }
+        documentStatus = DocumentStatus.CANCELLING;
+        updateFailureMessages(failureMessages);
+    }
 
+    private void updateFailureMessages(List<String> failureMessages) {
+        if (this.failureMessages != null && failureMessages != null) {
+            this.failureMessages.addAll(failureMessages.stream().filter(message -> !message.isEmpty()).toList());
+        }
+        if (this.failureMessages == null) {
+            this.failureMessages = failureMessages;
+        }
+    }
+
+    public void cancel(List<String> failureMessages) {
+        if (!(documentStatus == DocumentStatus.CANCELLING || documentStatus == DocumentStatus.PENDING)) {
+            throw new DocumentDomainException("Document is not in correct state for cancel operation!");
+        }
+        documentStatus = DocumentStatus.CANCELLED;
+        updateFailureMessages(failureMessages);
+    }
 }

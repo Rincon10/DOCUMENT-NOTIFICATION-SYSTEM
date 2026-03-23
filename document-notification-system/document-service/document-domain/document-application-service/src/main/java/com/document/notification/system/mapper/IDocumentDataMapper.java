@@ -2,6 +2,7 @@ package com.document.notification.system.mapper;
 
 import com.document.notification.system.document.service.domain.entity.Document;
 import com.document.notification.system.document.service.domain.event.DocumentCreatedEvent;
+import com.document.notification.system.document.service.domain.event.DocumentEvent;
 import com.document.notification.system.dto.create.CreateDocumentCommand;
 import com.document.notification.system.dto.create.CreateDocumentResponse;
 import com.document.notification.system.outbox.model.generator.DocumentGenerationEventPayload;
@@ -12,7 +13,7 @@ public interface IDocumentDataMapper {
 
     CreateDocumentResponse documentToCreateDocumentResponse(Document document, String message);
 
-    DocumentGenerationEventPayload documentCreatedEventToDocumentGenerationEventPayload(DocumentCreatedEvent documentCreatedEvent);
+    DocumentGenerationEventPayload documentCreatedEventToDocumentGenerationEventPayload(DocumentEvent documentCreatedEvent);
 
-    DocumentNotificationEventPayload documentCreatedEventToDocumentNotificationEventPayload(DocumentCreatedEvent documentCreatedEvent);
+    DocumentNotificationEventPayload documentCreatedEventToDocumentNotificationEventPayload(DocumentEvent documentCreatedEvent);
 }

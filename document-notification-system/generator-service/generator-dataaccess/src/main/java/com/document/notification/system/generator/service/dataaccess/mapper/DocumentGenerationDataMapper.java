@@ -19,9 +19,7 @@ public class DocumentGenerationDataMapper implements IDocumentGenerationDataMapp
                 .id(documentGeneration.getGenerationId().getValue())
                 .customerId(documentGeneration.getCustomerId().getValue())
                 .documentId(documentGeneration.getDocumentId().getValue())
-                .documentName(documentGeneration.getDocumentType() != null
-                        ? documentGeneration.getDocumentType().name()
-                        : null)
+                .documentName(documentGeneration.getDocumentName())
                 .status(documentGeneration.getGenerationStatus())
                 .createdAt(documentGeneration.getCreatedAt() != null
                         ? documentGeneration.getCreatedAt().atZone(ZoneOffset.UTC)

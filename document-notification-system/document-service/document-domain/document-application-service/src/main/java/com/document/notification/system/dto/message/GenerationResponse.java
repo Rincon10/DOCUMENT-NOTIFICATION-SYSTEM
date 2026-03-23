@@ -35,4 +35,10 @@ public class GenerationResponse {
     private final GenerationStatus generationStatus;
     @NotNull
     private final List<String> failureMessages;
+
+    // Campos del documento generado
+    private final String fileName;
+    private final String contentType;
+    private final String contentBase64;
+    private final Long fileSizeInBytes;
 }

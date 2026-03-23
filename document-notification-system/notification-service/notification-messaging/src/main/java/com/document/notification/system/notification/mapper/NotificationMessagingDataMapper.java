@@ -24,6 +24,7 @@ public class NotificationMessagingDataMapper {
                 .documentNotificationStatus(DocumentNotificationStatus.valueOf(
                         avroModel.getDocumentNotificationStatus().name()))
                 .recipientId(avroModel.getRecipientId())
+                .recipientEmail(avroModel.getRecipientEmail())
                 .subject(avroModel.getSubject())
                 .message(avroModel.getMessage())
                 .fileName(avroModel.getFileName())

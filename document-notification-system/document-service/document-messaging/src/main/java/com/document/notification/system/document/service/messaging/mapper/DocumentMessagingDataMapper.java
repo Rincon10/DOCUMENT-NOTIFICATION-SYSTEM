@@ -2,6 +2,8 @@ package com.document.notification.system.document.service.messaging.mapper;
 
 import com.document.notification.system.dto.message.CustomerModel;
 import com.document.notification.system.dto.message.GenerationResponse;
+import com.document.notification.system.dto.message.NotificationResponse;
+import com.document.notification.system.domain.valueobject.NotificationDocumentStatus;
 import com.document.notification.system.domain.valueobject.GenerationStatus;
 import com.document.notification.system.kafka.document.avro.model.*;
 import com.document.notification.system.outbox.model.generator.DocumentGenerationEventPayload;
@@ -45,6 +47,23 @@ public class DocumentMessagingDataMapper implements IDocumentMessagingDataMapper
                 .createdAt(generatorResponseAvroModel.getCreatedAt())
                 .generationStatus(mapGenerationStatus(generatorResponseAvroModel.getGenerationStatus()))
                 .failureMessages(safeList(generatorResponseAvroModel.getFailureMessages()))
+                .fileName(generatorResponseAvroModel.getFileName())
+                .contentType(generatorResponseAvroModel.getContentType())
+                .contentBase64(generatorResponseAvroModel.getContentBase64())
+                .fileSizeInBytes(generatorResponseAvroModel.getFileSizeInBytes())
+                .build();
+    }
+
+    @Override
+    public NotificationResponse notificationResponseAvroModelToNotificationResponse(NotificationResponseAvroModel notificationResponseAvroModel) {
+        return NotificationResponse.builder()
+                .id(notificationResponseAvroModel.getId())
+                .sagaId(notificationResponseAvroModel.getSagaId())
+                .documentId(notificationResponseAvroModel.getDocumentId())
+                .recipentId(notificationResponseAvroModel.getRecipientId())
+                .createdAt(notificationResponseAvroModel.getCreatedAt())
+                .documentNotificationStatus(com.document.notification.system.domain.valueobject.NotificationStatus.valueOf(notificationResponseAvroModel.getNotificationStatus().name()))
+                .failureMessages(safeList(notificationResponseAvroModel.getFailureMessages()))
                 .build();
     }
 
@@ -84,8 +103,9 @@ public class DocumentMessagingDataMapper implements IDocumentMessagingDataMapper
                 .setCustomerId(documentNotificationEventPayload.getCustomerId())
                 .setDocumentId(documentNotificationEventPayload.getDocumentId())
                 .setCreatedAt(documentNotificationEventPayload.getCreatedAt().toInstant())
-                .setDocumentNotificationStatus(mapDocumentNotificationStatus())
+                .setDocumentNotificationStatus(com.document.notification.system.kafka.document.avro.model.DocumentNotificationStatus.valueOf(documentNotificationEventPayload.getDocumentNotificationStatus()))
                 .setRecipientId(resolveRecipientId(documentNotificationEventPayload))
+                .setRecipientEmail(documentNotificationEventPayload.getRecipientEmail())
                 .setSubject(buildNotificationSubject(documentNotificationEventPayload))
                 .setMessage(buildNotificationMessage(documentNotificationEventPayload))
                 .setFileName(documentNotificationEventPayload.getFileName())
@@ -93,10 +113,6 @@ public class DocumentMessagingDataMapper implements IDocumentMessagingDataMapper
                 .setContentBase64(documentNotificationEventPayload.getContentBase64())
                 .setFailureMessages(safeList(documentNotificationEventPayload.getFailureMessages()))
                 .build();
-    }
-
-    private DocumentNotificationStatus mapDocumentNotificationStatus() {
-        return DocumentNotificationStatus.GENERATED;
     }
 
     private List<String> safeList(List<String> values) {
@@ -145,8 +161,10 @@ public class DocumentMessagingDataMapper implements IDocumentMessagingDataMapper
         };
     }
 
+
     private String buildFileName(DocumentGenerationEventPayload payload) {
         String documentType = StringUtils.trimToEmpty(payload.getDocumentType()).toLowerCase(Locale.ROOT);
         return "document-" + payload.getDocumentId() + (documentType.isEmpty() ? "" : "." + documentType);
     }
+
 }

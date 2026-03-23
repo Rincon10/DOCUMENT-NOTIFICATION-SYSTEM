@@ -1,0 +1,125 @@
+{
+  "info": {
+    "name": "Document Notification System - Load Test",
+    "_postman_id": "dns-load-test-collection",
+    "description": "Collection for mass document creation requests using Newman",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    {
+      "key": "base_url",
+      "value": "http://localhost:8181",
+      "type": "string"
+    }
+  ],
+  "item": [
+    {
+      "name": "Create Document",
+      "event": [
+        {
+          "listen": "prerequest",
+          "script": {
+            "exec": [
+              "// Fixed customerId for all iterations",
+              "const customerId = '550e8400-e29b-41d4-a716-446655440001';",
+              "const itemId1 = pm.variables.replaceIn('{{$guid}}');",
+              "const itemId2 = pm.variables.replaceIn('{{$guid}}');",
+              "",
+              "// Generate random amounts",
+              "const amount1 = (Math.random() * 5000 + 100).toFixed(2);",
+              "const amount2 = (Math.random() * 3000 + 50).toFixed(2);",
+              "const lateInterest1 = (parseFloat(amount1) * 0.03).toFixed(2);",
+              "const regularInterest1 = (parseFloat(amount1) * 0.02).toFixed(2);",
+              "const subTotal1 = (parseFloat(amount1) + parseFloat(lateInterest1) + parseFloat(regularInterest1)).toFixed(2);",
+              "const lateInterest2 = (parseFloat(amount2) * 0.03).toFixed(2);",
+              "const regularInterest2 = (parseFloat(amount2) * 0.02).toFixed(2);",
+              "const subTotal2 = (parseFloat(amount2) + parseFloat(lateInterest2) + parseFloat(regularInterest2)).toFixed(2);",
+              "",
+              "const totalLateInterest = (parseFloat(lateInterest1) + parseFloat(lateInterest2)).toFixed(2);",
+              "const totalRegularInterest = (parseFloat(regularInterest1) + parseFloat(regularInterest2)).toFixed(2);",
+              "const totalAmount = (parseFloat(subTotal1) + parseFloat(subTotal2)).toFixed(2);",
+              "",
+              "// Fixed document type",
+              "const documentType = 'PDF';",
+              "",
+              "// Random addresses",
+              "const cities = ['New York', 'Los Angeles', 'Chicago', 'Houston', 'Phoenix', 'Bogota', 'Medellin'];",
+              "const states = ['NY', 'CA', 'IL', 'TX', 'AZ', 'CUN', 'ANT'];",
+              "const streets = ['123 Main St', '456 Oak Ave', '789 Pine Rd', '321 Elm Blvd', '654 Cedar Ln'];",
+              "const zipCodes = ['10001', '90001', '60601', '77001', '85001', '110111', '050001'];",
+              "const countries = ['USA', 'USA', 'USA', 'USA', 'USA', 'COL', 'COL'];",
+              "const idx = Math.floor(Math.random() * cities.length);",
+              "",
+              "// Random dates in 2026",
+              "const month = String(Math.floor(Math.random() * 12) + 1).padStart(2, '0');",
+              "const startDate = `2026-${month}-01`;",
+              "const endDate = `2026-${month}-28`;",
+              "",
+              "pm.variables.set('gen_customerId', customerId);",
+              "pm.variables.set('gen_itemId1', itemId1);",
+              "pm.variables.set('gen_itemId2', itemId2);",
+              "pm.variables.set('gen_amount1', amount1);",
+              "pm.variables.set('gen_lateInterest1', lateInterest1);",
+              "pm.variables.set('gen_regularInterest1', regularInterest1);",
+              "pm.variables.set('gen_subTotal1', subTotal1);",
+              "pm.variables.set('gen_amount2', amount2);",
+              "pm.variables.set('gen_lateInterest2', lateInterest2);",
+              "pm.variables.set('gen_regularInterest2', regularInterest2);",
+              "pm.variables.set('gen_subTotal2', subTotal2);",
+              "pm.variables.set('gen_totalLateInterest', totalLateInterest);",
+              "pm.variables.set('gen_totalRegularInterest', totalRegularInterest);",
+              "pm.variables.set('gen_totalAmount', totalAmount);",
+              "pm.variables.set('gen_documentType', documentType);",
+              "pm.variables.set('gen_street', streets[idx]);",
+              "pm.variables.set('gen_city', cities[idx]);",
+              "pm.variables.set('gen_state', states[idx]);",
+              "pm.variables.set('gen_zipCode', zipCodes[idx]);",
+              "pm.variables.set('gen_country', countries[idx]);",
+              "pm.variables.set('gen_startDate', startDate);",
+              "pm.variables.set('gen_endDate', endDate);"
+            ],
+            "type": "text/javascript"
+          }
+        },
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test('Status code is 200', function () {",
+              "    pm.response.to.have.status(200);",
+              "});",
+              "",
+              "pm.test('Response has accountId', function () {",
+              "    const jsonData = pm.response.json();",
+              "    pm.expect(jsonData).to.have.property('accountId');",
+              "});",
+              "",
+              "pm.test('Response time is less than 5s', function () {",
+              "    pm.expect(pm.response.responseTime).to.be.below(5000);",
+              "});"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"customerId\": \"{{gen_customerId}}\",\n  \"labels\": [\n    {\n      \"itemId\": \"{{gen_itemId1}}\",\n      \"amount\": {{gen_amount1}},\n      \"lateInterest\": {{gen_lateInterest1}},\n      \"regularInterest\": {{gen_regularInterest1}},\n      \"subTotal\": {{gen_subTotal1}}\n    },\n    {\n      \"itemId\": \"{{gen_itemId2}}\",\n      \"amount\": {{gen_amount2}},\n      \"lateInterest\": {{gen_lateInterest2}},\n      \"regularInterest\": {{gen_regularInterest2}},\n      \"subTotal\": {{gen_subTotal2}}\n    }\n  ],\n  \"documentInformation\": {\n    \"address\": {\n      \"postalCode\": \"{{gen_zipCode}}\",\n      \"street\": \"{{gen_street}}\",\n      \"city\": \"{{gen_city}}\",\n      \"state\": \"{{gen_state}}\",\n      \"zipCode\": \"{{gen_zipCode}}\",\n      \"country\": \"{{gen_country}}\"\n    },\n    \"periodStartDate\": \"{{gen_startDate}}\",\n    \"periodEndDate\": \"{{gen_endDate}}\",\n    \"totalLateInterest\": {{gen_totalLateInterest}},\n    \"totalRegularInterest\": {{gen_totalRegularInterest}},\n    \"totalAmount\": {{gen_totalAmount}},\n    \"documentType\": \"{{gen_documentType}}\"\n  }\n}"
+        },
+        "url": {
+          "raw": "{{base_url}}/documents",
+          "host": ["{{base_url}}"],
+          "path": ["documents"]
+        }
+      }
+    }
+  ]
+}

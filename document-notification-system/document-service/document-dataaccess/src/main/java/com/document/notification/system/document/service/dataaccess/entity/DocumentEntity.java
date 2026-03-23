@@ -2,6 +2,7 @@ package com.document.notification.system.document.service.dataaccess.entity;
 
 
 import com.document.notification.system.domain.valueobject.DocumentStatus;
+import com.document.notification.system.domain.valueobject.DocumentType;
 import jakarta.persistence.*;
 import lombok.*;
 
@@ -56,6 +57,10 @@ public class DocumentEntity {
 
     @Enumerated(EnumType.STRING)
     private DocumentStatus documentStatus;
+
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false)
+    private DocumentType documentType = DocumentType.PDF;
 
     private String failureMessages;
 
