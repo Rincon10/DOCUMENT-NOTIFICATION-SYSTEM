@@ -30,6 +30,7 @@ public class GenerationResponseMessageListenerImpl implements GenerationResponse
 
     @Override
     public void generationCancelled(GenerationResponse generationResponse) {
-
+        documentGenerationSaga.compensate(generationResponse);
+        log.info("Document Generation Saga compensate operation is completed for document id: {}", generationResponse.getDocumentId());
     }
 }

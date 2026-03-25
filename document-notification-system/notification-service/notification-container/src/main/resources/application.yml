@@ -1,5 +1,5 @@
 server:
-  port: 8183
+  port: ${SERVER_PORT:8183}
 
 logging:
   level:
@@ -7,6 +7,7 @@ logging:
 
 
 notification-service:
+  instance-id: ${NOTIFICATION_INSTANCE_ID:notification-1}
   notification-request-topic-name: notification-request
   notification-response-topic-name: notification-response
   outbox-scheduler-fixed-rate: 10000
@@ -29,7 +30,7 @@ spring:
   sql:
     init:
       ##schema-locations: classpath:init-schema.sql
-      mode: always
+      mode: ${SQL_INIT_MODE:always}
   mail:
     host: ${MAIL_HOST:smtp.gmail.com}
     port: ${MAIL_PORT:587}

@@ -3,7 +3,10 @@ package com.document.notification.system.document.service.dataaccess.outbox.gene
 import com.document.notification.system.document.service.dataaccess.outbox.generator.entity.GenerationOutboxEntity;
 import com.document.notification.system.outbox.OutboxStatus;
 import com.document.notification.system.saga.SagaStatus;
+import jakarta.persistence.LockModeType;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Lock;
+import org.springframework.data.jpa.repository.QueryHints;
 import org.springframework.stereotype.Repository;
 
 import java.util.List;
@@ -17,6 +20,8 @@ import java.util.UUID;
  */
 @Repository
 public interface GeneratorOutboxJpaRepository extends JpaRepository<GenerationOutboxEntity, UUID> {
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @QueryHints({@jakarta.persistence.QueryHint(name = "jakarta.persistence.lock.timeout", value = "-2")})
     Optional<List<GenerationOutboxEntity>> findByTypeAndOutboxStatusAndSagaStatusIn(String type,
                                                                                     OutboxStatus outboxStatus,
                                                                                     List<SagaStatus> sagaStatus);

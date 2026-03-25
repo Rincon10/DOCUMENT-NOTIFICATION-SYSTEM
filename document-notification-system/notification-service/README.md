@@ -2,6 +2,47 @@
 
 Microservicio encargado de enviar notificaciones (email) a los clientes cuando sus documentos han sido generados exitosamente.
 
+## Multiple Instancias
+
+El servicio soporta ejecucion de multiples instancias para escalar horizontalmente. Todas las instancias pueden correr con la misma configuracion gracias a:
+
+- **Kafka Consumer Group**: Todas comparten el mismo `notification-consumer-group-id`, Kafka reparte las particiones automaticamente entre ellas.
+- **Outbox Scheduler con Pessimistic Locking**: Los queries del outbox usan `SELECT FOR UPDATE SKIP LOCKED`, lo que garantiza que cada instancia tome mensajes distintos sin duplicados ni bloqueos entre si.
+
+### Instancia 1
+```bash
+java -jar notification-container.jar
+```
+
+### Instancia 2
+```bash
+java -jar notification-container.jar \
+  --server.port=8185 \
+  --notification-service.instance-id=notification-2 \
+  --spring.sql.init.mode=never
+```
+
+### Instancia 3
+```bash
+java -jar notification-container.jar \
+  --server.port=8186 \
+  --notification-service.instance-id=notification-3 \
+  --spring.sql.init.mode=never
+```
+
+O usando variables de entorno:
+```bash
+SERVER_PORT=8185 \
+NOTIFICATION_INSTANCE_ID=notification-2 \
+SQL_INIT_MODE=never \
+java -jar notification-container.jar
+```
+
+**Reglas para multiples instancias:**
+- Solo **una instancia** debe ejecutar `spring.sql.init.mode=always` (la primera). Las demas deben usar `never` para no recrear el schema en cada arranque.
+- Todas las instancias pueden tener el **outbox scheduler activo** — el pessimistic locking (`SKIP LOCKED`) evita que dos instancias procesen el mismo mensaje.
+- El `instance-id` identifica cada instancia en los logs.
+
 ## Propiedades de Configuracion
 
 ### Server
