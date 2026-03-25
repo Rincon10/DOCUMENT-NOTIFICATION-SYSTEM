@@ -16,6 +16,7 @@ import com.document.notification.system.domain.valueobject.Money;
 import org.springframework.stereotype.Component;
 
 import java.math.BigDecimal;
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
@@ -89,7 +90,7 @@ public class DocumentDataAccessMapperImpl implements DocumentDataAccessMapperI {
                 .documentType(documentEntity.getDocumentType())
                 .periodStartDate(documentEntity.getPeriodStartDate())
                 .periodEndDate(documentEntity.getPeriodEndDate())
-                .failureMessages(documentEntity.getFailureMessages() != null ? List.of(documentEntity.getFailureMessages().split(GlobalConstants.FAILURE_MESSAGE_DELIMITER)) : Collections.emptyList())
+                .failureMessages(documentEntity.getFailureMessages() != null ? new ArrayList<>(List.of(documentEntity.getFailureMessages().split(GlobalConstants.FAILURE_MESSAGE_DELIMITER))) : new ArrayList<>())
                 .build();
     }
 
