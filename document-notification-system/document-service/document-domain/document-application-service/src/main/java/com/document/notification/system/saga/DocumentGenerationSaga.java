@@ -129,6 +129,28 @@ public class DocumentGenerationSaga implements SagaStep<GenerationResponse> {
     @Override
     @Transactional
     public void compensate(GenerationResponse generationResponse) {
+        log.info("Compensating generation for document with id: {} and saga id: {}",
+                generationResponse.getDocumentId(), generationResponse.getSagaId());
 
+        Optional<DocumentGenerationOutboxMessage> optionalOutboxMessage = generatorOutboxHelper
+                .getGenerationOutboxMessageBySagaIdAndSagaStatus(
+                        generationResponse.getSagaId(), SagaStatus.STARTED, SagaStatus.PROCESSING);
+        if (optionalOutboxMessage.isEmpty()) {
+            log.info("Generation outbox message already compensated for saga id: {}", generationResponse.getSagaId());
+            return;
+        }
+
+        DocumentGenerationOutboxMessage outboxMessage = optionalOutboxMessage.get();
+
+        Document document = findDocument(generationResponse.getDocumentId());
+        documentDomainService.cancelDocument(document, generationResponse.getFailureMessages());
+        documentRepository.save(document);
+
+        outboxMessage.setProcessedAt(ZonedDateTime.now(ZoneId.of(UTC.getId())));
+        outboxMessage.setDocumentStatus(DocumentStatus.CANCELLED);
+        outboxMessage.setSagaStatus(SagaStatus.COMPENSATED);
+        generatorOutboxHelper.save(outboxMessage);
+
+        log.info("Document with id: {} generation saga compensated successfully", generationResponse.getDocumentId());
     }
 }
