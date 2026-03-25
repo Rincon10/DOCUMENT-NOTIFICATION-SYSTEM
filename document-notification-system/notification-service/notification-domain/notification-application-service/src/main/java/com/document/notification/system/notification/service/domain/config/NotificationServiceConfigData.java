@@ -8,6 +8,7 @@ import org.springframework.context.annotation.Configuration;
 @Configuration
 @ConfigurationProperties(prefix = "notification-service")
 public class NotificationServiceConfigData {
+    private String instanceId;
     private String notificationRequestTopicName;
     private String notificationResponseTopicName;
 }
