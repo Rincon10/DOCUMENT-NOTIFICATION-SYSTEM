@@ -15,8 +15,8 @@ notification-service:
   mail:
     from: ${MAIL_FROM:no-reply@example.com}
     rate-limit:
-      tokens-per-interval: ${MAIL_RATE_LIMIT_TOKENS:2}
-      refill-interval-ms: ${MAIL_RATE_LIMIT_REFILL_MS:1000}
+      tokens-per-interval: ${MAIL_RATE_LIMIT_TOKENS:5}
+      refill-interval-ms: ${MAIL_RATE_LIMIT_REFILL_MS:20000}
 
 spring:
   jpa:
