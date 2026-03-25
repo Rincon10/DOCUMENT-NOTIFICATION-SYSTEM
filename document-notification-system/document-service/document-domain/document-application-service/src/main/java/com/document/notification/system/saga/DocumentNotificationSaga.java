@@ -110,16 +110,45 @@ public class DocumentNotificationSaga implements SagaStep<NotificationResponse> 
     @Override
     @Transactional
     public void compensate(NotificationResponse notificationResponse) {
-        log.info("Compensating notification for document with id: {}", notificationResponse.getDocumentId());
+        log.info("Compensating notification for document with id: {} and saga id: {}",
+                notificationResponse.getDocumentId(), notificationResponse.getSagaId());
 
-        Optional<DocumentNotificationOutboxMessage> optionalDocumentNotificationOutboxMessage = notificationOutboxHelper.getDocumentNotificationOutboxMessageBySagaIdAndSagaStatus(UUID.fromString(notificationResponse.getSagaId()), SagaStatus.PROCESSING);
+        Optional<DocumentNotificationOutboxMessage> optionalDocumentNotificationOutboxMessage = notificationOutboxHelper
+                .getDocumentNotificationOutboxMessageBySagaIdAndSagaStatus(
+                        UUID.fromString(notificationResponse.getSagaId()), SagaStatus.PROCESSING);
         if (optionalDocumentNotificationOutboxMessage.isEmpty()) {
-            log.info("Document Notification Outbox Message was already processed or compensated! for saga id: {}", notificationResponse.getSagaId());
+            log.info("Document Notification Outbox Message was already compensated for saga id: {}",
+                    notificationResponse.getSagaId());
             return;
         }
 
         DocumentNotificationOutboxMessage documentNotificationOutboxMessage = optionalDocumentNotificationOutboxMessage.get();
 
-        throw new RuntimeException("not implemnted yet");
+        // 1. Revert document status: GENERATED -> CANCELLING -> CANCELLED
+        Document document = documentSagaHelper.findDocument(notificationResponse.getDocumentId());
+        documentDomainService.cancelDocumentGeneration(document, notificationResponse.getFailureMessages());
+        documentDomainService.cancelDocument(document, notificationResponse.getFailureMessages());
+        documentSagaHelper.save(document);
+
+        // 2. Update notification outbox to COMPENSATED
+        documentNotificationOutboxMessage.setProcessedAt(DateUtils.getZoneDateTimeByUTCZoneId());
+        documentNotificationOutboxMessage.setDocumentStatus(DocumentStatus.CANCELLED);
+        documentNotificationOutboxMessage.setSagaStatus(SagaStatus.COMPENSATED);
+        notificationOutboxHelper.save(documentNotificationOutboxMessage);
+
+        // 3. Update generation outbox to COMPENSATED
+        Optional<DocumentGenerationOutboxMessage> generationOutboxOpt = generatorOutboxHelper
+                .getGenerationOutboxMessageBySagaIdAndSagaStatus(
+                        UUID.fromString(notificationResponse.getSagaId()), SagaStatus.PROCESSING);
+        if (generationOutboxOpt.isPresent()) {
+            DocumentGenerationOutboxMessage generationOutboxMessage = generationOutboxOpt.get();
+            generationOutboxMessage.setProcessedAt(DateUtils.getZoneDateTimeByUTCZoneId());
+            generationOutboxMessage.setDocumentStatus(DocumentStatus.CANCELLED);
+            generationOutboxMessage.setSagaStatus(SagaStatus.COMPENSATED);
+            generatorOutboxHelper.save(generationOutboxMessage);
+        }
+
+        log.info("Document with id: {} notification saga compensated successfully. Document status: CANCELLED",
+                notificationResponse.getDocumentId());
     }
 }
