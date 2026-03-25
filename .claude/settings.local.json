@@ -5,7 +5,9 @@
       "Bash(xargs grep:*)",
       "Bash(mvn generate-sources:*)",
       "Bash(mvn clean:*)",
-      "Bash(rm:*)"
+      "Bash(rm:*)",
+      "Bash(mvn compile:*)",
+      "Bash(xargs basename:*)"
     ]
   }
 }

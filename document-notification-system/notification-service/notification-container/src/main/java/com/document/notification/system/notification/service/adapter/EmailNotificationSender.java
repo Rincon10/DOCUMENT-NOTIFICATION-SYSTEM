@@ -9,11 +9,14 @@ import com.document.notification.system.notification.service.domain.valueobject.
 import com.document.notification.system.notification.service.domain.valueobject.NotificationResult;
 import com.document.notification.system.notification.service.domain.valueobject.Recipient;
 import jakarta.mail.MessagingException;
+import jakarta.mail.Session;
+import jakarta.mail.Transport;
 import jakarta.mail.internet.MimeMessage;
 import jakarta.mail.util.ByteArrayDataSource;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.mail.MailException;
 import org.springframework.mail.javamail.JavaMailSender;
+import org.springframework.mail.javamail.JavaMailSenderImpl;
 import org.springframework.mail.javamail.MimeMessageHelper;
 
 import java.util.Base64;
@@ -24,13 +27,14 @@ import java.util.concurrent.ThreadLocalRandom;
  * Infrastructure adapter that implements the domain port INotificationSender
  * using Spring's JavaMailSender for real SMTP email delivery.
  * <p>
- * Applies two resilience patterns:
+ * Applies three resilience patterns:
  * <ul>
  *   <li><b>Token Bucket Rate Limiting</b> — controls throughput via {@link EmailRateLimiter}
- *       so the SMTP server is never saturated. Requests block (never fail) until a token
- *       is available.</li>
+ *       so the SMTP server is never saturated.</li>
  *   <li><b>Exponential Backoff with Jitter</b> — on transient SMTP failures, retries with
  *       increasing delays plus random jitter to avoid thundering-herd effects.</li>
+ *   <li><b>SMTP Connection Reuse</b> — keeps a persistent Transport connection to avoid
+ *       repeated login attempts that trigger Gmail's "Too many login attempts" error.</li>
  * </ul>
  *
  * @author Ivan Camilo Rincon Saavedra
@@ -45,6 +49,9 @@ public class EmailNotificationSender implements INotificationSender {
     private final JavaMailSender javaMailSender;
     private final String fromAddress;
     private final EmailRateLimiter rateLimiter;
+
+    private final Object transportLock = new Object();
+    private volatile Transport sharedTransport;
 
     public EmailNotificationSender(JavaMailSender javaMailSender,
                                     String fromAddress,
@@ -107,6 +114,8 @@ public class EmailNotificationSender implements INotificationSender {
                 log.warn("Attempt {}/{} failed for document: {} - Error: {}",
                         attempt, MAX_RETRIES, data.getDocumentId(), e.getMessage());
 
+                resetTransport();
+
                 if (attempt < MAX_RETRIES) {
                     sleepWithBackoff(attempt, recipient.getTarget());
                 }
@@ -145,7 +154,7 @@ public class EmailNotificationSender implements INotificationSender {
             );
         }
 
-        javaMailSender.send(mimeMessage);
+        sendWithReusableTransport(mimeMessage);
 
         String messageId = mimeMessage.getMessageID();
         if (messageId == null || messageId.isBlank()) {
@@ -160,6 +169,65 @@ public class EmailNotificationSender implements INotificationSender {
                 recipient.getTarget(),
                 "Email delivered successfully to " + recipient.getTarget()
         );
+    }
+
+    /**
+     * Sends email reusing a persistent SMTP Transport connection.
+     * Only creates a new connection (login) when the existing one is closed or missing.
+     * This avoids Gmail's "Too many login attempts" error on bulk sends.
+     */
+    private void sendWithReusableTransport(MimeMessage mimeMessage) throws MessagingException {
+        synchronized (transportLock) {
+            Transport transport = getOrCreateTransport();
+            try {
+                transport.sendMessage(mimeMessage, mimeMessage.getAllRecipients());
+            } catch (MessagingException e) {
+                log.warn("Failed to send with reused transport, resetting connection: {}", e.getMessage());
+                closeTransportQuietly();
+                throw e;
+            }
+        }
+    }
+
+    private Transport getOrCreateTransport() throws MessagingException {
+        if (sharedTransport != null && sharedTransport.isConnected()) {
+            return sharedTransport;
+        }
+
+        if (!(javaMailSender instanceof JavaMailSenderImpl mailSenderImpl)) {
+            throw new NotificationDomainException(
+                    "JavaMailSender must be an instance of JavaMailSenderImpl for connection reuse");
+        }
+
+        Session session = mailSenderImpl.getSession();
+        Transport transport = session.getTransport("smtp");
+        transport.connect(
+                mailSenderImpl.getHost(),
+                mailSenderImpl.getPort(),
+                mailSenderImpl.getUsername(),
+                mailSenderImpl.getPassword()
+        );
+
+        sharedTransport = transport;
+        log.info("New SMTP transport connection established to {}:{}", mailSenderImpl.getHost(), mailSenderImpl.getPort());
+        return transport;
+    }
+
+    private void resetTransport() {
+        synchronized (transportLock) {
+            closeTransportQuietly();
+        }
+    }
+
+    private void closeTransportQuietly() {
+        if (sharedTransport != null) {
+            try {
+                sharedTransport.close();
+            } catch (MessagingException e) {
+                log.debug("Error closing transport: {}", e.getMessage());
+            }
+            sharedTransport = null;
+        }
     }
 
     /**
