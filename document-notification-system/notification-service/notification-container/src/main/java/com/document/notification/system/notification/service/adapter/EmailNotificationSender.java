@@ -11,31 +11,48 @@ import com.document.notification.system.notification.service.domain.valueobject.
 import jakarta.mail.MessagingException;
 import jakarta.mail.internet.MimeMessage;
 import jakarta.mail.util.ByteArrayDataSource;
-import lombok.AllArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.mail.MailException;
 import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.mail.javamail.MimeMessageHelper;
 
 import java.util.Base64;
 import java.util.UUID;
+import java.util.concurrent.ThreadLocalRandom;
 
 /**
  * Infrastructure adapter that implements the domain port INotificationSender
  * using Spring's JavaMailSender for real SMTP email delivery.
- *
- * Follows DDD: the domain defines the port (INotificationSender),
- * this adapter in the container layer provides the infrastructure implementation.
+ * <p>
+ * Applies two resilience patterns:
+ * <ul>
+ *   <li><b>Token Bucket Rate Limiting</b> — controls throughput via {@link EmailRateLimiter}
+ *       so the SMTP server is never saturated. Requests block (never fail) until a token
+ *       is available.</li>
+ *   <li><b>Exponential Backoff with Jitter</b> — on transient SMTP failures, retries with
+ *       increasing delays plus random jitter to avoid thundering-herd effects.</li>
+ * </ul>
  *
  * @author Ivan Camilo Rincon Saavedra
  * @version 1.0
  */
 @Slf4j
-@AllArgsConstructor
 public class EmailNotificationSender implements INotificationSender {
 
+    private static final int MAX_RETRIES = 3;
+    private static final long BASE_BACKOFF_MS = 1000;
 
     private final JavaMailSender javaMailSender;
     private final String fromAddress;
+    private final EmailRateLimiter rateLimiter;
+
+    public EmailNotificationSender(JavaMailSender javaMailSender,
+                                    String fromAddress,
+                                    EmailRateLimiter rateLimiter) {
+        this.javaMailSender = javaMailSender;
+        this.fromAddress = fromAddress;
+        this.rateLimiter = rateLimiter;
+    }
 
     @Override
     public NotificationResult sendNotification(Recipient recipient,
@@ -49,64 +66,117 @@ public class EmailNotificationSender implements INotificationSender {
                     "Unsupported notification channel: " + recipient.getChannel());
         }
 
-        return sendEmail(recipient, notificationContent, data);
+        acquireRateLimitToken(recipient, data);
+        return sendEmailWithRetry(recipient, notificationContent, data);
     }
 
-    private NotificationResult sendEmail(Recipient recipient,
-                                          NotificationContent notificationContent,
-                                          NotificationData data) {
+    private void acquireRateLimitToken(Recipient recipient, NotificationData data) {
         try {
-            MimeMessage mimeMessage = javaMailSender.createMimeMessage();
-            boolean hasAttachment = notificationContent.getContentBase64() != null
-                    && notificationContent.getFileName() != null;
-
-            MimeMessageHelper helper = new MimeMessageHelper(mimeMessage, hasAttachment, "UTF-8");
-
-            helper.setFrom(fromAddress);
-            helper.setTo(recipient.getTarget());
-            helper.setSubject(notificationContent.getSubject());
-
-            String htmlBody = buildHtmlBody(notificationContent, data);
-            helper.setText(htmlBody, true);
-
-            if (hasAttachment) {
-                byte[] decodedContent = Base64.getDecoder().decode(notificationContent.getContentBase64());
-                String mimeType = resolveAttachmentMimeType(notificationContent.getContentType());
-
-                helper.addAttachment(
-                        notificationContent.getFileName(),
-                        new ByteArrayDataSource(decodedContent, mimeType)
-                );
-            }
-
-            String messageId = UUID.randomUUID().toString();
-            boolean callEmailSender = true; //test porpouses
-            if(callEmailSender){
-                messageId =  mimeMessage.getMessageID();
-                javaMailSender.send(mimeMessage);
-            }
-
-
-
-            log.info("Email sent successfully to: {} | Subject: {} | MessageId: {} | Has attachment: {}",
-                    recipient.getTarget(),
-                    notificationContent.getSubject(),
-                    messageId,
-                    hasAttachment);
-
-            return new NotificationResult(
-                    true,
-                    messageId,
-                    NotificationChannel.EMAIL,
-                    recipient.getTarget(),
-                    "Email delivered successfully to " + recipient.getTarget()
-            );
-
-        } catch (MessagingException e) {
-            log.error("Failed to send email to: {} for document: {}",
-                    recipient.getTarget(), data.getDocumentId(), e);
+            log.debug("Acquiring rate limit token for document: {}", data.getDocumentId());
+            rateLimiter.acquire();
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
             throw new NotificationDomainException(
-                    "Failed to send email to " + recipient.getTarget() + ": " + e.getMessage());
+                    "Interrupted while waiting for email rate limit token for " + recipient.getTarget());
+        }
+    }
+
+    /**
+     * Sends email with Exponential Backoff + Jitter retry strategy.
+     * Delay formula: baseDelay * 2^(attempt-1) + random jitter
+     * Example: attempt 1 = ~1s, attempt 2 = ~2s, attempt 3 = ~4s
+     */
+    private NotificationResult sendEmailWithRetry(Recipient recipient,
+                                                   NotificationContent notificationContent,
+                                                   NotificationData data) {
+        Exception lastException = null;
+
+        for (int attempt = 1; attempt <= MAX_RETRIES; attempt++) {
+            try {
+                log.info("Attempt {}/{} - Sending email to: {} for document: {}",
+                        attempt, MAX_RETRIES, recipient.getTarget(), data.getDocumentId());
+
+                NotificationResult result = doSendEmail(recipient, notificationContent, data);
+
+                log.info("Email sent successfully to: {} | MessageId: {} | Attempt: {}",
+                        recipient.getTarget(), result.getMessageId(), attempt);
+                return result;
+
+            } catch (MessagingException | MailException e) {
+                lastException = e;
+                log.warn("Attempt {}/{} failed for document: {} - Error: {}",
+                        attempt, MAX_RETRIES, data.getDocumentId(), e.getMessage());
+
+                if (attempt < MAX_RETRIES) {
+                    sleepWithBackoff(attempt, recipient.getTarget());
+                }
+            }
+        }
+
+        log.error("All {} attempts failed to send email to: {} for document: {}",
+                MAX_RETRIES, recipient.getTarget(), data.getDocumentId(), lastException);
+        throw new NotificationDomainException(
+                "Failed to send email to " + recipient.getTarget() + " after " + MAX_RETRIES
+                        + " attempts: " + (lastException != null ? lastException.getMessage() : "unknown error"));
+    }
+
+    private NotificationResult doSendEmail(Recipient recipient,
+                                            NotificationContent notificationContent,
+                                            NotificationData data) throws MessagingException {
+        MimeMessage mimeMessage = javaMailSender.createMimeMessage();
+        boolean hasAttachment = notificationContent.getContentBase64() != null
+                && notificationContent.getFileName() != null;
+
+        MimeMessageHelper helper = new MimeMessageHelper(mimeMessage, hasAttachment, "UTF-8");
+
+        helper.setFrom(fromAddress);
+        helper.setTo(recipient.getTarget());
+        helper.setSubject(notificationContent.getSubject());
+
+        String htmlBody = buildHtmlBody(notificationContent, data);
+        helper.setText(htmlBody, true);
+
+        if (hasAttachment) {
+            byte[] decodedContent = Base64.getDecoder().decode(notificationContent.getContentBase64());
+            String mimeType = resolveAttachmentMimeType(notificationContent.getContentType());
+            helper.addAttachment(
+                    notificationContent.getFileName(),
+                    new ByteArrayDataSource(decodedContent, mimeType)
+            );
+        }
+
+        javaMailSender.send(mimeMessage);
+
+        String messageId = mimeMessage.getMessageID();
+        if (messageId == null || messageId.isBlank()) {
+            messageId = UUID.randomUUID().toString();
+            log.warn("SMTP server did not return a messageId, generated fallback: {}", messageId);
+        }
+
+        return new NotificationResult(
+                true,
+                messageId,
+                NotificationChannel.EMAIL,
+                recipient.getTarget(),
+                "Email delivered successfully to " + recipient.getTarget()
+        );
+    }
+
+    /**
+     * Exponential Backoff with Jitter: delay = base * 2^(attempt-1) + random(0, base)
+     */
+    private void sleepWithBackoff(int attempt, String target) {
+        long exponentialDelay = BASE_BACKOFF_MS * (1L << (attempt - 1));
+        long jitter = ThreadLocalRandom.current().nextLong(0, BASE_BACKOFF_MS);
+        long totalDelay = exponentialDelay + jitter;
+
+        log.info("Waiting {}ms before retry (backoff + jitter) for {}", totalDelay, target);
+        try {
+            Thread.sleep(totalDelay);
+        } catch (InterruptedException ie) {
+            Thread.currentThread().interrupt();
+            throw new NotificationDomainException(
+                    "Email sending interrupted during backoff for " + target);
         }
     }
 
