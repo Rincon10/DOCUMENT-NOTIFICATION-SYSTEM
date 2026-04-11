@@ -1,0 +1,29 @@
+# Git
+.git
+.gitignore
+
+# IDE
+.idea
+*.iml
+.vscode
+.claude
+
+# Build output (rebuild inside Docker)
+**/target/
+
+# Docker volumes
+**/volumes/
+
+# Docs
+docs/
+*.md
+!pom.xml
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Temporary files
+*.log
+*.tmp
+s.txt

@@ -28,7 +28,7 @@ spring:
     init:
       ##schema-locations: classpath:init-schema.sql
       #data-locations: classpath:init-data.sql # Opcional si también necesitas insertar datos
-      mode: always # Siempre ejecuta los scripts al iniciar
+      mode: ${SQL_INIT_MODE:always}
 kafka-config:
   bootstrap-servers: localhost:19092, localhost:29092, localhost:39092
   schema-registry-url-key: schema.registry.url

@@ -1,0 +1,280 @@
+version: '3.8'
+
+services:
+  # ===================================================================
+  # INFRASTRUCTURE
+  # ===================================================================
+
+  postgres:
+    image: postgres:15-alpine
+    hostname: postgres
+    ports:
+      - "5434:5432"
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: admin
+      POSTGRES_DB: postgres
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+      - ./infraestructure/docker-compose/init-db.sql:/docker-entrypoint-initdb.d/01-init.sql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    networks:
+      - document-notification-system
+
+  zookeeper:
+    image: confluentinc/cp-zookeeper:7.0.1
+    hostname: zookeeper
+    ports:
+      - "2181:2181"
+    environment:
+      ZOOKEEPER_SERVER_ID: 1
+      ZOOKEEPER_CLIENT_PORT: 2181
+      ZOOKEEPER_TICK_TIME: 2000
+      ZOOKEEPER_INIT_LIMIT: 5
+      ZOOKEEPER_SYNC_LIMIT: 2
+      KAFKA_OPTS: "-Dzookeeper.4lw.commands.whitelist=ruok"
+    healthcheck:
+      test: ["CMD-SHELL", "echo ruok | nc localhost 2181 | grep imok"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - document-notification-system
+
+  kafka-broker-1:
+    image: confluentinc/cp-kafka:7.0.1
+    hostname: kafka-broker-1
+    depends_on:
+      zookeeper:
+        condition: service_healthy
+    ports:
+      - "19092:19092"
+    environment:
+      KAFKA_BROKER_ID: 1
+      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka-broker-1:9092,LISTENER_LOCAL://localhost:19092
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,LISTENER_LOCAL:PLAINTEXT
+      KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 3
+      KAFKA_COMPRESSION_TYPE: producer
+    healthcheck:
+      test: ["CMD-SHELL", "kafka-broker-api-versions --bootstrap-server localhost:19092"]
+      interval: 10s
+      timeout: 10s
+      retries: 10
+    networks:
+      - document-notification-system
+
+  kafka-broker-2:
+    image: confluentinc/cp-kafka:7.0.1
+    hostname: kafka-broker-2
+    depends_on:
+      zookeeper:
+        condition: service_healthy
+    ports:
+      - "29092:29092"
+    environment:
+      KAFKA_BROKER_ID: 2
+      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka-broker-2:9092,LISTENER_LOCAL://localhost:29092
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,LISTENER_LOCAL:PLAINTEXT
+      KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 3
+      KAFKA_COMPRESSION_TYPE: producer
+    networks:
+      - document-notification-system
+
+  kafka-broker-3:
+    image: confluentinc/cp-kafka:7.0.1
+    hostname: kafka-broker-3
+    depends_on:
+      zookeeper:
+        condition: service_healthy
+    ports:
+      - "39092:39092"
+    environment:
+      KAFKA_BROKER_ID: 3
+      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka-broker-3:9092,LISTENER_LOCAL://localhost:39092
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,LISTENER_LOCAL:PLAINTEXT
+      KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 3
+      KAFKA_COMPRESSION_TYPE: producer
+    networks:
+      - document-notification-system
+
+  schema-registry:
+    image: confluentinc/cp-schema-registry:7.0.1
+    hostname: schema-registry
+    depends_on:
+      - kafka-broker-1
+      - kafka-broker-2
+      - kafka-broker-3
+    ports:
+      - "8081:8081"
+    environment:
+      SCHEMA_REGISTRY_HOST_NAME: schema-registry
+      SCHEMA_REGISTRY_KAFKASTORE_CONNECTION_URL: 'zookeeper:2181'
+      SCHEMA_REGISTRY_LISTENERS: http://schema-registry:8081
+      SCHEMA_REGISTRY_KAFKASTORE_BOOTSTRAP_SERVERS: PLAINTEXT://kafka-broker-2:9092
+      SCHEMA_REGISTRY_DEBUG: 'true'
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:8081/ || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    networks:
+      - document-notification-system
+
+  init-kafka:
+    image: confluentinc/cp-kafka:7.0.1
+    depends_on:
+      kafka-broker-1:
+        condition: service_healthy
+    entrypoint: ['/bin/sh', '-c']
+    command: |
+      "
+      echo 'Waiting for Kafka to be ready...'
+      cub kafka-ready -b kafka-broker-1:9092 1 30
+
+      echo 'Creating topics...'
+      kafka-topics --bootstrap-server kafka-broker-1:9092 --create --if-not-exists --topic customer --replication-factor 3 --partitions 3
+      kafka-topics --bootstrap-server kafka-broker-1:9092 --create --if-not-exists --topic generator-request --replication-factor 3 --partitions 3
+      kafka-topics --bootstrap-server kafka-broker-1:9092 --create --if-not-exists --topic generator-response --replication-factor 3 --partitions 3
+      kafka-topics --bootstrap-server kafka-broker-1:9092 --create --if-not-exists --topic notification-request --replication-factor 3 --partitions 3
+      kafka-topics --bootstrap-server kafka-broker-1:9092 --create --if-not-exists --topic notification-response --replication-factor 3 --partitions 3
+      echo 'Topics created successfully.'
+      "
+    networks:
+      - document-notification-system
+
+  # ===================================================================
+  # MICROSERVICES
+  #
+  # Scaling:
+  #   docker compose up --scale notification-service=3 --scale generator-service=2
+  #
+  # Each service uses the internal Docker network for communication.
+  # Only the first instance of each service binds to the host port.
+  # Kafka consumer groups handle partition rebalancing automatically.
+  # Outbox tables use optimistic locking (version column) so multiple
+  # instances can safely poll without duplicate processing.
+  # ===================================================================
+
+  customer-service:
+    build:
+      context: .
+      dockerfile: customer-service/Dockerfile
+    ports:
+      - "8184:8184"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      schema-registry:
+        condition: service_healthy
+      init-kafka:
+        condition: service_completed_successfully
+    environment:
+      SPRING_PROFILES_ACTIVE: docker
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: admin
+      SQL_INIT_MODE: never
+    networks:
+      - document-notification-system
+    restart: on-failure
+
+  document-service:
+    build:
+      context: .
+      dockerfile: document-service/Dockerfile
+    ports:
+      - "8181:8181"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      schema-registry:
+        condition: service_healthy
+      init-kafka:
+        condition: service_completed_successfully
+      customer-service:
+        condition: service_started
+    environment:
+      SPRING_PROFILES_ACTIVE: docker
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: admin
+      SQL_INIT_MODE: never
+    networks:
+      - document-notification-system
+    restart: on-failure
+
+  generator-service:
+    build:
+      context: .
+      dockerfile: generator-service/Dockerfile
+    # No host port: avoids conflicts when scaling. Access via Docker network.
+    # Uncomment the next line if you need to debug from the host:
+    # ports: ["8182:8182"]
+    expose:
+      - "8182"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      schema-registry:
+        condition: service_healthy
+      init-kafka:
+        condition: service_completed_successfully
+    environment:
+      SPRING_PROFILES_ACTIVE: docker
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: admin
+      SQL_INIT_MODE: never
+    networks:
+      - document-notification-system
+    restart: on-failure
+    deploy:
+      replicas: ${GENERATOR_REPLICAS:-1}
+
+  notification-service:
+    build:
+      context: .
+      dockerfile: notification-service/Dockerfile
+    # No host port: avoids conflicts when scaling.
+    # Uncomment the next line if you need to debug from the host:
+    # ports: ["8183:8183"]
+    expose:
+      - "8183"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      schema-registry:
+        condition: service_healthy
+      init-kafka:
+        condition: service_completed_successfully
+    environment:
+      SPRING_PROFILES_ACTIVE: docker
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: admin
+      SQL_INIT_MODE: never
+      NOTIFICATION_INSTANCE_ID: notification-${HOSTNAME:-default}
+      MAIL_FROM: ${MAIL_FROM:-no-reply@example.com}
+      MAIL_HOST: ${MAIL_HOST:-smtp.gmail.com}
+      MAIL_PORT: ${MAIL_PORT:-587}
+      MAIL_USERNAME: ${MAIL_USERNAME:-no-reply@example.com}
+      MAIL_PASSWORD: ${MAIL_PASSWORD:-}
+    networks:
+      - document-notification-system
+    restart: on-failure
+    deploy:
+      replicas: ${NOTIFICATION_REPLICAS:-1}
+
+volumes:
+  postgres-data:
+
+networks:
+  document-notification-system:
+    name: document-notification-system
+    driver: bridge
