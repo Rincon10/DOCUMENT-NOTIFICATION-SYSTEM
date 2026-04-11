@@ -7,7 +7,13 @@
       "Bash(mvn clean:*)",
       "Bash(rm:*)",
       "Bash(mvn compile:*)",
-      "Bash(xargs basename:*)"
+      "Bash(xargs basename:*)",
+      "WebSearch",
+      "Bash(pip install:*)",
+      "Bash(echo \"RESULT: $?\")",
+      "Bash(ls -d /c/Users/camilo.rincons/Desktop/*)",
+      "Bash(ls -la /c/Users/camilo.rincons/Desktop/DOCUMENT-NOTIFICATION-SYSTEM/document-notification-system/*/pom.xml)",
+      "Bash(git checkout:*)"
     ]
   }
 }
