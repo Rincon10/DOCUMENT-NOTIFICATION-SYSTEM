@@ -44,7 +44,24 @@ public class KafkaConsumerConfig<K extends Serializable, V extends SpecificRecor
                 kafkaConsumerConfigData.getMaxPartitionFetchBytesDefault() *
                         kafkaConsumerConfigData.getMaxPartitionFetchBytesBoostFactor());
         props.put(ConsumerConfig.MAX_POLL_RECORDS_CONFIG, kafkaConsumerConfigData.getMaxPollRecords());
+        addSecurityProps(props);
         return props;
+    }
+
+    private void addSecurityProps(Map<String, Object> props) {
+        if (kafkaConfigData.hasSecurityConfig()) {
+            props.put("security.protocol", kafkaConfigData.getSecurityProtocol());
+            if (kafkaConfigData.getSaslMechanism() != null && !kafkaConfigData.getSaslMechanism().isBlank()) {
+                props.put("sasl.mechanism", kafkaConfigData.getSaslMechanism());
+            }
+            if (kafkaConfigData.getSaslJaasConfig() != null && !kafkaConfigData.getSaslJaasConfig().isBlank()) {
+                props.put("sasl.jaas.config", kafkaConfigData.getSaslJaasConfig());
+            }
+        }
+        if (kafkaConfigData.hasSchemaRegistryAuth()) {
+            props.put("basic.auth.credentials.source", kafkaConfigData.getSchemaRegistryBasicAuthCredentialsSource());
+            props.put("basic.auth.user.info", kafkaConfigData.getSchemaRegistryBasicAuthUserInfo());
+        }
     }
 
 

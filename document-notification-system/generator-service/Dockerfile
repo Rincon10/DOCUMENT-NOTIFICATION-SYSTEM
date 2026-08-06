@@ -68,4 +68,12 @@ USER appuser
 
 EXPOSE 8182
 
-ENTRYPOINT ["java", "-jar", "app.jar", "--spring.profiles.active=docker"]
+# Container-aware JVM defaults; override JAVA_OPTS per environment.
+# Spring profile is NOT hardcoded: set SPRING_PROFILES_ACTIVE (e.g. "docker")
+# via the orchestrator, or run with the env-driven base configuration.
+ENV JAVA_OPTS="-XX:MaxRAMPercentage=75.0"
+
+HEALTHCHECK --interval=30s --timeout=5s --start-period=90s --retries=5 \
+  CMD wget -qO /dev/null "http://localhost:${SERVER_PORT:-8182}/actuator/health" || exit 1
+
+ENTRYPOINT ["sh", "-c", "exec java $JAVA_OPTS -jar app.jar"]

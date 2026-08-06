@@ -1,0 +1,60 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: generator-service
+  namespace: document-notification-system
+  labels:
+    app: generator-service
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: generator-service
+  template:
+    metadata:
+      labels:
+        app: generator-service
+    spec:
+      containers:
+        - name: generator-service
+          image: document-notification-system/generator-service:latest
+          ports:
+            - containerPort: 8182
+          envFrom:
+            - configMapRef:
+                name: dns-common-config
+            - secretRef:
+                name: dns-secrets
+          readinessProbe:
+            httpGet:
+              path: /actuator/health/readiness
+              port: 8182
+            initialDelaySeconds: 30
+            periodSeconds: 10
+            failureThreshold: 6
+          livenessProbe:
+            httpGet:
+              path: /actuator/health/liveness
+              port: 8182
+            initialDelaySeconds: 60
+            periodSeconds: 15
+            failureThreshold: 4
+          resources:
+            requests:
+              cpu: 250m
+              memory: 512Mi
+            limits:
+              cpu: "1"
+              memory: 1Gi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: generator-service
+  namespace: document-notification-system
+spec:
+  selector:
+    app: generator-service
+  ports:
+    - port: 80
+      targetPort: 8182

@@ -40,7 +40,24 @@ public class KafkaProducerConfig<K extends Serializable, V extends SpecificRecor
         props.put(ProducerConfig.ACKS_CONFIG, kafkaProducerConfigData.getAcks());
         props.put(ProducerConfig.REQUEST_TIMEOUT_MS_CONFIG, kafkaProducerConfigData.getRequestTimeoutMs());
         props.put(ProducerConfig.RETRIES_CONFIG, kafkaProducerConfigData.getRetryCount());
+        addSecurityProps(props);
         return props;
+    }
+
+    private void addSecurityProps(Map<String, Object> props) {
+        if (kafkaConfigData.hasSecurityConfig()) {
+            props.put("security.protocol", kafkaConfigData.getSecurityProtocol());
+            if (kafkaConfigData.getSaslMechanism() != null && !kafkaConfigData.getSaslMechanism().isBlank()) {
+                props.put("sasl.mechanism", kafkaConfigData.getSaslMechanism());
+            }
+            if (kafkaConfigData.getSaslJaasConfig() != null && !kafkaConfigData.getSaslJaasConfig().isBlank()) {
+                props.put("sasl.jaas.config", kafkaConfigData.getSaslJaasConfig());
+            }
+        }
+        if (kafkaConfigData.hasSchemaRegistryAuth()) {
+            props.put("basic.auth.credentials.source", kafkaConfigData.getSchemaRegistryBasicAuthCredentialsSource());
+            props.put("basic.auth.user.info", kafkaConfigData.getSchemaRegistryBasicAuthUserInfo());
+        }
     }
 
     @Bean

@@ -1,10 +1,14 @@
 server:
-  port: 8184
+  port: ${SERVER_PORT:8184}
+
+logging:
+  level:
+    com.document.notification.system: ${APP_LOG_LEVEL:INFO}
 
 spring:
   datasource:
-    url: jdbc:postgresql://postgres:5432/postgres?currentSchema=customer&binaryTransfer=true&reWriteBatchedInserts=true&stringtype=unspecified
+    url: jdbc:postgresql://${DB_HOST:postgres}:${DB_PORT:5432}/${DB_NAME:postgres}?currentSchema=customer&binaryTransfer=true&reWriteBatchedInserts=true&stringtype=unspecified${DB_EXTRA_PARAMS:}
     username: ${POSTGRES_USER:postgres}
     password: ${POSTGRES_PASSWORD:admin}
   jpa:
-    show-sql: false
+    show-sql: ${JPA_SHOW_SQL:false}

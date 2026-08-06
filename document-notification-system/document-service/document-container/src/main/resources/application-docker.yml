@@ -1,14 +1,18 @@
 server:
-  port: 8181
+  port: ${SERVER_PORT:8181}
+
+logging:
+  level:
+    com.document.notification.system: ${APP_LOG_LEVEL:INFO}
 
 spring:
   datasource:
-    url: jdbc:postgresql://postgres:5432/postgres?currentSchema=document&binaryTransfer=true&reWriteBatchedInserts=true&stringtype=unspecified
+    url: jdbc:postgresql://${DB_HOST:postgres}:${DB_PORT:5432}/${DB_NAME:postgres}?currentSchema=document&binaryTransfer=true&reWriteBatchedInserts=true&stringtype=unspecified${DB_EXTRA_PARAMS:}
     username: ${POSTGRES_USER:postgres}
     password: ${POSTGRES_PASSWORD:admin}
   jpa:
-    show-sql: false
+    show-sql: ${JPA_SHOW_SQL:false}
 
 kafka-config:
-  bootstrap-servers: kafka-broker-1:9092, kafka-broker-2:9092, kafka-broker-3:9092
-  schema-registry-url: http://schema-registry:8081
+  bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:kafka-broker-1:9092, kafka-broker-2:9092, kafka-broker-3:9092}
+  schema-registry-url: ${SCHEMA_REGISTRY_URL:http://schema-registry:8081}

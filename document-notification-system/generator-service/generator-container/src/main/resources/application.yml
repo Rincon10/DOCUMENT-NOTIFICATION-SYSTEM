@@ -1,25 +1,40 @@
 server:
-  port: 8182
+  port: ${SERVER_PORT:8182}
 
 logging:
   level:
-    com.document.notification.system: DEBUG
+    com.document.notification.system: ${APP_LOG_LEVEL:DEBUG}
 
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics
+  endpoint:
+    health:
+      probes:
+        enabled: true
+      show-details: when-authorized
+  health:
+    livenessstate:
+      enabled: true
+    readinessstate:
+      enabled: true
 
 generator-service:
-  generator-request-topic-name: generator-request
-  generator-response-topic-name: generator-response
-  customer-topic-name: customer
-  outbox-scheduler-fixed-rate: 10000
-  outbox-scheduler-initial-delay: 10000
+  generator-request-topic-name: ${GENERATOR_REQUEST_TOPIC:generator-request}
+  generator-response-topic-name: ${GENERATOR_RESPONSE_TOPIC:generator-response}
+  customer-topic-name: ${CUSTOMER_TOPIC:customer}
+  outbox-scheduler-fixed-rate: ${OUTBOX_SCHEDULER_FIXED_RATE:10000}
+  outbox-scheduler-initial-delay: ${OUTBOX_SCHEDULER_INITIAL_DELAY:10000}
 
 spring:
   jpa:
-    show-sql: true
+    show-sql: ${JPA_SHOW_SQL:true}
   datasource:
-    url: jdbc:postgresql://localhost:5434/postgres?currentSchema=generator&binaryTransfer=true&reWriteBatchedInserts=true&stringtype=unspecified
-    username: postgres
-    password: admin
+    url: jdbc:postgresql://${DB_HOST:localhost}:${DB_PORT:5434}/${DB_NAME:postgres}?currentSchema=generator&binaryTransfer=true&reWriteBatchedInserts=true&stringtype=unspecified${DB_EXTRA_PARAMS:}
+    username: ${POSTGRES_USER:postgres}
+    password: ${POSTGRES_PASSWORD:admin}
     driver-class-name: org.postgresql.Driver
     platform: postgres
   sql:
@@ -28,11 +43,17 @@ spring:
       #data-locations: classpath:init-data.sql # Opcional si también necesitas insertar datos
       mode: ${SQL_INIT_MODE:always}
 kafka-config:
-  bootstrap-servers: localhost:19092, localhost:29092, localhost:39092
+  bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:localhost:19092, localhost:29092, localhost:39092}
   schema-registry-url-key: schema.registry.url
-  schema-registry-url: http://localhost:8081
-  num-of-partitions: 3
-  replication-factor: 3
+  schema-registry-url: ${SCHEMA_REGISTRY_URL:http://localhost:8081}
+  num-of-partitions: ${KAFKA_NUM_PARTITIONS:3}
+  replication-factor: ${KAFKA_REPLICATION_FACTOR:3}
+  # Optional security for managed Kafka (leave empty for local PLAINTEXT)
+  security-protocol: ${KAFKA_SECURITY_PROTOCOL:}
+  sasl-mechanism: ${KAFKA_SASL_MECHANISM:}
+  sasl-jaas-config: ${KAFKA_SASL_JAAS_CONFIG:}
+  schema-registry-basic-auth-credentials-source: ${SCHEMA_REGISTRY_AUTH_SOURCE:USER_INFO}
+  schema-registry-basic-auth-user-info: ${SCHEMA_REGISTRY_AUTH_USER_INFO:}
 
 kafka-producer-config:
   key-serializer-class: org.apache.kafka.common.serialization.StringSerializer
@@ -56,7 +77,7 @@ kafka-consumer-config:
   specific-avro-reader: true
   batch-listener: true
   auto-startup: true
-  concurrency-level: 3
+  concurrency-level: ${KAFKA_CONSUMER_CONCURRENCY:3}
   session-timeout-ms: 10000
   heartbeat-interval-ms: 3000
   max-poll-interval-ms: 300000
