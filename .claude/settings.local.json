@@ -13,7 +13,12 @@
       "Bash(echo \"RESULT: $?\")",
       "Bash(ls -d /c/Users/camilo.rincons/Desktop/*)",
       "Bash(ls -la /c/Users/camilo.rincons/Desktop/DOCUMENT-NOTIFICATION-SYSTEM/document-notification-system/*/pom.xml)",
-      "Bash(git checkout:*)"
+      "Bash(git checkout:*)",
+      "Bash(ls -la /c/Users/camilo.rincons/Desktop/DOCUMENT-NOTIFICATION-SYSTEM/document-notification-system/*/*/src/main/java/com/document/notification/system/)",
+      "Bash(start:*)",
+      "Bash(ls:*)",
+      "Bash(mvn -B -q package -DskipTests)",
+      "Bash(docker compose *)"
     ]
   }
 }

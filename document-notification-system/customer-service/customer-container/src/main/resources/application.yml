@@ -1,17 +1,33 @@
 server:
-  port: 8184
+  port: ${SERVER_PORT:8184}
 
 logging:
   level:
-    com.document.notification.system: DEBUG
+    com.document.notification.system: ${APP_LOG_LEVEL:DEBUG}
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics
+  endpoint:
+    health:
+      probes:
+        enabled: true
+      show-details: when-authorized
+  health:
+    livenessstate:
+      enabled: true
+    readinessstate:
+      enabled: true
 
 spring:
   jpa:
-    show-sql: true
+    show-sql: ${JPA_SHOW_SQL:true}
   datasource:
-    url: jdbc:postgresql://localhost:5434/postgres?currentSchema=customer&binaryTransfer=true&reWriteBatchedInserts=true&stringtype=unspecified
-    username: postgres
-    password: admin
+    url: jdbc:postgresql://${DB_HOST:localhost}:${DB_PORT:5434}/${DB_NAME:postgres}?currentSchema=customer&binaryTransfer=true&reWriteBatchedInserts=true&stringtype=unspecified${DB_EXTRA_PARAMS:}
+    username: ${POSTGRES_USER:postgres}
+    password: ${POSTGRES_PASSWORD:admin}
     driver-class-name: org.postgresql.Driver
     platform: postgres
   sql:

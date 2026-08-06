@@ -1,0 +1,72 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: notification-service
+  namespace: document-notification-system
+  labels:
+    app: notification-service
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: notification-service
+  template:
+    metadata:
+      labels:
+        app: notification-service
+    spec:
+      containers:
+        - name: notification-service
+          image: document-notification-system/notification-service:latest
+          ports:
+            - containerPort: 8183
+          env:
+            # Identificador unico por pod para el rate limiter / claim de outbox
+            - name: NOTIFICATION_INSTANCE_ID
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.name
+            - name: MAIL_FROM
+              value: "no-reply@example.com"
+            - name: MAIL_HOST
+              value: "smtp.gmail.com"
+            - name: MAIL_PORT
+              value: "587"
+          envFrom:
+            - configMapRef:
+                name: dns-common-config
+            - secretRef:
+                name: dns-secrets
+          readinessProbe:
+            httpGet:
+              path: /actuator/health/readiness
+              port: 8183
+            initialDelaySeconds: 30
+            periodSeconds: 10
+            failureThreshold: 6
+          livenessProbe:
+            httpGet:
+              path: /actuator/health/liveness
+              port: 8183
+            initialDelaySeconds: 60
+            periodSeconds: 15
+            failureThreshold: 4
+          resources:
+            requests:
+              cpu: 250m
+              memory: 512Mi
+            limits:
+              cpu: "1"
+              memory: 1Gi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: notification-service
+  namespace: document-notification-system
+spec:
+  selector:
+    app: notification-service
+  ports:
+    - port: 80
+      targetPort: 8183

@@ -1,0 +1,60 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: customer-service
+  namespace: document-notification-system
+  labels:
+    app: customer-service
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: customer-service
+  template:
+    metadata:
+      labels:
+        app: customer-service
+    spec:
+      containers:
+        - name: customer-service
+          image: document-notification-system/customer-service:latest
+          ports:
+            - containerPort: 8184
+          envFrom:
+            - configMapRef:
+                name: dns-common-config
+            - secretRef:
+                name: dns-secrets
+          readinessProbe:
+            httpGet:
+              path: /actuator/health/readiness
+              port: 8184
+            initialDelaySeconds: 30
+            periodSeconds: 10
+            failureThreshold: 6
+          livenessProbe:
+            httpGet:
+              path: /actuator/health/liveness
+              port: 8184
+            initialDelaySeconds: 60
+            periodSeconds: 15
+            failureThreshold: 4
+          resources:
+            requests:
+              cpu: 250m
+              memory: 512Mi
+            limits:
+              cpu: "1"
+              memory: 1Gi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: customer-service
+  namespace: document-notification-system
+spec:
+  selector:
+    app: customer-service
+  ports:
+    - port: 80
+      targetPort: 8184

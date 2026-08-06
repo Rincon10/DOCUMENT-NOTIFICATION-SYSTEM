@@ -1,0 +1,18 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: dns-common-config
+  namespace: document-notification-system
+data:
+  # Ajustar a los endpoints del proveedor (RDS/Cloud SQL/Azure Database, MSK/Confluent/Event Hubs)
+  DB_HOST: "postgres.example.internal"
+  DB_PORT: "5432"
+  DB_NAME: "postgres"
+  DB_EXTRA_PARAMS: "&sslmode=require"
+  SQL_INIT_MODE: "never"
+  KAFKA_BOOTSTRAP_SERVERS: "kafka-bootstrap.example.internal:9092"
+  SCHEMA_REGISTRY_URL: "http://schema-registry.example.internal:8081"
+  KAFKA_REPLICATION_FACTOR: "3"
+  KAFKA_NUM_PARTITIONS: "3"
+  APP_LOG_LEVEL: "INFO"
+  JPA_SHOW_SQL: "false"
