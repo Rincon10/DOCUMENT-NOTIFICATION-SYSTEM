@@ -141,7 +141,19 @@ newman run commands/postman/create-document-collection.json -n 500 --delay-reque
 ## .ENV
 
 
+Proveedor por defecto — Azure Communication Services Email (envío masivo):
+
 ```
+MAIL_PROVIDER=azure
+ACS_CONNECTION_STRING=endpoint=https://<recurso>.communication.azure.com/;accesskey=<key>
+ACS_EMAIL_TIMEOUT_SECONDS=60
+MAIL_FROM=donotreply@<guid>.azurecomm.net
+```
+
+Alternativa SMTP (Gmail o cualquier servidor; es lo que usa `docker-compose` en local):
+
+```
+MAIL_PROVIDER=smtp
 MAIL_FROM=some value
 MAIL_HOST=smtp.gmail.com
 MAIL_PORT=587

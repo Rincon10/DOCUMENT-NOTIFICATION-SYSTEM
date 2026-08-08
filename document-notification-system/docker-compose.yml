@@ -260,11 +260,16 @@ services:
       POSTGRES_PASSWORD: admin
       SQL_INIT_MODE: never
       NOTIFICATION_INSTANCE_ID: notification-${HOSTNAME:-default}
+      # El default de la aplicacion es azure (Azure Communication Services Email);
+      # en local se fuerza smtp para poder arrancar sin credenciales de Azure.
+      MAIL_PROVIDER: ${MAIL_PROVIDER:-smtp}
       MAIL_FROM: ${MAIL_FROM:-no-reply@example.com}
       MAIL_HOST: ${MAIL_HOST:-smtp.gmail.com}
       MAIL_PORT: ${MAIL_PORT:-587}
       MAIL_USERNAME: ${MAIL_USERNAME:-no-reply@example.com}
       MAIL_PASSWORD: ${MAIL_PASSWORD:-}
+      # Solo con MAIL_PROVIDER=azure:
+      ACS_CONNECTION_STRING: ${ACS_CONNECTION_STRING:-}
     networks:
       - document-notification-system
     restart: on-failure

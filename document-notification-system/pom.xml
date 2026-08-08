@@ -32,6 +32,7 @@
         <spring-kafka.version>3.2.2</spring-kafka.version>
         <kafka-avro-serializer.version>7.0.1</kafka-avro-serializer.version>
         <avro.version>1.11.0</avro.version>
+        <azure-communication-email.version>1.0.21</azure-communication-email.version>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
     </properties>
 
@@ -132,6 +133,11 @@
                 <groupId>com.document.notification.system</groupId>
                 <artifactId>notification-dataaccess</artifactId>
                 <version>${project.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>com.azure</groupId>
+                <artifactId>azure-communication-email</artifactId>
+                <version>${azure-communication-email.version}</version>
             </dependency>
             <!--            Customer dependencies-->
 
