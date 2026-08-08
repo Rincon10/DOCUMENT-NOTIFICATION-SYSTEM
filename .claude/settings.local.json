@@ -18,7 +18,13 @@
       "Bash(start:*)",
       "Bash(ls:*)",
       "Bash(mvn -B -q package -DskipTests)",
-      "Bash(docker compose *)"
+      "Bash(docker compose *)",
+      "Bash(git add *)",
+      "Bash(git commit -m ' *)",
+      "Bash(git push *)",
+      "Bash(git -C \"C:/Users/camilo.rincons/Desktop/DOCUMENT-NOTIFICATION-SYSTEM\" branch -a)",
+      "Bash(git -C \"C:/Users/camilo.rincons/Desktop/DOCUMENT-NOTIFICATION-SYSTEM\" checkout -b feature/azure-student-deploy)",
+      "Bash(git -C \"C:/Users/camilo.rincons/Desktop/DOCUMENT-NOTIFICATION-SYSTEM\" status --short)"
     ]
   }
 }
