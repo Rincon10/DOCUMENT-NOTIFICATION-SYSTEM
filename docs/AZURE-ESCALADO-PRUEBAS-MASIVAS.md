@@ -50,7 +50,7 @@ flowchart LR
     MP -. "❌ nada sale a internet" .-x GMAIL["✉️ buzones reales"]
 ```
 
-**Paso 1 — Crear el archivo `mailpit.yaml`** (Container Apps necesita YAML porque el SMTP usa un puerto TCP adicional al de la UI):
+**Paso 1 — El archivo `mailpit.yaml`** ya está en el repo: [`document-notification-system/azure/mailpit.yaml`](../document-notification-system/azure/mailpit.yaml) (Container Apps necesita YAML porque el SMTP usa un puerto TCP adicional al de la UI). Este es su contenido:
 
 ```yaml
 # mailpit.yaml
@@ -85,9 +85,9 @@ properties:
 ```bash
 # Obtener el ID del environment y ponerlo en el yaml:
 az containerapp env show -g $RG -n $ENV --query id -o tsv
-# → copia el resultado en <ENVIRONMENT_ID> del mailpit.yaml
+# → copia el resultado en <ENVIRONMENT_ID> de document-notification-system/azure/mailpit.yaml
 
-az containerapp create -g $RG -n mailpit --yaml mailpit.yaml
+az containerapp create -g $RG -n mailpit --yaml document-notification-system/azure/mailpit.yaml
 ```
 
 **Paso 3 (recomendado) — Restringir la UI a tu IP.** La interfaz web queda pública; aunque solo contiene correos de prueba, mejor que solo tú la veas:
