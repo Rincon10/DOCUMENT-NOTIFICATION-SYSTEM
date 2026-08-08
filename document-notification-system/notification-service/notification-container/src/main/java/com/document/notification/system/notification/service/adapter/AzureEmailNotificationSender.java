@@ -1,5 +1,13 @@
 package com.document.notification.system.notification.service.adapter;
 
+import com.azure.communication.email.EmailClient;
+import com.azure.communication.email.models.EmailAttachment;
+import com.azure.communication.email.models.EmailMessage;
+import com.azure.communication.email.models.EmailSendResult;
+import com.azure.communication.email.models.EmailSendStatus;
+import com.azure.core.util.BinaryData;
+import com.azure.core.util.polling.PollResponse;
+import com.azure.core.util.polling.SyncPoller;
 import com.document.notification.system.notification.service.domain.exception.NotificationDomainException;
 import com.document.notification.system.notification.service.domain.service.INotificationSender;
 import com.document.notification.system.notification.service.domain.valueobject.NotificationChannel;
@@ -7,58 +15,58 @@ import com.document.notification.system.notification.service.domain.valueobject.
 import com.document.notification.system.notification.service.domain.valueobject.NotificationData;
 import com.document.notification.system.notification.service.domain.valueobject.NotificationResult;
 import com.document.notification.system.notification.service.domain.valueobject.Recipient;
-import jakarta.mail.MessagingException;
-import jakarta.mail.internet.MimeMessage;
-import jakarta.mail.util.ByteArrayDataSource;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.mail.MailException;
-import org.springframework.mail.javamail.JavaMailSender;
-import org.springframework.mail.javamail.MimeMessageHelper;
 
+import java.time.Duration;
 import java.util.Base64;
-import java.util.UUID;
+import java.util.List;
 import java.util.concurrent.ThreadLocalRandom;
 
 /**
- * Infrastructure adapter that sends email notifications via SMTP.
+ * Infrastructure adapter that sends email notifications through
+ * Azure Communication Services Email (HTTPS API, no SMTP involved).
  * <p>
- * Composes three resilience mechanisms:
+ * Alternative to {@link EmailNotificationSender} for high-volume delivery:
+ * ACS is designed for bulk transactional email, so it needs no SMTP connection
+ * reuse and tolerates much higher rate limits. Selected with
+ * {@code notification-service.mail.provider=azure}.
+ * <p>
+ * Shares with the SMTP adapter:
  * <ul>
  *   <li>{@link EmailRateLimiter} — Token Bucket that throttles throughput</li>
- *   <li>{@link SmtpTransportManager} — Reuses a single SMTP connection to avoid
- *       repeated logins (prevents "Too many login attempts")</li>
- *   <li>Exponential Backoff with Jitter — retries transient SMTP failures</li>
+ *   <li>{@link EmailContentComposer} — identical email body across providers</li>
+ *   <li>Exponential Backoff with Jitter — retries transient send failures</li>
  * </ul>
  *
  * @author Ivan Camilo Rincon Saavedra
  * @version 1.0
  */
 @Slf4j
-public class EmailNotificationSender implements INotificationSender {
+public class AzureEmailNotificationSender implements INotificationSender {
 
     private static final int MAX_RETRIES = 3;
     private static final long BASE_BACKOFF_MS = 1000;
 
-    private final JavaMailSender javaMailSender;
+    private final EmailClient emailClient;
     private final String fromAddress;
     private final EmailRateLimiter rateLimiter;
-    private final SmtpTransportManager transportManager;
+    private final Duration operationTimeout;
 
-    public EmailNotificationSender(JavaMailSender javaMailSender,
-                                    String fromAddress,
-                                    EmailRateLimiter rateLimiter,
-                                    SmtpTransportManager transportManager) {
-        this.javaMailSender = javaMailSender;
+    public AzureEmailNotificationSender(EmailClient emailClient,
+                                        String fromAddress,
+                                        EmailRateLimiter rateLimiter,
+                                        Duration operationTimeout) {
+        this.emailClient = emailClient;
         this.fromAddress = fromAddress;
         this.rateLimiter = rateLimiter;
-        this.transportManager = transportManager;
+        this.operationTimeout = operationTimeout;
     }
 
     @Override
     public NotificationResult sendNotification(Recipient recipient,
-                                                NotificationContent notificationContent,
-                                                NotificationData data) {
-        log.info("Sending {} notification to recipient: {} for document: {}",
+                                               NotificationContent notificationContent,
+                                               NotificationData data) {
+        log.info("Sending {} notification via Azure Communication Services to recipient: {} for document: {}",
                 recipient.getChannel(), recipient.getTarget(), data.getDocumentId());
 
         if (recipient.getChannel() != NotificationChannel.EMAIL) {
@@ -81,29 +89,37 @@ public class EmailNotificationSender implements INotificationSender {
     }
 
     private NotificationResult sendEmailWithRetry(Recipient recipient,
-                                                   NotificationContent notificationContent,
-                                                   NotificationData data) {
+                                                  NotificationContent notificationContent,
+                                                  NotificationData data) {
         Exception lastException = null;
 
         for (int attempt = 1; attempt <= MAX_RETRIES; attempt++) {
             try {
-                log.info("Attempt {}/{} - Sending email to: {} for document: {}",
+                log.info("Attempt {}/{} - Sending email via ACS to: {} for document: {}",
                         attempt, MAX_RETRIES, recipient.getTarget(), data.getDocumentId());
 
-                MimeMessage message = buildMimeMessage(recipient, notificationContent, data);
-                transportManager.send(message);
+                EmailMessage message = buildEmailMessage(recipient, notificationContent, data);
+                SyncPoller<EmailSendResult, EmailSendResult> poller = emailClient.beginSend(message);
+                PollResponse<EmailSendResult> response = poller.waitForCompletion(operationTimeout);
 
-                String messageId = resolveMessageId(message);
-                log.info("Email sent successfully to: {} | MessageId: {} | Attempt: {}",
-                        recipient.getTarget(), messageId, attempt);
+                EmailSendResult result = response.getValue();
+                if (result == null || result.getStatus() != EmailSendStatus.SUCCEEDED) {
+                    throw new IllegalStateException("ACS email operation finished with status: "
+                            + (result != null ? result.getStatus() : "TIMED_OUT after " + operationTimeout));
+                }
+
+                log.info("Email sent successfully via ACS to: {} | OperationId: {} | Attempt: {}",
+                        recipient.getTarget(), result.getId(), attempt);
 
                 return new NotificationResult(
-                        true, messageId, NotificationChannel.EMAIL,
+                        true, result.getId(), NotificationChannel.EMAIL,
                         recipient.getTarget(),
                         "Email delivered successfully to " + recipient.getTarget()
                 );
 
-            } catch (MessagingException | MailException e) {
+            } catch (NotificationDomainException e) {
+                throw e;
+            } catch (RuntimeException e) {
                 lastException = e;
                 log.warn("Attempt {}/{} failed for document: {} - Error: {}",
                         attempt, MAX_RETRIES, data.getDocumentId(), e.getMessage());
@@ -114,43 +130,32 @@ public class EmailNotificationSender implements INotificationSender {
             }
         }
 
-        log.error("All {} attempts failed to send email to: {} for document: {}",
+        log.error("All {} attempts failed to send email via ACS to: {} for document: {}",
                 MAX_RETRIES, recipient.getTarget(), data.getDocumentId(), lastException);
         throw new NotificationDomainException(
                 "Failed to send email to " + recipient.getTarget() + " after " + MAX_RETRIES
                         + " attempts: " + (lastException != null ? lastException.getMessage() : "unknown error"));
     }
 
-    private MimeMessage buildMimeMessage(Recipient recipient,
-                                          NotificationContent notificationContent,
-                                          NotificationData data) throws MessagingException {
-        MimeMessage mimeMessage = javaMailSender.createMimeMessage();
+    private EmailMessage buildEmailMessage(Recipient recipient,
+                                           NotificationContent notificationContent,
+                                           NotificationData data) {
+        EmailMessage message = new EmailMessage()
+                .setSenderAddress(fromAddress)
+                .setToRecipients(recipient.getTarget())
+                .setSubject(notificationContent.getSubject())
+                .setBodyHtml(EmailContentComposer.buildHtmlBody(notificationContent, data));
+
         boolean hasAttachment = notificationContent.getContentBase64() != null
                 && notificationContent.getFileName() != null;
-
-        MimeMessageHelper helper = new MimeMessageHelper(mimeMessage, hasAttachment, "UTF-8");
-        helper.setFrom(fromAddress);
-        helper.setTo(recipient.getTarget());
-        helper.setSubject(notificationContent.getSubject());
-        helper.setText(EmailContentComposer.buildHtmlBody(notificationContent, data), true);
-
         if (hasAttachment) {
             byte[] decodedContent = Base64.getDecoder().decode(notificationContent.getContentBase64());
             String mimeType = EmailContentComposer.resolveAttachmentMimeType(notificationContent.getContentType());
-            helper.addAttachment(notificationContent.getFileName(),
-                    new ByteArrayDataSource(decodedContent, mimeType));
+            message.setAttachments(List.of(new EmailAttachment(
+                    notificationContent.getFileName(), mimeType, BinaryData.fromBytes(decodedContent))));
         }
 
-        return mimeMessage;
-    }
-
-    private String resolveMessageId(MimeMessage message) throws MessagingException {
-        String messageId = message.getMessageID();
-        if (messageId == null || messageId.isBlank()) {
-            messageId = UUID.randomUUID().toString();
-            log.warn("SMTP server did not return a messageId, generated fallback: {}", messageId);
-        }
-        return messageId;
+        return message;
     }
 
     /**
@@ -169,5 +174,4 @@ public class EmailNotificationSender implements INotificationSender {
             throw new NotificationDomainException("Email sending interrupted during backoff");
         }
     }
-
 }

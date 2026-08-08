@@ -24,7 +24,9 @@
       "Bash(git push *)",
       "Bash(git -C \"C:/Users/camilo.rincons/Desktop/DOCUMENT-NOTIFICATION-SYSTEM\" branch -a)",
       "Bash(git -C \"C:/Users/camilo.rincons/Desktop/DOCUMENT-NOTIFICATION-SYSTEM\" checkout -b feature/azure-student-deploy)",
-      "Bash(git -C \"C:/Users/camilo.rincons/Desktop/DOCUMENT-NOTIFICATION-SYSTEM\" status --short)"
+      "Bash(git -C \"C:/Users/camilo.rincons/Desktop/DOCUMENT-NOTIFICATION-SYSTEM\" status --short)",
+      "PowerShell(\\(Invoke-RestMethod \"https://search.maven.org/solrsearch/select?q=g:com.azure+AND+a:azure-communication-email&core=gav&rows=40&wt=json\"\\).response.docs | Where-Object { $_.v -notmatch 'beta' } | Select-Object -First 5 -ExpandProperty v)",
+      "PowerShell(git *)"
     ]
   }
 }

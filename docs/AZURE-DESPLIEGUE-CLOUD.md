@@ -254,7 +254,7 @@ Diferencias por servicio:
 | `customer-service` | 8184 | `external` | `SQL_INIT_MODE=always` solo la primera vez |
 | `document-service` | 8181 | `external` | API principal del sistema |
 | `generator-service` | 8182 | `internal` | — |
-| `notification-service` | 8183 | `internal` | Secret `mailpass` + env vars `MAIL_FROM`, `MAIL_HOST=smtp.gmail.com`, `MAIL_PORT=587`, `MAIL_USERNAME`, `MAIL_PASSWORD=secretref:mailpass` (App Password de Gmail) |
+| `notification-service` | 8183 | `internal` | **Por defecto** envía con Azure Communication Services (`MAIL_PROVIDER=azure`): secret `acsconn` + env vars `ACS_CONNECTION_STRING=secretref:acsconn` y `MAIL_FROM=donotreply@<guid>.azurecomm.net` — la creación del recurso ACS está en [`AZURE-ESCALADO-PRUEBAS-MASIVAS.md`](AZURE-ESCALADO-PRUEBAS-MASIVAS.md) sección 0.2. Alternativa Gmail/SMTP: `MAIL_PROVIDER=smtp` + secret `mailpass` + env vars `MAIL_FROM`, `MAIL_HOST=smtp.gmail.com`, `MAIL_PORT=587`, `MAIL_USERNAME`, `MAIL_PASSWORD=secretref:mailpass` (App Password de Gmail) |
 
 > `NOTIFICATION_INSTANCE_ID` no hace falta fijarlo: si se omite usa el default; al escalar conviene un valor distinto por réplica (en AKS se inyecta el nombre del pod automáticamente).
 
@@ -281,6 +281,8 @@ az containerapp logs show -g dns-rg -n notification-service --follow
 Prueba el flujo de negocio completo (crear cliente → crear documento → correo recibido) apuntando a las URLs públicas.
 
 ## Paso 9 — Escalar
+
+> Para escalar de cara a **pruebas masivas / de carga** (autoescalado HTTP, límites de PostgreSQL, servidor de correo de pruebas, scripts de subida y reversión), sigue la guía dedicada [`AZURE-ESCALADO-PRUEBAS-MASIVAS.md`](AZURE-ESCALADO-PRUEBAS-MASIVAS.md).
 
 Los consumidores de Kafka pueden escalar hasta **3 réplicas** (los topics tienen 3 particiones; más réplicas quedarían ociosas). El patrón outbox con locking optimista ya tolera múltiples instancias:
 

@@ -48,7 +48,15 @@ El proyecto está preparado para desplegarse en **cualquier nube** (Azure, AWS, 
 
 ### Correo (solo notification-service)
 
-`MAIL_FROM`, `MAIL_HOST`, `MAIL_PORT`, `MAIL_USERNAME`, `MAIL_PASSWORD`, `MAIL_SMTP_*`, `MAIL_RATE_LIMIT_TOKENS`, `MAIL_RATE_LIMIT_REFILL_MS`, `NOTIFICATION_INSTANCE_ID` (en K8s se inyecta el nombre del pod automáticamente).
+| Variable | Default | Descripción |
+|---|---|---|
+| `MAIL_PROVIDER` | `azure` | Proveedor de envío: `azure` (Azure Communication Services Email, para envío masivo — el default) o `smtp` (Gmail o cualquier SMTP; es lo que fuerza `docker-compose` en local) |
+| `MAIL_FROM` | `no-reply@example.com` | Remitente. Con `azure` debe ser la dirección verificada de ACS (`donotreply@<guid>.azurecomm.net`) |
+| `MAIL_HOST`, `MAIL_PORT`, `MAIL_USERNAME`, `MAIL_PASSWORD`, `MAIL_SMTP_*` | Gmail/587 | Configuración SMTP — solo aplican con `MAIL_PROVIDER=smtp` |
+| `ACS_CONNECTION_STRING` | *(vacío)* | Connection string de Azure Communication Services — **obligatorio** con el proveedor `azure` (falla al arrancar con mensaje claro si falta) |
+| `ACS_EMAIL_TIMEOUT_SECONDS` | `60` | Espera máxima por la confirmación de envío de ACS |
+| `MAIL_RATE_LIMIT_TOKENS`, `MAIL_RATE_LIMIT_REFILL_MS` | `5` / `20000` | Rate limiter (Token Bucket) — aplica a ambos proveedores |
+| `NOTIFICATION_INSTANCE_ID` | `notification-1` | Único por instancia (en K8s se inyecta el nombre del pod automáticamente) |
 
 ## Ejecución local (sin cambios)
 

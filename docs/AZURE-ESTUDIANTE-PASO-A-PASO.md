@@ -3,6 +3,8 @@
 Esta guía explica cómo desplegar el **Document Notification System** en Azure usando una cuenta **Azure for Students**, gastando lo mínimo posible de crédito. Está escrita asumiendo que **es tu primera vez desplegando algo en la nube**: cada paso explica *qué* estás haciendo y *por qué*, no solo el comando.
 
 > Si ya tienes experiencia y una suscripción de pago, la guía general está en [`AZURE-PASO-A-PASO.md`](AZURE-PASO-A-PASO.md). Esta versión es la variante "modo estudiante / bajo costo".
+>
+> ¿Necesitas ejecutar **pruebas de carga / masivas** sobre este despliegue? La guía de escalado temporal está en [`AZURE-ESCALADO-PRUEBAS-MASIVAS.md`](AZURE-ESCALADO-PRUEBAS-MASIVAS.md).
 
 ---
 
@@ -333,7 +335,7 @@ az containerapp create \
 | `customer-service` | 8184 | `external` | `SQL_INIT_MODE=always` solo la primera vez |
 | `document-service` | 8181 | `external` | Es el API principal que llamarás desde Postman/curl |
 | `generator-service` | 8182 | `internal` | — |
-| `notification-service` | 8183 | `internal` | Secreto extra `mailpass` y env vars de correo: `MAIL_FROM`, `MAIL_HOST=smtp.gmail.com`, `MAIL_PORT=587`, `MAIL_USERNAME`, `MAIL_PASSWORD=secretref:mailpass` (el App Password de Gmail, no tu contraseña normal) |
+| `notification-service` | 8183 | `internal` | Variables de correo (ver detalle en 8.1). **Por defecto** usa Azure Communication Services: secreto `acsconn` + env vars `ACS_CONNECTION_STRING=secretref:acsconn` y `MAIL_FROM=donotreply@<guid>.azurecomm.net`. Para usar Gmail en su lugar: `MAIL_PROVIDER=smtp`, secreto `mailpass`, y env vars `MAIL_FROM`, `MAIL_HOST=smtp.gmail.com`, `MAIL_PORT=587`, `MAIL_USERNAME`, `MAIL_PASSWORD=secretref:mailpass` (App Password de Gmail) |
 
 > **Matiz sobre scale-to-zero:** `generator-service` y `notification-service` trabajan consumiendo mensajes de Kafka, no recibiendo HTTP. Si están dormidos (0 réplicas) no procesan mensajes — los mensajes **no se pierden** (quedan en Kafka), pero el flujo queda pausado. Para una demo, despiértalos antes de empezar con `--min-replicas 1` y devuélvelos a 0 al terminar:
 >
@@ -345,6 +347,49 @@ az containerapp create \
 > az containerapp update -g dns-student-rg -n generator-service    --min-replicas 0
 > az containerapp update -g dns-student-rg -n notification-service --min-replicas 0
 > ```
+
+### 8.1 Las variables de correo de `notification-service`, explicadas
+
+El servicio de notificaciones soporta **dos proveedores de envío**, seleccionables con la variable `MAIL_PROVIDER` (sin recompilar nada). **El proveedor por defecto es `azure`** (Azure Communication Services Email).
+
+**Proveedor `azure` (por defecto) — Azure Communication Services Email:**
+
+Es un servicio **nativo de Azure** (no Marketplace), así que **sí se paga con el crédito de estudiante**: ~$0.00025 por correo (10.000 correos ≈ $2.50), y está diseñado para envío en volumen. El envío va por API HTTPS, sin SMTP — las variables `MAIL_HOST`/`MAIL_USERNAME`/`MAIL_PASSWORD`/`MAIL_SMTP_*` se ignoran. La creación del recurso ACS (4 comandos, una sola vez) está en la sección 0.2 de [`AZURE-ESCALADO-PRUEBAS-MASIVAS.md`](AZURE-ESCALADO-PRUEBAS-MASIVAS.md); estas son sus variables:
+
+| Variable | Qué es |
+|---|---|
+| `MAIL_PROVIDER` | Puedes omitirla: `azure` es el valor por defecto |
+| `ACS_CONNECTION_STRING` | Connection string del recurso ACS (guárdala como secreto, `secretref:acsconn`) — **obligatoria**: sin ella el servicio no arranca (el error te lo dice claramente) |
+| `ACS_EMAIL_TIMEOUT_SECONDS` | Opcional (default `60`): espera máxima por la confirmación de envío |
+| `MAIL_FROM` | Debe ser la dirección del dominio verificado de ACS (`donotreply@<guid>.azurecomm.net` con dominio gestionado) — no una cuenta de Gmail |
+| `MAIL_RATE_LIMIT_TOKENS` / `MAIL_RATE_LIMIT_REFILL_MS` | Rate limiter interno (defaults `5`/`20000` ≈ 15 correos/min); con ACS puedes subirlo a tu cuota, ej. `20`/`1000` |
+
+Ejemplo de configuración (o inclúyelo directamente en el `az containerapp create` del despliegue):
+
+```bash
+az containerapp update -g dns-student-rg -n notification-service \
+  --secrets acsconn='<CONNECTION-STRING-DE-ACS>' \
+  --set-env-vars \
+    ACS_CONNECTION_STRING=secretref:acsconn \
+    MAIL_FROM='donotreply@<guid>.azurecomm.net' \
+    MAIL_RATE_LIMIT_TOKENS=20 MAIL_RATE_LIMIT_REFILL_MS=1000
+```
+
+**Proveedor `smtp` — Gmail, si prefieres no crear el recurso ACS:**
+
+| Variable | Valor | Qué es |
+|---|---|---|
+| `MAIL_PROVIDER` | `smtp` | **Obligatoria** en este modo (el default es `azure`) |
+| `MAIL_FROM` | tu cuenta de Gmail | Remitente de los correos |
+| `MAIL_HOST` / `MAIL_PORT` | `smtp.gmail.com` / `587` | Servidor SMTP de Gmail |
+| `MAIL_USERNAME` | tu cuenta de Gmail | Usuario de autenticación |
+| `MAIL_PASSWORD` | `secretref:mailpass` | **App Password** de Gmail (se genera en [myaccount.google.com/apppasswords](https://myaccount.google.com/apppasswords), requiere verificación en 2 pasos) — no tu contraseña normal |
+
+⚠️ Gmail permite ~500 correos/día y bloquea envíos en ráfaga — por eso el rate limiter por defecto es tan conservador. Para demos sobra; para volumen usa el proveedor `azure`.
+
+**Cambiar de proveedor en caliente:** `az containerapp update -g dns-student-rg -n notification-service --set-env-vars MAIL_PROVIDER=smtp MAIL_FROM=<tu-gmail>` (y viceversa con `MAIL_PROVIDER=azure`).
+
+> Y si lo que quieres es hacer **pruebas de carga sin enviar correos reales**, la opción correcta no es ninguna de estas dos: es el contenedor Mailpit (sección 0.1 de la guía de escalado), que captura todos los correos sin entregarlos (recuerda que Mailpit requiere `MAIL_PROVIDER=smtp`).
 
 ## 9. Verificar que todo funciona
 
