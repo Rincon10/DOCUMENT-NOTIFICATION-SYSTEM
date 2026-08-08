@@ -110,7 +110,7 @@ Diferencias por servicio:
 | `customer-service` | 8184 | `external` | En el **primer** arranque usar `SQL_INIT_MODE=always` (carga `init-schema.sql` + `init-data.sql`); luego cambiarlo a `never` |
 | `document-service` | 8181 | `external` (API principal) | — |
 | `generator-service` | 8182 | `internal` | — |
-| `notification-service` | 8183 | `internal` | Añadir secret `mailpass` y env vars: `MAIL_FROM`, `MAIL_HOST=smtp.gmail.com`, `MAIL_PORT=587`, `MAIL_USERNAME`, `MAIL_PASSWORD=secretref:mailpass` |
+| `notification-service` | 8183 | `internal` | **Por defecto** envía con Azure Communication Services (`MAIL_PROVIDER=azure`): secret `acsconn` + env vars `ACS_CONNECTION_STRING=secretref:acsconn` y `MAIL_FROM=donotreply@<guid>.azurecomm.net` — ver [`AZURE-ESCALADO-PRUEBAS-MASIVAS.md`](AZURE-ESCALADO-PRUEBAS-MASIVAS.md) sección 0.2. Alternativa Gmail/SMTP: `MAIL_PROVIDER=smtp` + secret `mailpass` + env vars `MAIL_FROM`, `MAIL_HOST=smtp.gmail.com`, `MAIL_PORT=587`, `MAIL_USERNAME`, `MAIL_PASSWORD=secretref:mailpass` |
 
 > `NOTIFICATION_INSTANCE_ID` no hace falta fijarlo: si se omite usa el default, y al escalar conviene ponerlo distinto por réplica (en AKS se inyecta el nombre del pod automáticamente).
 

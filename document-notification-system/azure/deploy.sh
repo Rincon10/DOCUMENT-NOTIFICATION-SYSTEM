@@ -24,6 +24,11 @@ ENVIRONMENT_NAME="env-document-notification"
 POSTGRES_ADMIN_PASSWORD="Ch@ngeMe123!"          # Change in production!
 MAIL_USERNAME="${MAIL_USERNAME:-no-reply@example.com}"
 MAIL_PASSWORD="${MAIL_PASSWORD:-}"
+# Email provider (default): azure = Azure Communication Services Email — REQUIRES
+# ACS_CONNECTION_STRING, and MAIL_USERNAME must be the verified ACS sender address
+# (donotreply@<guid>.azurecomm.net). Set MAIL_PROVIDER=smtp to use Gmail/any SMTP instead.
+MAIL_PROVIDER="${MAIL_PROVIDER:-azure}"
+ACS_CONNECTION_STRING="${ACS_CONNECTION_STRING:-}"
 
 echo "=========================================="
 echo "  Document Notification System - Azure Deploy"
@@ -218,9 +223,11 @@ az containerapp create \
     "POSTGRES_PASSWORD=$POSTGRES_ADMIN_PASSWORD" \
     SQL_INIT_MODE=never \
     "SPRING_DATASOURCE_URL=jdbc:postgresql://${POSTGRES_HOST}:5432/postgres?currentSchema=notification&sslmode=require" \
+    "MAIL_PROVIDER=${MAIL_PROVIDER}" \
     "MAIL_FROM=${MAIL_USERNAME}" \
     "MAIL_USERNAME=${MAIL_USERNAME}" \
     "MAIL_PASSWORD=${MAIL_PASSWORD}" \
+    "ACS_CONNECTION_STRING=${ACS_CONNECTION_STRING}" \
   --output none
 
 # --- 8. Summary ---

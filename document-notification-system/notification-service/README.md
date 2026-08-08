@@ -60,17 +60,29 @@ java -jar notification-container.jar
 | `notification-service.outbox-scheduler-fixed-rate` | `10000` | Intervalo en ms entre cada ejecucion del scheduler de outbox |
 | `notification-service.outbox-scheduler-initial-delay` | `10000` | Delay inicial en ms antes de la primera ejecucion del scheduler de outbox |
 
+### Email - Seleccion de proveedor
+
+El envio de correo esta detras del puerto de dominio `INotificationSender`, con dos adaptadores intercambiables seleccionados por configuracion (sin tocar codigo):
+
+| Propiedad | Env Variable | Valor por defecto | Descripcion |
+|-----------|-------------|-------------------|-------------|
+| `notification-service.mail.provider` | `MAIL_PROVIDER` | `azure` | Proveedor de envio: `azure` (Azure Communication Services Email — adaptador `AzureEmailNotificationSender`, pensado para envio masivo) o `smtp` (Gmail o cualquier servidor SMTP — adaptador `EmailNotificationSender`) |
+| `notification-service.mail.azure.connection-string` | `ACS_CONNECTION_STRING` | _(vacio)_ | Connection string del recurso de Azure Communication Services. **Obligatorio** con el proveedor `azure` (el servicio falla al arrancar con un mensaje claro si falta; para arrancar sin Azure usar `MAIL_PROVIDER=smtp`) |
+| `notification-service.mail.azure.operation-timeout-seconds` | `ACS_EMAIL_TIMEOUT_SECONDS` | `60` | Tiempo maximo de espera por la confirmacion de envio de ACS |
+
+Con el proveedor `azure` (el **default**) el envio va por API HTTPS (no hay SMTP de por medio): las propiedades `spring.mail.*` y `MAIL_SMTP_*` se ignoran, y `MAIL_FROM` debe ser una direccion del dominio verificado en ACS (ej. `donotreply@<guid>.azurecomm.net`). Para desarrollo local sin credenciales de Azure, usar `MAIL_PROVIDER=smtp` (el `docker-compose.yml` ya lo hace). El rate limiting (Token Bucket) y los reintentos con backoff exponencial aplican a **ambos** proveedores; ambos construyen el mismo cuerpo de correo via `EmailContentComposer`.
+
 ### Email - Configuracion de envio
 
 | Propiedad | Env Variable | Valor por defecto | Descripcion |
 |-----------|-------------|-------------------|-------------|
-| `notification-service.mail.from` | `MAIL_FROM` | `informaticapruebastesis@gmail.com` | Direccion de correo remitente |
-| `spring.mail.host` | `MAIL_HOST` | `smtp.gmail.com` | Servidor SMTP |
-| `spring.mail.port` | `MAIL_PORT` | `587` | Puerto SMTP (587 para TLS) |
-| `spring.mail.username` | `MAIL_USERNAME` | `informaticapruebastesis@gmail.com` | Usuario de autenticacion SMTP |
-| `spring.mail.password` | `MAIL_PASSWORD` | _(vacio)_ | Password o App Password de Gmail |
+| `notification-service.mail.from` | `MAIL_FROM` | `no-reply@example.com` | Direccion de correo remitente |
+| `spring.mail.host` | `MAIL_HOST` | `smtp.gmail.com` | Servidor SMTP (solo `MAIL_PROVIDER=smtp`) |
+| `spring.mail.port` | `MAIL_PORT` | `587` | Puerto SMTP, 587 para TLS (solo `MAIL_PROVIDER=smtp`) |
+| `spring.mail.username` | `MAIL_USERNAME` | `no-reply@example.com` | Usuario de autenticacion SMTP (solo `MAIL_PROVIDER=smtp`) |
+| `spring.mail.password` | `MAIL_PASSWORD` | _(vacio)_ | Password o App Password de Gmail (solo `MAIL_PROVIDER=smtp`) |
 
-### Email - SMTP Properties
+### Email - SMTP Properties (solo aplican con `MAIL_PROVIDER=smtp`)
 
 | Propiedad | Env Variable | Valor por defecto | Descripcion |
 |-----------|-------------|-------------------|-------------|
@@ -87,8 +99,8 @@ Controla la velocidad de envio de correos para no saturar el servidor SMTP. Usa 
 
 | Propiedad | Env Variable | Valor por defecto | Descripcion |
 |-----------|-------------|-------------------|-------------|
-| `notification-service.mail.rate-limit.tokens-per-interval` | `MAIL_RATE_LIMIT_TOKENS` | `2` | Numero maximo de emails que se pueden enviar por intervalo. Con el valor por defecto se permiten 2 emails por segundo |
-| `notification-service.mail.rate-limit.refill-interval-ms` | `MAIL_RATE_LIMIT_REFILL_MS` | `1000` | Intervalo en ms para recargar los tokens. Cada vez que pasa este tiempo, los tokens se recargan al maximo |
+| `notification-service.mail.rate-limit.tokens-per-interval` | `MAIL_RATE_LIMIT_TOKENS` | `5` | Numero maximo de emails que se pueden enviar por intervalo. Con los valores por defecto se permiten 5 emails cada 20 segundos (~15/minuto), un limite conservador pensado para Gmail |
+| `notification-service.mail.rate-limit.refill-interval-ms` | `MAIL_RATE_LIMIT_REFILL_MS` | `20000` | Intervalo en ms para recargar los tokens. Cada vez que pasa este tiempo, los tokens se recargan al maximo |
 
 **Ejemplo de calculo:**
 - `tokens-per-interval=2` + `refill-interval-ms=1000` = **2 emails/segundo** = **120 emails/minuto**

@@ -26,6 +26,12 @@ spec:
               valueFrom:
                 fieldRef:
                   fieldPath: metadata.name
+            # Proveedor de correo (default de la app): azure = Azure Communication Services
+            # Email — requiere ACS_CONNECTION_STRING en dns-secrets y MAIL_FROM con la
+            # direccion verificada de ACS (donotreply@<guid>.azurecomm.net).
+            # Cambiar a "smtp" para usar Gmail/cualquier SMTP (MAIL_HOST/MAIL_USERNAME/MAIL_PASSWORD).
+            - name: MAIL_PROVIDER
+              value: "azure"
             - name: MAIL_FROM
               value: "no-reply@example.com"
             - name: MAIL_HOST

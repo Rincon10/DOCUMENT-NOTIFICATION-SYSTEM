@@ -185,6 +185,12 @@ NOTIFICATION_REPLICAS=3
 MAIL_FROM=your-email@gmail.com
 MAIL_USERNAME=your-email@gmail.com
 MAIL_PASSWORD=your-app-password
+
+# Azure Communication Services Email (the app default; docker-compose forces smtp locally).
+# Uncomment to send through ACS from local compose too:
+# MAIL_PROVIDER=azure
+# ACS_CONNECTION_STRING=endpoint=https://<resource>.communication.azure.com/;accesskey=<key>
+# MAIL_FROM=donotreply@<guid>.azurecomm.net
 ```
 
 ```bash
@@ -569,6 +575,8 @@ az containerapp create \
     "MAIL_PASSWORD=${MAIL_PASSWORD:-}"
 ```
 
+> **Email provider:** the app default is Azure Communication Services Email (`MAIL_PROVIDER=azure`), which requires `ACS_CONNECTION_STRING=<connection-string>` (store it as a secret + `secretref:`) and `MAIL_FROM` set to the verified ACS sender address — see `docs/AZURE-ESCALADO-PRUEBAS-MASIVAS.md` section 0.2 for the full setup. To use Gmail/SMTP instead, add `MAIL_PROVIDER=smtp` to the env vars above.
+
 ### Step 5 - Configure Scaling Rules
 
 Azure Container Apps supports automatic scaling based on HTTP traffic, CPU, memory, or custom metrics (like Kafka consumer lag).
@@ -767,12 +775,15 @@ az group delete --name "$RESOURCE_GROUP" --yes --no-wait
 |----------|---------|-------------|
 | `NOTIFICATION_INSTANCE_ID` | `notification-1` | Unique ID per instance (auto-set in Docker Compose via `$HOSTNAME`) |
 | `SERVER_PORT` | `8183` | HTTP port |
-| `MAIL_FROM` | `no-reply@example.com` | Sender email address |
-| `MAIL_HOST` | `smtp.gmail.com` | SMTP server host |
-| `MAIL_PORT` | `587` | SMTP server port |
-| `MAIL_USERNAME` | `no-reply@example.com` | SMTP authentication username |
-| `MAIL_PASSWORD` | (empty) | SMTP authentication password |
-| `MAIL_RATE_LIMIT_TOKENS` | `5` | Max emails per interval |
+| `MAIL_PROVIDER` | `azure` (app) / `smtp` (compose) | Email provider: `azure` (Azure Communication Services Email, for high-volume delivery — the app default) or `smtp` (Gmail / any SMTP server — what `docker-compose.yml` forces locally so the stack starts without Azure credentials) |
+| `MAIL_FROM` | `no-reply@example.com` | Sender email address (with `azure`, must be a verified ACS sender, e.g. `donotreply@<guid>.azurecomm.net`) |
+| `MAIL_HOST` | `smtp.gmail.com` | SMTP server host (`smtp` provider only) |
+| `MAIL_PORT` | `587` | SMTP server port (`smtp` provider only) |
+| `MAIL_USERNAME` | `no-reply@example.com` | SMTP authentication username (`smtp` provider only) |
+| `MAIL_PASSWORD` | (empty) | SMTP authentication password (`smtp` provider only) |
+| `ACS_CONNECTION_STRING` | (empty) | Azure Communication Services connection string (**required** with `azure` provider) |
+| `ACS_EMAIL_TIMEOUT_SECONDS` | `60` | Max wait for ACS send confirmation (`azure` provider only) |
+| `MAIL_RATE_LIMIT_TOKENS` | `5` | Max emails per interval (applies to both providers) |
 | `MAIL_RATE_LIMIT_REFILL_MS` | `20000` | Rate limit refill interval (ms) |
 
 ### Scaling (Docker Compose)

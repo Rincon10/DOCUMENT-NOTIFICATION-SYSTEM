@@ -30,10 +30,15 @@ notification-service:
   outbox-scheduler-fixed-rate: ${OUTBOX_SCHEDULER_FIXED_RATE:10000}
   outbox-scheduler-initial-delay: ${OUTBOX_SCHEDULER_INITIAL_DELAY:10000}
   mail:
+    # azure (por defecto) = Azure Communication Services Email | smtp = Gmail o cualquier servidor SMTP (spring.mail.*)
+    provider: ${MAIL_PROVIDER:azure}
     from: ${MAIL_FROM:no-reply@example.com}
     rate-limit:
       tokens-per-interval: ${MAIL_RATE_LIMIT_TOKENS:5}
       refill-interval-ms: ${MAIL_RATE_LIMIT_REFILL_MS:20000}
+    azure:
+      connection-string: ${ACS_CONNECTION_STRING:}
+      operation-timeout-seconds: ${ACS_EMAIL_TIMEOUT_SECONDS:60}
 
 spring:
   jpa:
