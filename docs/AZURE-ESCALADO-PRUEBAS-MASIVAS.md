@@ -116,11 +116,47 @@ az containerapp update -g $RG -n notification-service \
 - `MAIL_HOST=mailpit`: dentro del mismo environment las apps se resuelven por nombre.
 - `MAIL_RATE_LIMIT_TOKENS=100` / `REFILL_MS=1000`: hasta ~100 correos/segundo. Contra Mailpit es seguro; ajusta según el throughput que quieras medir.
 
-**Paso 5 — Verificar.** Abre `https://<fqdn-de-mailpit>` en el navegador (el FQDN lo da `az containerapp show -g $RG -n mailpit --query properties.configuration.ingress.fqdn -o tsv`). Crea un documento de prueba y el correo debe aparecer en la UI en segundos. Durante la prueba masiva, la API de Mailpit te da el conteo exacto de correos recibidos (campo `total`) — útil para validar que no se perdió ninguna notificación:
+**Paso 5 — Dónde ver los correos y cómo verificar el flujo completo.**
+
+Mailpit queda como una Container App más (visible en el portal: *Resource group → mailpit*, con sus logs y réplicas como cualquier otra app) y tiene dos caras para inspeccionar lo que el sistema "envía":
+
+**a) La interfaz web (puerto 8025, la URL pública de la app):**
 
 ```bash
-curl "https://<fqdn-de-mailpit>/api/v1/messages?limit=1"
+FQDN=$(az containerapp show -g $RG -n mailpit --query properties.configuration.ingress.fqdn -o tsv)
+echo "https://$FQDN"
 ```
+
+Al abrirla verás una **bandeja de entrada** tipo webmail con todos los correos capturados: remitente, destinatario, asunto y hora. Al hacer clic en uno ves el HTML renderizado tal como lo vería el cliente, los adjuntos (el documento generado) y las cabeceras completas. Tiene buscador (`to:cliente1@example.com`, por asunto...), útil para comprobar que un documento concreto generó su notificación. Si aplicaste la restricción por IP del paso 3, solo se ve desde tu IP.
+
+**b) La API REST (para verificar por comandos o en scripts):**
+
+```bash
+# ¿Cuántos correos han llegado en total?
+curl -s "https://$FQDN/api/v1/messages?limit=1" | grep -o '"total":[0-9]*'
+
+# Últimos correos (remitente, destinatario, asunto):
+curl -s "https://$FQDN/api/v1/messages?limit=10"
+
+# Correos de un destinatario concreto:
+curl -s "https://$FQDN/api/v1/search?query=to:cliente1@example.com"
+
+# Vaciar la bandeja (útil antes de empezar una prueba):
+curl -s -X DELETE "https://$FQDN/api/v1/messages"
+```
+
+**Rutina de verificación de punta a punta durante una prueba:**
+
+1. **Antes**: vacía la bandeja (o anota el `total` inicial).
+2. Lanza la prueba (ej. 500 documentos creados con k6).
+3. **Durante**: la UI muestra los correos entrando en tiempo real; el otro lado del flujo se ve en los logs del emisor:
+   ```bash
+   az containerapp logs show -g $RG -n notification-service --follow --tail 50
+   # busca "Email sent successfully to: ... | MessageId: ..."
+   ```
+4. **Al final**: el `total` de Mailpit debe **coincidir con el número de documentos creados**. Si creaste 500 y hay 500 correos, el flujo completo (API → Kafka → generator → Kafka → notification → SMTP) funcionó sin pérdidas. Si hay menos, la diferencia son mensajes aún pendientes en Kafka (revisa el lag del consumer group en Confluent Cloud) o errores en los logs del paso 3.
+
+> Si la prueba supera los 10.000 correos, sube `MP_MAX_MESSAGES` en el `mailpit.yaml`: no limita cuántos **acepta** (ilimitados), sino cuántos **conserva visibles** — al superarlo rota los más viejos y el conteo ya no te cuadraría.
 
 **Paso 6 — Revertir al terminar las pruebas:**
 
