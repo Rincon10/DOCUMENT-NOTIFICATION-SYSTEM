@@ -323,7 +323,7 @@ az containerapp create \
 - `--image` / `--registry-server`: de dónde descargar la imagen (tu ACR del paso 4). El CLI configura solo las credenciales del registro porque activaste `--admin-enabled`.
 - `--cpu 0.5 --memory 1.0Gi`: recursos por contenedor. Medio núcleo y 1 GB alcanzan para un servicio Spring Boot y **consumen la mitad de capa gratuita** que la configuración por defecto.
 - `--target-port 8184`: puerto interno donde escucha el servicio (cada microservicio tiene el suyo, ver tabla abajo).
-- `--ingress external`: le da una **URL pública HTTPS** (`https://customer-service.<algo>.eastus.azuracontainerapps.io`). Los servicios que no necesitan ser llamados desde internet van con `internal` (solo visibles dentro del environment) — menos superficie de ataque.
+- `--ingress external`: le da una **URL pública HTTPS** (`https://customer-service.<algo>.eastus.azurecontainerapps.io`). Los servicios que no necesitan ser llamados desde internet van con `internal` (solo visibles dentro del environment) — menos superficie de ataque.
 - `--min-replicas 0`: **la clave del ahorro.** Con 0 réplicas mínimas, si nadie llama al servicio en unos minutos, Azure lo apaga y deja de cobrar. Al llegar una petición HTTP lo enciende de nuevo (tarda ~15-30 s la primera vez, es el "cold start" — normal y aceptable para demos).
 - `--secrets` + `secretref:`: las contraseñas se guardan como **secretos** (cifrados, no visibles en el portal) y las variables de entorno solo las *referencian*. Nunca pongas contraseñas directamente en `--env-vars`.
 - `SQL_INIT_MODE=always`: **solo esta primera vez.** Cuando el servicio arranque bien, cámbialo: `az containerapp update -g dns-student-rg -n customer-service --set-env-vars SQL_INIT_MODE=never`.
@@ -364,11 +364,15 @@ Es un servicio **nativo de Azure** (no Marketplace), así que **sí se paga con 
 | `MAIL_FROM` | Debe ser la dirección del dominio verificado de ACS (`donotreply@<guid>.azurecomm.net` con dominio gestionado) — no una cuenta de Gmail |
 | `MAIL_RATE_LIMIT_TOKENS` / `MAIL_RATE_LIMIT_REFILL_MS` | Rate limiter interno (defaults `5`/`20000` ≈ 15 correos/min); con ACS puedes subirlo a tu cuota, ej. `20`/`1000` |
 
-Ejemplo de configuración (o inclúyelo directamente en el `az containerapp create` del despliegue):
+Ejemplo de configuración sobre una app ya desplegada — son **dos comandos**, porque `az containerapp update` no gestiona secretos (eso lo hace `az containerapp secret set`). Si aún no has desplegado, puedes incluir el secreto y las variables directamente en el `az containerapp create`:
 
 ```bash
+# 1. Guardar la connection string como secreto:
+az containerapp secret set -g dns-student-rg -n notification-service \
+  --secrets acsconn='<CONNECTION-STRING-DE-ACS>'
+
+# 2. Referenciarla en las variables (esto crea una nueva revisión y aplica todo):
 az containerapp update -g dns-student-rg -n notification-service \
-  --secrets acsconn='<CONNECTION-STRING-DE-ACS>' \
   --set-env-vars \
     ACS_CONNECTION_STRING=secretref:acsconn \
     MAIL_FROM='donotreply@<guid>.azurecomm.net' \
