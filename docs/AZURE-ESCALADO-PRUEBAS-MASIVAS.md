@@ -212,7 +212,8 @@ az communication update -g $RG -n dns-comm --linked-domains $DOMAIN_ID
 # Datos que necesitas:
 az communication list-key -g $RG -n dns-comm --query primaryConnectionString -o tsv   # connection string
 az communication email domain show -g $RG --email-service-name dns-email \
-  --name AzureManagedDomain --query "fromSenderDomain" -o tsv                          # dominio del remitente
+  --name AzureManagedDomain --query "properties.fromSenderDomain" -o tsv               # dominio del remitente
+# (si el query devuelve vacío, ejecútalo sin --query y busca el campo fromSenderDomain en el JSON)
 ```
 
 El remitente con dominio gestionado tiene la forma `donotreply@<guid>.azurecomm.net`. (Con un dominio propio verificado puedes usar tu dirección y obtener límites más altos; el dominio gestionado trae límites iniciales que se amplían con una solicitud de cuota.)
@@ -220,8 +221,11 @@ El remitente con dominio gestionado tiene la forma `donotreply@<guid>.azurecomm.
 **Paso 2 — Activar el proveedor `azure` en `notification-service`:**
 
 ```bash
+# El secreto se gestiona con "secret set" (az containerapp update no acepta --secrets):
+az containerapp secret set -g $RG -n notification-service \
+  --secrets acsconn='<PRIMARY-CONNECTION-STRING>'
+
 az containerapp update -g $RG -n notification-service \
-  --secrets acsconn='<PRIMARY-CONNECTION-STRING>' \
   --set-env-vars \
     MAIL_PROVIDER=azure \
     ACS_CONNECTION_STRING=secretref:acsconn \
@@ -388,6 +392,10 @@ az containerapp update -g $RG -n notification-service \
 **Alternativa avanzada — autoescalar por lag de Kafka (KEDA):** en vez de fijar réplicas, Container Apps puede crear réplicas cuando los mensajes pendientes (lag) superan un umbral:
 
 ```bash
+# Los secretos que referencia la regla se crean primero (update no acepta --secrets):
+az containerapp secret set -g $RG -n generator-service \
+  --secrets kafka-user='<API_KEY_CLUSTER>' kafka-pass='<API_SECRET_CLUSTER>'
+
 az containerapp update -g $RG -n generator-service \
   --min-replicas 0 --max-replicas 3 \
   --scale-rule-name kafka-lag \
@@ -399,8 +407,7 @@ az containerapp update -g $RG -n generator-service \
       lagThreshold='100' \
       sasl='plaintext' \
       tls='enable' \
-  --scale-rule-auth username=kafka-user password=kafka-pass \
-  --secrets kafka-user='<API_KEY_CLUSTER>' kafka-pass='<API_SECRET_CLUSTER>'
+  --scale-rule-auth username=kafka-user password=kafka-pass
 ```
 
 - `lagThreshold=100`: una réplica nueva por cada ~100 mensajes pendientes, hasta `max-replicas`.
