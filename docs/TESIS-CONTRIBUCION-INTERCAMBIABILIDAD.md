@@ -347,7 +347,7 @@ Este patron confirma la regla de dependencia de la Arquitectura Limpia (Martin, 
 
 **Ausencia de dependencias ciclicas:**
 
-Se verifico mediante el plugin `depgraph-maven-plugin` que no existen ciclos de dependencia entre modulos. Los grafos generados (disponibles en `docs/02-dependency-graph-document.png` y similares) muestran un DAG (Directed Acyclic Graph) en todos los servicios. La ausencia de ciclos es relevante porque, como argumenta Martin (2003), los ciclos de dependencia hacen imposible desplegar, probar o entender los modulos de forma independiente.
+Se verifico mediante el plugin `depgraph-maven-plugin` que no existen ciclos de dependencia entre modulos. Los grafos generados (disponibles en `docs/images/02-dependency-graph-document.png` y similares) muestran un DAG (Directed Acyclic Graph) en todos los servicios. La ausencia de ciclos es relevante porque, como argumenta Martin (2003), los ciclos de dependencia hacen imposible desplegar, probar o entender los modulos de forma independiente.
 
 ### 3.2 Metricas de impacto ante cambios
 

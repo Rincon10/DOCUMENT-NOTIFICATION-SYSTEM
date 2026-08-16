@@ -26,7 +26,30 @@
       "Bash(git -C \"C:/Users/camilo.rincons/Desktop/DOCUMENT-NOTIFICATION-SYSTEM\" checkout -b feature/azure-student-deploy)",
       "Bash(git -C \"C:/Users/camilo.rincons/Desktop/DOCUMENT-NOTIFICATION-SYSTEM\" status --short)",
       "PowerShell(\\(Invoke-RestMethod \"https://search.maven.org/solrsearch/select?q=g:com.azure+AND+a:azure-communication-email&core=gav&rows=40&wt=json\"\\).response.docs | Where-Object { $_.v -notmatch 'beta' } | Select-Object -First 5 -ExpandProperty v)",
-      "PowerShell(git *)"
+      "PowerShell(git *)",
+      "Bash(mvn -q -T 1C compile -DskipTests)",
+      "Bash(docker --version)",
+      "Bash(docker build *)",
+      "Bash(docker info *)",
+      "Bash(break)",
+      "Bash(curl -s \"https://hub.docker.com/v2/repositories/library/maven/tags/3.9-eclipse-temurin-19\")",
+      "Bash(curl -s \"https://hub.docker.com/v2/repositories/library/eclipse-temurin/tags/19-jre-alpine\")",
+      "Bash(tasklist)",
+      "Bash(wsl -l -v)",
+      "Bash(docker context *)",
+      "Read(//c/Users/camilo.rincons/.rd/**)",
+      "Bash(nerdctl --version)",
+      "Bash(nerdctl info *)",
+      "Bash(nerdctl build *)",
+      "Bash(git ls-tree *)",
+      "Bash(echo \"EXIT_CODE=$?\")",
+      "Bash(git mv *)",
+      "Bash(git rm *)",
+      "Bash(sed -i 's|docs/AZURE-ESCALADO-PRUEBAS-MASIVAS.md section 0.2|docs/AZURE-ESTUDIANTE-PASO-A-PASO.md \\(Paso 7\\)|' document-notification-system/DOCKER-DEPLOYMENT.md)",
+      "Bash(sed -i 's|docs/AZURE-ESCALADO-PRUEBAS-MASIVAS.md, seccion 0.1|docs/AZURE-ESTUDIANTE-PASO-A-PASO.md, seccion de escalado \\(Mailpit\\)|' document-notification-system/azure/mailpit.yaml)",
+      "Artifact",
+      "Bash(sed -i '/^s\\\\.txt$/d' document-notification-system/.dockerignore)",
+      "Bash(sed -i '/deploy\\\\.sh.*Automated Azure deployment script/d' document-notification-system/DOCKER-DEPLOYMENT.md)"
     ]
   }
 }
