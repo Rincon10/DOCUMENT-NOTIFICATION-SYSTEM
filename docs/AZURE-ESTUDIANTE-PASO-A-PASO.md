@@ -1,10 +1,20 @@
-# Despliegue en Azure con cuenta de estudiante — Guía paso a paso desde cero
+# Despliegue en Azure con cuenta de estudiante — Guía única
 
-Esta guía explica cómo desplegar el **Document Notification System** en Azure usando una cuenta **Azure for Students**, gastando lo mínimo posible de crédito. Está escrita asumiendo que **es tu primera vez desplegando algo en la nube**: cada paso explica *qué* estás haciendo y *por qué*, no solo el comando.
+Esta es la **guía única de Azure** del proyecto: cubre el despliegue completo del **Document Notification System** con una cuenta **Azure for Students**, el **envío de correos por Azure Communication Services** (el proveedor por defecto de la aplicación), las **variables de entorno** necesarias y el **escalado** de los servicios (manual y automático). Está escrita asumiendo que es tu primera vez desplegando en la nube: cada paso explica *qué* estás haciendo y *por qué*.
 
-> Si ya tienes experiencia y una suscripción de pago, la guía general está en [`AZURE-PASO-A-PASO.md`](AZURE-PASO-A-PASO.md). Esta versión es la variante "modo estudiante / bajo costo".
->
-> ¿Necesitas ejecutar **pruebas de carga / masivas** sobre este despliegue? La guía de escalado temporal está en [`AZURE-ESCALADO-PRUEBAS-MASIVAS.md`](AZURE-ESCALADO-PRUEBAS-MASIVAS.md).
+> **Referencia de variables:** todas las variables de entorno del sistema (con sus defaults y descripción) están en [`DEPLOYMENT.md`](DEPLOYMENT.md). Esta guía usa las que aplican a Azure; consulta aquella cuando necesites el detalle completo.
+
+---
+
+## Índice
+
+1. [Qué es Azure for Students y presupuesto](#0-qué-es-azure-for-students-y-qué-incluye)
+2. [Diagramas de la infraestructura](#diagramas-de-la-infraestructura)
+3. [Pasos 1–9: despliegue completo](#1-crear-la-cuenta-azure-for-students)
+4. [Variables de entorno para la nube (resumen)](#variables-de-entorno-para-la-nube-resumen)
+5. [Escalado: múltiples instancias, manual y automático](#escalado-múltiples-instancias-manual-y-automático)
+6. [Apagar y limpiar](#apagar-y-limpiar-la-disciplina-que-salva-tu-crédito)
+7. [Plan B: suscripción de pago](#plan-b-y-si-la-cuenta-de-estudiante-no-alcanza)
 
 ---
 
@@ -25,7 +35,7 @@ Esta guía explica cómo desplegar el **Document Notification System** en Azure 
 1. **Usar servicios con capa gratuita** y aprovechar el "scale to zero" (los contenedores se apagan solos cuando nadie los usa y no cobran nada mientras duermen).
 2. **No dejar nada corriendo 24/7.** El sistema completo encendido todo el mes se comería el crédito en semanas. La estrategia estudiante es: *levantar → demostrar → apagar*.
 
-⚠️ **Limitación importante de la cuenta de estudiante:** el crédito **no se puede usar en compras del Azure Marketplace** (ofertas de terceros). Eso significa que **Confluent Cloud vía Marketplace NO funciona** con esta cuenta. La solución (Paso 5) es registrarse **directamente en confluent.cloud**, que regala créditos de prueba propios, sin pasar por Azure.
+⚠️ **Limitación importante de la cuenta de estudiante:** el crédito **no se puede usar en compras del Azure Marketplace** (ofertas de terceros). Eso significa que **Confluent Cloud vía Marketplace NO funciona** con esta cuenta. La solución (Paso 5) es registrarse **directamente en confluent.cloud**, que regala créditos de prueba propios, sin pasar por Azure. En cambio, **Azure Communication Services (el correo) sí es un servicio nativo de Azure** y se paga con el crédito sin problema.
 
 ### Presupuesto estimado de esta guía
 
@@ -34,11 +44,10 @@ Esta guía explica cómo desplegar el **Document Notification System** en Azure 
 | Container Apps (4 microservicios) | **~$0** — la capa gratuita da 180.000 vCPU-segundos + 2M requests/mes; con scale-to-zero y demos de pocas horas no la superas |
 | PostgreSQL Flexible Server B1ms | **$0** los primeros 12 meses (750 h/mes gratis = el mes completo) |
 | Kafka + Schema Registry (Confluent Cloud directo) | **$0** con los créditos de prueba de Confluent (~$400 el primer mes) |
-| Azure Container Registry (Basic) | ~**$0.17/día** (~$5/mes). Se cobra mientras exista, así que bórralo al terminar o usa la alternativa gratuita del Paso 3 |
+| Azure Communication Services Email | ~**$0.00025 por correo** (10.000 correos ≈ $2.50) — se paga con el crédito |
+| Azure Container Registry (Basic) | ~**$0.17/día** (~$5/mes). Se cobra mientras exista, así que bórralo al terminar |
 
 Total realista para un semestre de demos puntuales: **entre $0 y $10 del crédito de $100**.
-
-> ¿Y si esto no alcanza? Al final de la guía (sección 11) está el **Plan B con servicios normales** (suscripción pay-as-you-go) para cuando se acaben los créditos de prueba de Confluent o necesites el sistema encendido 24/7.
 
 ---
 
@@ -61,6 +70,8 @@ flowchart TB
         end
 
         PG[("🗄️ PostgreSQL Flexible Server<br/>B1ms · 32 GB<br/>gratis 12 meses")]
+
+        ACS["✉️ Azure Communication Services<br/>Email API HTTPS<br/>donotreply@&lt;guid&gt;.azurecomm.net"]
     end
 
     subgraph Confluent["☁️ Confluent Cloud (registro directo, fuera de Azure)"]
@@ -68,18 +79,39 @@ flowchart TB
         SR["Schema Registry<br/>(esquemas Avro)"]
     end
 
-    GMAIL["✉️ Gmail SMTP<br/>smtp.gmail.com:587"]
-
     User -- "HTTPS público" --> DOC
     User -- "HTTPS público" --> CUS
     ACR -. "descarga imágenes al arrancar" .-> Env
     DOC & CUS & GEN & NOT -- "JDBC + SSL" --> PG
     DOC & CUS & GEN & NOT -- "SASL_SSL" --> KAFKA
     DOC & CUS & GEN & NOT -.-> SR
-    NOT -- "envía correos" --> GMAIL
+    NOT -- "envía correos (API HTTPS)" --> ACS
 ```
 
-**Cómo leerlo:** solo `document-service` y `customer-service` tienen URL pública (ingress *external*); `generator` y `notification` viven escondidos en la red privada del environment y solo se comunican por Kafka. Todos comparten la misma base PostgreSQL (cada uno con su schema propio) y el mismo cluster de Kafka en Confluent Cloud, que está **fuera de Azure** porque el crédito de estudiante no cubre Marketplace.
+**Cómo leerlo:** solo `document-service` y `customer-service` tienen URL pública (ingress *external*); `generator` y `notification` viven escondidos en la red privada del environment y solo se comunican por Kafka. Todos comparten la misma base PostgreSQL (cada uno con su schema propio) y el mismo cluster de Kafka en Confluent Cloud, que está **fuera de Azure** porque el crédito de estudiante no cubre Marketplace. El correo sale por **Azure Communication Services** (API HTTPS, sin SMTP), que sí es nativo de Azure.
+
+### Topología de red y seguridad
+
+```mermaid
+flowchart LR
+    subgraph Internet
+        U["👤 Internet"]
+    end
+    subgraph Env["Container Apps Environment (red privada)"]
+        direction TB
+        EXT["ingress EXTERNAL<br/>document-service<br/>customer-service"]
+        INT["ingress INTERNAL<br/>generator-service<br/>notification-service"]
+    end
+    SEC["🔐 Secrets de Container Apps<br/>pgpass · kafkajaas · srauth · acsconn"]
+
+    U -- "solo HTTPS 443" --> EXT
+    U -. "❌ sin acceso" .-> INT
+    SEC -. "secretref: en env vars" .-> Env
+```
+
+- Solo los dos servicios con API pública son accesibles desde internet; los consumidores de Kafka quedan en la red interna.
+- Toda credencial (BD, Kafka, Schema Registry, correo) vive como **secret** y las variables de entorno solo la referencian (`secretref:`).
+- Todas las conexiones salientes van cifradas: JDBC con `sslmode=require`, Kafka con `SASL_SSL`, ACS por HTTPS.
 
 ### Flujo de un despliegue (del código a la nube)
 
@@ -100,7 +132,7 @@ sequenceDiagram
     participant K as Kafka (Confluent)
     participant G as generator-service
     participant N as notification-service
-    participant M as Gmail SMTP
+    participant A as ACS Email (Azure)
 
     U->>D: POST /documents (HTTPS público)
     D->>K: evento generator-request
@@ -109,7 +141,7 @@ sequenceDiagram
     K->>D: consume → actualiza estado
     D->>K: evento notification-request
     K->>N: consume
-    N->>M: envía correo al cliente
+    N->>A: envía correo al cliente (API HTTPS)
     N->>K: evento notification-response
 ```
 
@@ -170,9 +202,7 @@ az group create --name dns-student-rg --location eastus
 
 ### 3.2 Registro de contenedores (¿dónde viven mis imágenes Docker?)
 
-Tus 4 microservicios se empaquetan como **imágenes Docker** (una "foto" del servicio con Java, dependencias y el `.jar` adentro). Azure necesita descargarlas de algún **registro** (un repositorio de imágenes, como GitHub pero para contenedores). Tienes dos opciones:
-
-**Opción A — Azure Container Registry (ACR): más simple, cuesta ~$5/mes**
+Tus 4 microservicios se empaquetan como **imágenes Docker** (una "foto" del servicio con Java, dependencias y el `.jar` adentro). Azure necesita descargarlas de algún **registro** (un repositorio de imágenes, como GitHub pero para contenedores).
 
 ```bash
 az acr create --resource-group dns-student-rg --name dnsstudentacr --sku Basic --admin-enabled true
@@ -184,11 +214,7 @@ az acr create --resource-group dns-student-rg --name dnsstudentacr --sku Basic -
 
 La gran ventaja de ACR: el comando `az acr build` **compila la imagen en la nube**, así no necesitas Docker instalado en tu PC ni una máquina potente.
 
-**Opción B — GitHub Container Registry (ghcr.io): $0, un poco más de configuración**
-
-Si tu repo es público, GitHub aloja imágenes gratis. Se publican con GitHub Actions (también gratis en repos públicos) y Container Apps las descarga con un token de GitHub (PAT con permiso `read:packages`). Es la opción "cero gasto absoluto", pero para tu primera vez recomiendo la **Opción A** por simplicidad — $5/mes que además solo pagas los días que exista.
-
-El resto de la guía asume la Opción A.
+> **Alternativa $0:** si tu repo es público, GitHub Container Registry (ghcr.io) aloja imágenes gratis (se publican con GitHub Actions y Container Apps las descarga con un PAT con permiso `read:packages`). Para tu primera vez recomiendo ACR por simplicidad.
 
 ## 4. Construir y subir las 4 imágenes
 
@@ -250,7 +276,7 @@ Te pedirá la contraseña que inventaste arriba. `sslmode=require` es obligatori
 
 Los microservicios se comunican con **Kafka** (mensajería de eventos) y validan los mensajes Avro contra un **Schema Registry de Confluent**. Montar Kafka tú mismo en contenedores consumiría mucho cómputo (y crédito), así que usamos el servicio gestionado de Confluent.
 
-⚠️ **Aquí está la diferencia clave con la guía normal:** la cuenta de estudiante **no permite compras de Marketplace**, así que no puedes usar "Apache Kafka on Confluent Cloud" desde el portal de Azure. En su lugar:
+⚠️ La cuenta de estudiante **no permite compras de Marketplace**, así que no puedes usar "Apache Kafka on Confluent Cloud" desde el portal de Azure. En su lugar:
 
 1. Regístrate **directamente** en <https://confluent.cloud> (con cualquier correo; no pasa por Azure ni pide facturación a tu suscripción). Los registros nuevos reciben **créditos de prueba (~US$400 por 30 días)**, de sobra para esto.
 2. Crea un cluster **Basic** — elige nube **Azure** y región **eastus** (la misma de tus contenedores, para reducir latencia).
@@ -271,20 +297,49 @@ Anota estos 4 valores — los usarás en el paso 8:
 
 > **Cuando se acaben los créditos de prueba de Confluent:** un cluster Basic sin tráfico cuesta casi nada, pero lo seguro es **borrar el cluster** al terminar tus demos y recrearlo cuando lo necesites (los topics se recrean en 2 minutos). Otra alternativa sin costo es Azure Event Hubs (tiene modo compatible con Kafka), pero su registro de esquemas **no** es compatible con el serializador de Confluent que usa este proyecto, así que requeriría desplegar un contenedor `cp-schema-registry` propio — no lo recomiendo para empezar.
 
-## 7. Crear el entorno de Container Apps
+## 7. El correo: Azure Communication Services Email (el proveedor del sistema)
 
-**Azure Container Apps** es el servicio donde correrán tus 4 microservicios. Es "serverless": tú le das la imagen Docker y él se encarga de servidores, red y escalado. Lo elegimos sobre otras opciones (VMs, Kubernetes) por dos razones de estudiante:
+`notification-service` envía los correos por **Azure Communication Services (ACS) Email**, el proveedor **por defecto** de la aplicación (`MAIL_PROVIDER=azure`). Es un servicio **nativo de Azure** (no Marketplace, así que **sí se paga con el crédito de estudiante**): ~$0.00025 por correo (10.000 correos ≈ $2.50), diseñado para envío en volumen, y va por API HTTPS — no hay SMTP ni contraseñas de Gmail de por medio.
+
+**Crear el recurso ACS (una sola vez; la CLI instala la extensión `communication` la primera vez):**
+
+```bash
+# Recurso de comunicación + servicio de email con dominio gestionado por Azure:
+az communication create -g dns-student-rg -n dns-comm --location global --data-location UnitedStates
+az communication email create -g dns-student-rg -n dns-email --location global --data-location UnitedStates
+az communication email domain create -g dns-student-rg --email-service-name dns-email \
+  --name AzureManagedDomain --location global --domain-management AzureManaged
+
+# Vincular el dominio al recurso de comunicación:
+DOMAIN_ID=$(az communication email domain show -g dns-student-rg --email-service-name dns-email \
+  --name AzureManagedDomain --query id -o tsv)
+az communication update -g dns-student-rg -n dns-comm --linked-domains $DOMAIN_ID
+
+# Datos que necesitas para el paso 8:
+az communication list-key -g dns-student-rg -n dns-comm --query primaryConnectionString -o tsv   # connection string
+az communication email domain show -g dns-student-rg --email-service-name dns-email \
+  --name AzureManagedDomain --query "properties.fromSenderDomain" -o tsv                          # dominio del remitente
+# (si el query devuelve vacío, ejecútalo sin --query y busca el campo fromSenderDomain en el JSON)
+```
+
+El remitente con dominio gestionado tiene la forma `donotreply@<guid>.azurecomm.net`. (Con un dominio propio verificado puedes usar tu dirección y obtener límites más altos; el dominio gestionado trae límites iniciales que se amplían con una solicitud de cuota.)
+
+**Anota estos 2 valores:** la *connection string* (irá como secreto `acsconn`) y el *dominio del remitente* (irá en `MAIL_FROM`).
+
+> **Alternativas al ACS** (ambas soportadas sin recompilar, cambiando `MAIL_PROVIDER=smtp`): **Gmail** para demos pequeñas (App Password, ~500 correos/día, se bloquea con ráfagas) y **Mailpit** para pruebas de carga sin enviar correos reales (ver la [sección de escalado](#pruebas-de-carga-mailpit-en-vez-de-correos-reales)). Las variables SMTP están en [`DEPLOYMENT.md`](DEPLOYMENT.md).
+
+## 8. Crear el entorno y desplegar los 4 microservicios
+
+**Azure Container Apps** es el servicio donde correrán tus 4 microservicios. Es "serverless": tú le das la imagen Docker y él se encarga de servidores, red y escalado. Lo elegimos por dos razones de estudiante:
 
 - **Capa gratuita mensual por suscripción**: los primeros **180.000 vCPU-segundos, 360.000 GiB-segundos y 2 millones de requests son gratis cada mes** (~50 horas de CPU).
 - **Scale to zero**: puede apagar un servicio a 0 réplicas cuando no hay tráfico → **$0 mientras duerme**.
 
-Primero se crea el **environment** (la red privada compartida donde vivirán las 4 apps — gratis, solo pagas por los contenedores):
+Primero el **environment** (la red privada compartida donde vivirán las 4 apps — gratis, solo pagas por los contenedores):
 
 ```bash
 az containerapp env create --resource-group dns-student-rg --name dns-student-env --location eastus
 ```
-
-## 8. Desplegar los 4 microservicios
 
 Cada servicio se despliega con `az containerapp create`. El comando es largo porque incluye toda la configuración; aquí está completo para `customer-service` con la explicación de cada bloque, y luego una tabla con lo que cambia en los otros 3.
 
@@ -323,77 +378,44 @@ az containerapp create \
 - `--image` / `--registry-server`: de dónde descargar la imagen (tu ACR del paso 4). El CLI configura solo las credenciales del registro porque activaste `--admin-enabled`.
 - `--cpu 0.5 --memory 1.0Gi`: recursos por contenedor. Medio núcleo y 1 GB alcanzan para un servicio Spring Boot y **consumen la mitad de capa gratuita** que la configuración por defecto.
 - `--target-port 8184`: puerto interno donde escucha el servicio (cada microservicio tiene el suyo, ver tabla abajo).
-- `--ingress external`: le da una **URL pública HTTPS** (`https://customer-service.<algo>.eastus.azurecontainerapps.io`). Los servicios que no necesitan ser llamados desde internet van con `internal` (solo visibles dentro del environment) — menos superficie de ataque.
-- `--min-replicas 0`: **la clave del ahorro.** Con 0 réplicas mínimas, si nadie llama al servicio en unos minutos, Azure lo apaga y deja de cobrar. Al llegar una petición HTTP lo enciende de nuevo (tarda ~15-30 s la primera vez, es el "cold start" — normal y aceptable para demos).
+- `--ingress external`: le da una **URL pública HTTPS**. Los servicios que no necesitan ser llamados desde internet van con `internal` (solo visibles dentro del environment) — menos superficie de ataque.
+- `--min-replicas 0`: **la clave del ahorro.** Con 0 réplicas mínimas, si nadie llama al servicio en unos minutos, Azure lo apaga y deja de cobrar. Al llegar una petición HTTP lo enciende de nuevo (tarda ~15-30 s, el "cold start" — normal y aceptable para demos).
 - `--secrets` + `secretref:`: las contraseñas se guardan como **secretos** (cifrados, no visibles en el portal) y las variables de entorno solo las *referencian*. Nunca pongas contraseñas directamente en `--env-vars`.
 - `SQL_INIT_MODE=always`: **solo esta primera vez.** Cuando el servicio arranque bien, cámbialo: `az containerapp update -g dns-student-rg -n customer-service --set-env-vars SQL_INIT_MODE=never`.
 
-**Los otros 3 servicios** usan exactamente el mismo comando cambiando `--name`, `--image`, `--target-port`, `--ingress` (y sin `SQL_INIT_MODE=always`, va directo en `never`):
+**Los otros 3 servicios** usan el mismo comando cambiando lo de esta tabla (y sin `SQL_INIT_MODE=always`, van directo con `never`):
 
 | Servicio | `--target-port` | `--ingress` | Extras |
 |---|---|---|---|
 | `customer-service` | 8184 | `external` | `SQL_INIT_MODE=always` solo la primera vez |
 | `document-service` | 8181 | `external` | Es el API principal que llamarás desde Postman/curl |
 | `generator-service` | 8182 | `internal` | — |
-| `notification-service` | 8183 | `internal` | Variables de correo (ver detalle en 8.1). **Por defecto** usa Azure Communication Services: secreto `acsconn` + env vars `ACS_CONNECTION_STRING=secretref:acsconn` y `MAIL_FROM=donotreply@<guid>.azurecomm.net`. Para usar Gmail en su lugar: `MAIL_PROVIDER=smtp`, secreto `mailpass`, y env vars `MAIL_FROM`, `MAIL_HOST=smtp.gmail.com`, `MAIL_PORT=587`, `MAIL_USERNAME`, `MAIL_PASSWORD=secretref:mailpass` (App Password de Gmail) |
+| `notification-service` | 8183 | `internal` | Variables de correo del paso 7: añadir a `--secrets` el valor `acsconn='<CONNECTION-STRING-DE-ACS>'` y a `--env-vars`: `ACS_CONNECTION_STRING=secretref:acsconn` y `MAIL_FROM=donotreply@<guid>.azurecomm.net` |
 
-> **Matiz sobre scale-to-zero:** `generator-service` y `notification-service` trabajan consumiendo mensajes de Kafka, no recibiendo HTTP. Si están dormidos (0 réplicas) no procesan mensajes — los mensajes **no se pierden** (quedan en Kafka), pero el flujo queda pausado. Para una demo, despiértalos antes de empezar con `--min-replicas 1` y devuélvelos a 0 al terminar:
->
-> ```bash
-> # Antes de la demo (encender):
-> az containerapp update -g dns-student-rg -n generator-service    --min-replicas 1
-> az containerapp update -g dns-student-rg -n notification-service --min-replicas 1
-> # Después de la demo (apagar → $0):
-> az containerapp update -g dns-student-rg -n generator-service    --min-replicas 0
-> az containerapp update -g dns-student-rg -n notification-service --min-replicas 0
-> ```
-
-### 8.1 Las variables de correo de `notification-service`, explicadas
-
-El servicio de notificaciones soporta **dos proveedores de envío**, seleccionables con la variable `MAIL_PROVIDER` (sin recompilar nada). **El proveedor por defecto es `azure`** (Azure Communication Services Email).
-
-**Proveedor `azure` (por defecto) — Azure Communication Services Email:**
-
-Es un servicio **nativo de Azure** (no Marketplace), así que **sí se paga con el crédito de estudiante**: ~$0.00025 por correo (10.000 correos ≈ $2.50), y está diseñado para envío en volumen. El envío va por API HTTPS, sin SMTP — las variables `MAIL_HOST`/`MAIL_USERNAME`/`MAIL_PASSWORD`/`MAIL_SMTP_*` se ignoran. La creación del recurso ACS (4 comandos, una sola vez) está en la sección 0.2 de [`AZURE-ESCALADO-PRUEBAS-MASIVAS.md`](AZURE-ESCALADO-PRUEBAS-MASIVAS.md); estas son sus variables:
-
-| Variable | Qué es |
-|---|---|
-| `MAIL_PROVIDER` | Puedes omitirla: `azure` es el valor por defecto |
-| `ACS_CONNECTION_STRING` | Connection string del recurso ACS (guárdala como secreto, `secretref:acsconn`) — **obligatoria**: sin ella el servicio no arranca (el error te lo dice claramente) |
-| `ACS_EMAIL_TIMEOUT_SECONDS` | Opcional (default `60`): espera máxima por la confirmación de envío |
-| `MAIL_FROM` | Debe ser la dirección del dominio verificado de ACS (`donotreply@<guid>.azurecomm.net` con dominio gestionado) — no una cuenta de Gmail |
-| `MAIL_RATE_LIMIT_TOKENS` / `MAIL_RATE_LIMIT_REFILL_MS` | Rate limiter interno (defaults `5`/`20000` ≈ 15 correos/min); con ACS puedes subirlo a tu cuota, ej. `20`/`1000` |
-
-Ejemplo de configuración sobre una app ya desplegada — son **dos comandos**, porque `az containerapp update` no gestiona secretos (eso lo hace `az containerapp secret set`). Si aún no has desplegado, puedes incluir el secreto y las variables directamente en el `az containerapp create`:
+Para `notification-service`, el bloque de correo completo dentro del `az containerapp create` queda así:
 
 ```bash
-# 1. Guardar la connection string como secreto:
-az containerapp secret set -g dns-student-rg -n notification-service \
-  --secrets acsconn='<CONNECTION-STRING-DE-ACS>'
-
-# 2. Referenciarla en las variables (esto crea una nueva revisión y aplica todo):
-az containerapp update -g dns-student-rg -n notification-service \
-  --set-env-vars \
+  --secrets pgpass='...' kafkajaas='...' srauth='...' \
+            acsconn='<CONNECTION-STRING-DE-ACS>' \
+  --env-vars \
+    ... (las mismas de BD y Kafka) ... \
     ACS_CONNECTION_STRING=secretref:acsconn \
     MAIL_FROM='donotreply@<guid>.azurecomm.net' \
     MAIL_RATE_LIMIT_TOKENS=20 MAIL_RATE_LIMIT_REFILL_MS=1000
 ```
 
-**Proveedor `smtp` — Gmail, si prefieres no crear el recurso ACS:**
+- `MAIL_PROVIDER` puede omitirse: `azure` es el valor por defecto de la aplicación.
+- `ACS_CONNECTION_STRING` es **obligatoria** con este proveedor: sin ella el servicio no arranca (el error lo dice claramente).
+- `MAIL_RATE_LIMIT_TOKENS`/`MAIL_RATE_LIMIT_REFILL_MS`: rate limiter interno. El default (`5`/`20000` ≈ 15 correos/min) está pensado para proteger cuentas Gmail; con ACS puedes subirlo a tu cuota (ej. `20`/`1000`).
+- Si ya desplegaste sin correo y quieres añadirlo después, son **dos comandos** (`update` no gestiona secretos):
 
-| Variable | Valor | Qué es |
-|---|---|---|
-| `MAIL_PROVIDER` | `smtp` | **Obligatoria** en este modo (el default es `azure`) |
-| `MAIL_FROM` | tu cuenta de Gmail | Remitente de los correos |
-| `MAIL_HOST` / `MAIL_PORT` | `smtp.gmail.com` / `587` | Servidor SMTP de Gmail |
-| `MAIL_USERNAME` | tu cuenta de Gmail | Usuario de autenticación |
-| `MAIL_PASSWORD` | `secretref:mailpass` | **App Password** de Gmail (se genera en [myaccount.google.com/apppasswords](https://myaccount.google.com/apppasswords), requiere verificación en 2 pasos) — no tu contraseña normal |
+```bash
+az containerapp secret set -g dns-student-rg -n notification-service --secrets acsconn='<CONNECTION-STRING>'
+az containerapp update -g dns-student-rg -n notification-service \
+  --set-env-vars ACS_CONNECTION_STRING=secretref:acsconn MAIL_FROM='donotreply@<guid>.azurecomm.net'
+```
 
-⚠️ Gmail permite ~500 correos/día y bloquea envíos en ráfaga — por eso el rate limiter por defecto es tan conservador. Para demos sobra; para volumen usa el proveedor `azure`.
-
-**Cambiar de proveedor en caliente:** `az containerapp update -g dns-student-rg -n notification-service --set-env-vars MAIL_PROVIDER=smtp MAIL_FROM=<tu-gmail>` (y viceversa con `MAIL_PROVIDER=azure`).
-
-> Y si lo que quieres es hacer **pruebas de carga sin enviar correos reales**, la opción correcta no es ninguna de estas dos: es el contenedor Mailpit (sección 0.1 de la guía de escalado), que captura todos los correos sin entregarlos (recuerda que Mailpit requiere `MAIL_PROVIDER=smtp`).
+> **Matiz sobre scale-to-zero:** `generator-service` y `notification-service` trabajan consumiendo mensajes de Kafka, no recibiendo HTTP. Si están dormidos (0 réplicas) no procesan mensajes — los mensajes **no se pierden** (quedan en Kafka), pero el flujo queda pausado. Para una demo, despiértalos antes con `--min-replicas 1` y devuélvelos a 0 al terminar (comandos en la sección de escalado).
 
 ## 9. Verificar que todo funciona
 
@@ -410,32 +432,239 @@ Prueba el estado de salud (Spring Boot Actuator responde `{"status":"UP"}` cuand
 curl https://<fqdn-que-te-dio-el-comando-anterior>/actuator/health
 ```
 
-La primera llamada puede tardar ~30 s (cold start, el contenedor está despertando). Para ver los logs en vivo mientras pruebas el flujo completo:
+La primera llamada puede tardar ~30 s (cold start). Health probes opcionales (portal → Container App → *Containers* → *Health probes*): **Readiness** HTTP GET `/actuator/health/readiness`, **Liveness** HTTP GET `/actuator/health/liveness`.
+
+Para ver los logs en vivo mientras pruebas el flujo completo:
 
 ```bash
 az containerapp logs show -g dns-student-rg -n notification-service --follow
+# busca "Email sent successfully to: ... | MessageId: ..."
 ```
 
 Prueba el flujo de negocio igual que en local (crear cliente → crear documento → verificar que llega la notificación por correo), apuntando a las URLs públicas en vez de `localhost`.
 
-## 10. Apagar y limpiar: la disciplina que salva tu crédito
+---
 
-Esta sección es **tan importante como el despliegue**. Reglas:
+## Variables de entorno para la nube (resumen)
+
+La referencia completa (todas las variables, defaults y descripción) está en [`DEPLOYMENT.md`](DEPLOYMENT.md). Este es el resumen de **lo que SÍ o SÍ debes configurar en Azure**, agrupado por categoría:
+
+| Categoría | Variable | Valor en Azure | Notas |
+|---|---|---|---|
+| **Base de datos** | `DB_HOST` | `<server>.postgres.database.azure.com` | Host del Flexible Server |
+| | `DB_PORT` / `DB_NAME` | `5432` / `postgres` | |
+| | `POSTGRES_USER` / `POSTGRES_PASSWORD` | admin del paso 5 / `secretref:pgpass` | Contraseña **siempre** como secreto |
+| | `DB_EXTRA_PARAMS` | `&sslmode=require` | Azure solo acepta conexiones cifradas |
+| | `SQL_INIT_MODE` | `never` (tras el primer arranque de `customer-service` con `always`) | Con réplicas > 1 **debe** ser `never` |
+| **Kafka** | `KAFKA_BOOTSTRAP_SERVERS` | `pkc-xxxxx...confluent.cloud:9092` | Del paso 6 |
+| | `KAFKA_SECURITY_PROTOCOL` | `SASL_SSL` | Kafka gestionado siempre cifrado |
+| | `KAFKA_SASL_MECHANISM` | `PLAIN` | |
+| | `KAFKA_SASL_JAAS_CONFIG` | `secretref:kafkajaas` | Cadena JAAS con API key/secret del cluster |
+| **Schema Registry** | `SCHEMA_REGISTRY_URL` | `https://psrc-xxxxx...confluent.cloud` | |
+| | `SCHEMA_REGISTRY_AUTH_USER_INFO` | `secretref:srauth` (`key:secret`) | |
+| **Correo** (solo `notification-service`) | `MAIL_PROVIDER` | `azure` (default, puede omitirse) | `smtp` solo para Gmail/Mailpit |
+| | `ACS_CONNECTION_STRING` | `secretref:acsconn` | **Obligatoria** con el proveedor `azure` |
+| | `MAIL_FROM` | `donotreply@<guid>.azurecomm.net` | El dominio verificado de ACS del paso 7 |
+| | `MAIL_RATE_LIMIT_TOKENS` / `MAIL_RATE_LIMIT_REFILL_MS` | ej. `20` / `1000` | Ajústalo a tu cuota de ACS |
+| **Operación** | `APP_LOG_LEVEL` | `INFO` (`WARN` en pruebas de carga) | |
+| | `JPA_SHOW_SQL` | `false` | En `true` imprime cada SQL: lento y ruidoso |
+| **Escalado** | `NOTIFICATION_INSTANCE_ID` | único por instancia | Solo si creas varias *apps* de notification (ver escalado); el outbox lo usa para locking |
+| | `SPRING_DATASOURCE_HIKARI_MAXIMUMPOOLSIZE` | ej. `5` | Solo si escalas réplicas con la BD B1ms (~35 conexiones máx.) |
+
+Reglas transversales (aplican a los 4 servicios):
+
+- **Credenciales siempre como secretos** (`--secrets` + `secretref:`), nunca en texto plano en `--env-vars`.
+- **TLS en todo**: `sslmode=require` a la BD, `SASL_SSL` a Kafka, HTTPS a ACS.
+- `SPRING_PROFILES_ACTIVE` se deja **vacío** en la nube: toda la configuración entra por variables (el perfil `docker` es solo para docker-compose local).
+
+---
+
+## Escalado: múltiples instancias, manual y automático
+
+La configuración base de esta guía (max 1 réplica, BD B1ms) está pensada para costo mínimo. Cuando necesites más capacidad — una demo con carga, una prueba masiva — hay dos caminos: **manual** (tú fijas cuántas instancias) y **automático** (Azure crea y destruye réplicas según la carga, con reglas KEDA). Sube capacidad **solo durante la ventana de prueba** y revierte al terminar.
+
+### Antes de escalar: 3 requisitos
+
+1. **`SQL_INIT_MODE=never` en TODOS los servicios.** Con `always`, cada réplica nueva re-ejecuta los scripts SQL al arrancar (carreras y datos duplicados):
+
+   ```bash
+   for s in document-service customer-service generator-service notification-service; do
+     az containerapp update -g dns-student-rg -n $s --set-env-vars SQL_INIT_MODE=never
+   done
+   ```
+
+2. **La BD es el límite silencioso.** El B1ms gratuito tiene ~**35 conexiones máximas** y cada réplica abre un pool de 10 (HikariCP). Con 4 servicios × 1 réplica ya estás al límite. Al escalar, elige: **(a)** subir la BD temporalmente (recomendado para pruebas — `Standard_D2s_v3` ≈ $0.16/hora, ~850 conexiones) o **(b)** reducir los pools (`SPRING_DATASOURCE_HIKARI_MAXIMUMPOOLSIZE=5` en cada servicio, manteniendo `Σ réplicas × pool ≤ 30`):
+
+   ```bash
+   # (a) Antes de la prueba — subir (reinicia el servidor, ~5 min):
+   az postgres flexible-server update -g dns-student-rg -n dns-student-pg \
+     --sku-name Standard_D2s_v3 --tier GeneralPurpose
+   # (a) Después de la prueba — VOLVER AL TAMAÑO GRATUITO (¡no lo olvides! fuera de B1ms se cobra ~$115/mes):
+   az postgres flexible-server update -g dns-student-rg -n dns-student-pg \
+     --sku-name Standard_B1ms --tier Burstable
+   ```
+
+3. **Logs en modo carga**: `APP_LOG_LEVEL=WARN` y `JPA_SHOW_SQL=false` — con miles de requests, el logging se vuelve un cuello de botella artificial.
+
+### La regla de oro de los consumidores Kafka
+
+Los topics tienen **3 particiones**, así que **máximo 3 réplicas útiles** por consumidor (`generator-service`, `notification-service`): Kafka reparte las particiones entre las réplicas del mismo consumer group y las réplicas de más quedan ociosas. El patrón outbox con locking optimista ya tolera múltiples instancias — no hay que tocar código.
+
+```mermaid
+flowchart LR
+    subgraph Topic["topic: notification-request (3 particiones)"]
+        P0["partición 0"]
+        P1["partición 1"]
+        P2["partición 2"]
+    end
+    subgraph CG["consumer group: notification-service"]
+        R1["réplica 1"]
+        R2["réplica 2"]
+        R3["réplica 3"]
+    end
+    P0 --> R1
+    P1 --> R2
+    P2 --> R3
+```
+
+> ¿Necesitas más de 3 consumidores? Primero habría que aumentar las particiones en Confluent (nunca se pueden reducir después). Con este stack (0.5 vCPU, BD B1ms) es casi seguro que el cuello de botella esté en otra parte — agota primero la BD y las réplicas HTTP.
+
+### Escalado MANUAL: fijar réplicas
+
+Es lo más simple y predecible. Un solo comando por servicio:
+
+```bash
+# Encender los consumidores con capacidad fija para la prueba:
+az containerapp update -g dns-student-rg -n generator-service    --min-replicas 2 --max-replicas 3
+az containerapp update -g dns-student-rg -n notification-service --min-replicas 2 --max-replicas 3
+
+# API HTTP con más capacidad fija:
+az containerapp update -g dns-student-rg -n document-service --min-replicas 2 --max-replicas 3
+
+# Y para volver al modo ahorro:
+for s in document-service customer-service generator-service notification-service; do
+  az containerapp update -g dns-student-rg -n $s --min-replicas 0 --max-replicas 1
+done
+```
+
+- `--min-replicas ≥ 1` durante la prueba elimina el cold start (con 0, las primeras peticiones medirían el arranque del contenedor, no el rendimiento).
+- **Escalado vertical** (opcional): si una réplica se satura de CPU, sube el tamaño en vez de solo añadir réplicas: `az containerapp update -g dns-student-rg -n document-service --cpu 1.0 --memory 2.0Gi` (duplica el consumo de capa gratuita por réplica).
+
+### Escalado AUTOMÁTICO: reglas KEDA
+
+Container Apps trae [KEDA](https://keda.sh) integrado: defines una regla y Azure crea/destruye réplicas solo, entre `min-replicas` y `max-replicas`.
+
+**a) Servicios HTTP (`document`, `customer`) — regla de concurrencia:** "si hay más de N requests simultáneos por réplica, crea otra réplica":
+
+```bash
+az containerapp update -g dns-student-rg -n document-service \
+  --min-replicas 1 --max-replicas 3 \
+  --scale-rule-name http-load \
+  --scale-rule-type http \
+  --scale-rule-http-concurrency 50
+
+az containerapp update -g dns-student-rg -n customer-service \
+  --min-replicas 1 --max-replicas 2 \
+  --scale-rule-name http-load \
+  --scale-rule-type http \
+  --scale-rule-http-concurrency 50
+```
+
+- `--scale-rule-http-concurrency 50`: valor razonable para Spring Boot con 0.5 vCPU. Si escala demasiado tarde (latencias altas antes de crear réplicas), bájalo a 20-30.
+- `--max-replicas 3`: tope alineado con las 3 particiones de Kafka y el límite de conexiones de la BD.
+
+**b) Consumidores Kafka (`generator`, `notification`) — regla por lag:** crea réplicas cuando los mensajes pendientes (lag) superan un umbral. Combina scale-to-zero con reacción automática a ráfagas:
+
+```bash
+# Los secretos que referencia la regla se crean primero (update no acepta --secrets):
+az containerapp secret set -g dns-student-rg -n generator-service \
+  --secrets kafka-user='<API_KEY_CLUSTER>' kafka-pass='<API_SECRET_CLUSTER>'
+
+az containerapp update -g dns-student-rg -n generator-service \
+  --min-replicas 0 --max-replicas 3 \
+  --scale-rule-name kafka-lag \
+  --scale-rule-type kafka \
+  --scale-rule-metadata \
+      bootstrapServers='pkc-xxxxx.eastus.azure.confluent.cloud:9092' \
+      consumerGroup='generator-topic-consumer' \
+      topic='generator-request' \
+      lagThreshold='100' \
+      sasl='plaintext' \
+      tls='enable' \
+  --scale-rule-auth username=kafka-user password=kafka-pass
+```
+
+- `lagThreshold=100`: una réplica nueva por cada ~100 mensajes pendientes, hasta `max-replicas`.
+- El `consumerGroup` de cada servicio está en su `application.yml` (`kafka-consumer-config`); para `notification-service` repite el comando con `consumerGroup='notification-topic-consumer'` y `topic='notification-request'`.
+- **Manual vs automático:** para una primera prueba, réplicas fijas es más simple y los resultados son más fáciles de interpretar; la regla KEDA brilla para dejar el sistema desatendido reaccionando a ráfagas.
+
+### Pruebas de carga: Mailpit en vez de correos reales
+
+Para una prueba masiva **no uses el correo real**: usa **Mailpit**, un servidor SMTP falso en un contenedor que acepta cualquier correo, no entrega ninguno, y los muestra en una interfaz web (para contarlos y verificar el flujo de punta a punta). El manifiesto ya está en el repo: [`document-notification-system/azure/mailpit.yaml`](../document-notification-system/azure/mailpit.yaml).
+
+```bash
+# 1. Poner el ID del environment en el yaml y desplegar:
+az containerapp env show -g dns-student-rg -n dns-student-env --query id -o tsv
+#    → cópialo en <ENVIRONMENT_ID> de azure/mailpit.yaml
+az containerapp create -g dns-student-rg -n mailpit --yaml document-notification-system/azure/mailpit.yaml
+
+# 2. Apuntar notification-service a Mailpit y liberar el rate limiter:
+az containerapp update -g dns-student-rg -n notification-service \
+  --set-env-vars MAIL_PROVIDER=smtp MAIL_HOST=mailpit MAIL_PORT=1025 \
+    MAIL_SMTP_AUTH=false MAIL_SMTP_STARTTLS_ENABLE=false MAIL_SMTP_STARTTLS_REQUIRED=false \
+    MAIL_RATE_LIMIT_TOKENS=100 MAIL_RATE_LIMIT_REFILL_MS=1000
+
+# 3. UI web para ver los correos capturados:
+az containerapp show -g dns-student-rg -n mailpit --query properties.configuration.ingress.fqdn -o tsv
+
+# 4. Al terminar: volver a ACS y borrar Mailpit:
+az containerapp update -g dns-student-rg -n notification-service \
+  --set-env-vars MAIL_PROVIDER=azure MAIL_FROM='donotreply@<guid>.azurecomm.net' \
+    MAIL_RATE_LIMIT_TOKENS=20 MAIL_RATE_LIMIT_REFILL_MS=1000
+az containerapp delete -g dns-student-rg -n mailpit --yes
+```
+
+Verificación de punta a punta: si creaste 500 documentos y la bandeja de Mailpit muestra 500 correos, el flujo completo (API → Kafka → generator → Kafka → notification → SMTP) funcionó sin pérdidas. La carga se genera con k6 o JMeter contra la URL pública de `document-service`, desde tu PC (no desde el mismo environment).
+
+### Cuánto crédito consume una sesión de prueba
+
+Referencia con contenedores de 0.5 vCPU (capa gratuita: 180.000 vCPU-segundos/mes):
+
+| Escenario | vCPU-segundos | % de la capa gratuita |
+|---|---|---|
+| 4 servicios × 1 réplica × 1 hora | 7.200 | ~4% |
+| 4 servicios × 3 réplicas × 1 hora | 21.600 | ~12% |
+| 4 servicios × 3 réplicas × 8 horas | 172.800 | **~96%** |
+
+Una sesión de prueba de 3 horas (réplicas + BD escalada + Mailpit) cuesta **≈ $1-2 del crédito** — siempre que reviertas al terminar. Olvidar la BD en `D2s_v3` cuesta ~$115/mes: el error más caro posible con esta cuenta.
+
+**Checklist de reversión (el mismo día, sin excepción):**
+
+- [ ] Todos los servicios de vuelta a `--min-replicas 0 --max-replicas 1`.
+- [ ] BD de vuelta a `Standard_B1ms --tier Burstable` (confírmalo en el portal).
+- [ ] `MAIL_PROVIDER=azure` restaurado y app `mailpit` borrada.
+- [ ] `APP_LOG_LEVEL=INFO` si lo cambiaste.
+- [ ] *Cost analysis* al día siguiente para confirmar que nada quedó escalado.
+
+---
+
+## Apagar y limpiar: la disciplina que salva tu crédito
+
+Esta sección es **tan importante como el despliegue**.
 
 **Al terminar cada sesión de trabajo/demo:**
 
 ```bash
-# Dormir todos los servicios (min-replicas 0 hace que se apaguen solos,
-# pero los que tienen tráfico Kafka conviene forzarlos):
+# Dormir todos los servicios:
 az containerapp update -g dns-student-rg -n generator-service    --min-replicas 0
 az containerapp update -g dns-student-rg -n notification-service --min-replicas 0
 
-# Pausar la base de datos (aunque B1ms es gratis 12 meses, pausar no cuesta nada
-# y protege tus 750 h/mes; se reactiva en ~1 min con "start"):
+# Pausar la base de datos (se reactiva en ~1 min con "start"; Azure la
+# reenciende automáticamente después de 7 días):
 az postgres flexible-server stop -g dns-student-rg -n dns-student-pg
 ```
 
-Y para volver a trabajar: `az postgres flexible-server start -g dns-student-rg -n dns-student-pg` (nota: Azure reenciende automáticamente los servidores pausados después de 7 días).
+Para volver a trabajar: `az postgres flexible-server start -g dns-student-rg -n dns-student-pg`.
 
 **Al terminar el proyecto/semestre — borrar TODO de un golpe:**
 
@@ -443,47 +672,27 @@ Y para volver a trabajar: `az postgres flexible-server start -g dns-student-rg -
 az group delete --name dns-student-rg --yes
 ```
 
-Esto elimina registry, base de datos, environment y las 4 apps. Es la garantía absoluta de $0. Recuerda borrar también el cluster en confluent.cloud (es aparte de Azure).
+Esto elimina registry, base de datos, ACS, environment y las apps. Es la garantía absoluta de $0. Recuerda borrar también el cluster en confluent.cloud (es aparte de Azure).
 
-**Vigilancia continua:**
-- Revisa el saldo: Portal → *Cost Management* → *Cost analysis*.
-- La alerta de presupuesto del Paso 1 te avisa por correo si algo quedó encendido.
+**Vigilancia continua:** revisa el saldo en Portal → *Cost Management* → *Cost analysis*; la alerta de presupuesto del Paso 1 te avisa por correo si algo quedó encendido.
 
-## 11. Plan B: ¿y si la cuenta de estudiante no alcanza?
+---
 
-Con la cuenta de estudiante **sí se puede desplegar todo el sistema**, pero tiene dos límites reales:
+## Plan B: ¿y si la cuenta de estudiante no alcanza?
 
-1. **Kafka a largo plazo.** Los créditos de prueba de Confluent Cloud duran ~30 días. Después, un cluster Basic con poco tráfico cuesta poco pero ya no es $0, y no puedes pagarlo con el crédito de Azure (bloqueo de Marketplace).
-2. **Disponibilidad 24/7.** Si necesitas el sistema siempre encendido (no solo para demos), el cómputo supera la capa gratuita de Container Apps y los $100 se agotan en pocas semanas.
+La cuenta de estudiante tiene dos límites reales: **(1)** los créditos de prueba de Confluent duran ~30 días (después, un cluster Basic con poco tráfico cuesta poco, pero no es $0 y no se paga con crédito de Azure), y **(2)** la **disponibilidad 24/7** supera la capa gratuita de Container Apps y agota los $100 en semanas.
 
-Si llegas a cualquiera de esos dos puntos, el camino es una **suscripción normal (pay-as-you-go)**: pide tarjeta de crédito y cobra por uso real, sin las restricciones de la cuenta de estudiante. La arquitectura es **exactamente la misma** — solo cambian dos cosas:
+Si llegas ahí, el camino es una **suscripción pay-as-you-go** (pide tarjeta, cobra por uso real). La arquitectura es **exactamente la misma** — solo cambian tres cosas:
 
-- Confluent Cloud se puede contratar **vía Azure Marketplace** (se factura junto con Azure, más cómodo).
-- Puedes subir `--min-replicas` a 1+ para disponibilidad continua y escalar hasta 3 réplicas los consumidores de Kafka.
+- Confluent Cloud se puede contratar **vía Azure Marketplace** (se factura junto con Azure).
+- `--min-replicas 1` en los 4 servicios para disponibilidad continua (sin cold starts). Costo de referencia 24/7: ~$55-85/mes (4 apps + BD + ACR + Confluent).
+- El "estado de reposo" al que vuelves tras escalar es `min-replicas 1`, no 0.
 
-La guía completa para ese escenario, con su propia arquitectura y estimación de costos, está en [`AZURE-DESPLIEGUE-CLOUD.md`](AZURE-DESPLIEGUE-CLOUD.md). Todo lo que aprendiste aquí (resource groups, ACR, Container Apps, secretos) aplica igual.
+Todo lo demás de esta guía (comandos, variables, secretos, escalado) aplica igual.
 
-## Resumen del flujo completo
+> **Alternativa AKS (Kubernetes):** las mismas imágenes funcionan en un cluster AKS (`az aks create ... --attach-acr` y deployments con las variables de [`DEPLOYMENT.md`](DEPLOYMENT.md)), pero AKS cobra por los nodos (VMs) 24/7 — notablemente más caro que Container Apps para esta escala; con cuenta de estudiante no lo recomiendo.
 
-```
-Cuenta estudiante ($100, sin tarjeta)
-        │
-        ▼
-Resource group (carpeta) ──► ACR (imágenes Docker, ~$5/mes mientras exista)
-        │                         ▲
-        │                    az acr build (x4, compila en la nube)
-        ▼
-PostgreSQL B1ms (gratis 12 meses) + Confluent Cloud directo (créditos de prueba)
-        │
-        ▼
-Container Apps environment (red compartida, gratis)
-        │
-        ▼
-4 microservicios con min-replicas 0 (duermen gratis, despiertan al usarlos)
-        │
-        ▼
-Demo → apagar → (fin de semestre) az group delete
-```
+---
 
 ## Checklist final
 
@@ -491,8 +700,10 @@ Demo → apagar → (fin de semestre) az group delete
 - [ ] Alerta de presupuesto configurada (Paso 1).
 - [ ] PostgreSQL exactamente en `Standard_B1ms / Burstable / 32 GB` (lo que cubre la capa gratuita).
 - [ ] Confluent Cloud registrado **directo** (no por Marketplace).
+- [ ] Recurso ACS creado y `notification-service` con `ACS_CONNECTION_STRING` (secreto) y `MAIL_FROM` del dominio verificado.
 - [ ] `SQL_INIT_MODE=never` en todos los servicios después de la primera inicialización.
 - [ ] Contraseñas siempre como secretos (`secretref:`), nunca en texto plano en `--env-vars`.
 - [ ] `min-replicas 0` en todos los servicios cuando no estés haciendo demos.
 - [ ] Base de datos pausada (`flexible-server stop`) entre sesiones.
+- [ ] Tras cualquier sesión de escalado: checklist de reversión ejecutado.
 - [ ] Al final del semestre: `az group delete` + borrar cluster de Confluent.

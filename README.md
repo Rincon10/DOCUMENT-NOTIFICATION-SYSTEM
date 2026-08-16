@@ -32,20 +32,24 @@ Este repositorio contiene el código fuente y la estructura para un sistema que 
 El siguiente diagrama ilustra la aplicación de los principios de Domain-Driven Design (DDD) en el sistema, mostrando cómo se organizan las capas, bounded contexts, entidades, agregados y value objects. Esta estructura garantiza que el dominio permanezca en el centro de la arquitectura, con las dependencias apuntando hacia el núcleo del negocio.
 
 
-![Arquitectura DDD](docs/00-arquitectura-DDD.png)
+![Arquitectura DDD](docs/images/00-arquitectura-DDD.png)
 
 ## Estructura del repositorio
 
 ```
 DOCUMENT-NOTIFICATION-SYSTEM/
 ├── docs/                                    # Diagramas de arquitectura y documentación
-│   ├── 00-arquitectura-DDD.png
-│   ├── 00-flujo-generarl-arquitectura.png
-│   ├── 01-arquitectura-componente-document.png
-│   ├── 02-dependency-graph-document.png
-│   ├── 03-dependency-graph-generator.png
-│   ├── 04-dependency-graph-notification.png
-│   └── 05-dependency-graph-all.png
+│   ├── images/                              # Todas las imágenes de la documentación
+│   │   ├── 00-arquitectura-DDD.png
+│   │   ├── 00-flujo-generarl-arquitectura.png
+│   │   ├── 01-arquitectura-componente-document.png
+│   │   ├── 02-dependency-graph-document.png
+│   │   ├── 03-dependency-graph-generator.png
+│   │   ├── 04-dependency-graph-notification.png
+│   │   └── 05-dependency-graph-all.png
+│   ├── AZURE-ESTUDIANTE-PASO-A-PASO.md      # Guía única de despliegue y escalado en Azure
+│   ├── DIAGRAMAS-AZURE.md                   # Diagramas de la arquitectura en la nube
+│   └── DEPLOYMENT.md                        # Referencia de variables de entorno (cloud)
 │
 ├── document-notification-system/            # Proyecto principal Maven multi-módulo
 │   ├── document-service/                    # Bounded Context: Gestión de documentos
@@ -87,7 +91,7 @@ Cada bounded context sigue la misma estructura de capas:
 ## Arquitectura general del sistema
 El siguiente diagrama muestra el flujo general de la arquitectura del sistema, ilustrando cómo los diferentes componentes interactúan entre sí en un entorno distribuido. Se puede observar la separación de responsabilidades, la comunicación entre servicios, y cómo fluyen los datos desde la entrada hasta la entrega de notificaciones.
 
-![Flujo general de la arquitectura](docs/00-flujo-generarl-arquitectura.png)
+![Flujo general de la arquitectura](docs/images/00-flujo-generarl-arquitectura.png)
 
 
 ### Arquitectura de dependencias
@@ -144,7 +148,7 @@ El grafo resultante (ubicado en la carpeta `target/`) debe mostrar que:
 - `application-service` solo depende de `domain-core` y `common-domain`
 - Los módulos de infraestructura (`dataaccess`, `application-api`) dependen de las capas internas
 
-![Grafo de dependencias del proyecto](docs/02-dependency-graph-document.png)
+![Grafo de dependencias del proyecto](docs/images/02-dependency-graph-document.png)
 
 > **Nota:** Si el grafo muestra dependencias incorrectas (por ejemplo, `domain-core` dependiendo de `dataaccess`), es señal de una violación arquitectónica que debe corregirse para mantener la integridad del diseño DDD.
 
@@ -168,7 +172,7 @@ El diagrama a continuación ilustra la arquitectura de alto nivel del componente
 
 Esta organización permite sustituir cualquier tecnología de infraestructura sin afectar la lógica de negocio, facilitando la mantenibilidad, testabilidad y evolución del sistema.
 
-![Arquitectura del componente Document Service](docs/01-arquitectura-componente-document.png)
+![Arquitectura del componente Document Service](docs/images/01-arquitectura-componente-document.png)
 
 ## Arquitectura del componente Generator Service
 
@@ -176,7 +180,7 @@ El componente **Generator Service** es responsable de la generación de document
 
 El diagrama de dependencias muestra cómo se organizan las capas internas del servicio:
 
-![Grafo de dependencias del Generator Service](docs/03-dependency-graph-generator.png)
+![Grafo de dependencias del Generator Service](docs/images/03-dependency-graph-generator.png)
 
 ### Responsabilidades principales
 - Generación de documentos a partir de plantillas
@@ -190,7 +194,7 @@ El componente **Notification Service** gestiona el envío de notificaciones a tr
 
 El grafo de dependencias ilustra la estructura interna del servicio:
 
-![Grafo de dependencias del Notification Service](docs/04-dependency-graph-notification.png)
+![Grafo de dependencias del Notification Service](docs/images/04-dependency-graph-notification.png)
 
 ### Responsabilidades principales
 - Envío de notificaciones por múltiples canales
@@ -202,7 +206,7 @@ El grafo de dependencias ilustra la estructura interna del servicio:
 
 El siguiente diagrama muestra el grafo de dependencias agregado de todo el proyecto, incluyendo las relaciones entre los tres bounded contexts (Document, Generator y Notification) y sus módulos internos:
 
-![Grafo de dependencias completo del sistema](docs/05-dependency-graph-all.png)
+![Grafo de dependencias completo del sistema](docs/images/05-dependency-graph-all.png)
 
 Este grafo permite visualizar:
 - La independencia entre los diferentes bounded contexts
