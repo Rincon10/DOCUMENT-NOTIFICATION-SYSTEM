@@ -6,7 +6,6 @@ El proyecto está preparado para desplegarse en **cualquier nube** (Azure, AWS, 
 - **Las 4 imágenes Docker son autocontenidas** y no asumen ningún proveedor: JVM consciente del contenedor, usuario no-root, `HEALTHCHECK` integrado y sin perfil de Spring hardcodeado.
 - **Health checks estándar** vía Spring Boot Actuator (`/actuator/health`, `/actuator/health/liveness`, `/actuator/health/readiness`) — los que consume cualquier orquestador (Kubernetes, ECS, Container Apps, Cloud Run).
 - **Kafka gestionado soportado**: SASL/SSL opcional por variables de entorno (Confluent Cloud, AWS MSK, Azure Event Hubs).
-- **Manifiestos de Kubernetes** en `document-notification-system/k8s/` (con kustomize para apuntar al registry real).
 - **CI genérico** en `.github/workflows/docker-publish.yml` que publica a cualquier registry (GHCR por defecto; ACR/ECR/Artifact Registry vía secrets).
 
 ## Variables de entorno
@@ -68,6 +67,8 @@ docker compose up --build
 
 ## Despliegue en Kubernetes (AKS / EKS / GKE / on-prem)
 
+Las imágenes funcionan en cualquier cluster sin cambios; solo hay que inyectar las variables de este documento:
+
 1. Publicar las imágenes (el workflow `docker-publish.yml` lo hace en cada push a `master`), o manualmente:
    ```bash
    docker build -t <registry>/document-service:1.0 -f document-service/Dockerfile .
@@ -75,22 +76,9 @@ docker compose up --build
    # repetir para customer, generator y notification
    ```
 2. Aprovisionar los servicios gestionados: PostgreSQL (RDS / Cloud SQL / Azure Database) y Kafka + Schema Registry (MSK / Confluent Cloud / Event Hubs). Crear los schemas (`document`, `generator`, `notification`, `customer`) y los topics una sola vez.
-3. Ajustar `k8s/configmap.yaml` con los endpoints reales y crear el secret:
-   ```bash
-   kubectl apply -f k8s/namespace.yaml
-   kubectl -n document-notification-system create secret generic dns-secrets \
-     --from-literal=POSTGRES_USER=... --from-literal=POSTGRES_PASSWORD=... \
-     --from-literal=MAIL_USERNAME=... --from-literal=MAIL_PASSWORD=...
-   ```
-4. Apuntar las imágenes al registry real y desplegar:
-   ```bash
-   cd k8s
-   kustomize edit set image document-notification-system/document-service=<registry>/document-service:1.0
-   # ... resto de servicios
-   kubectl apply -k .
-   ```
+3. En los deployments: las variables no sensibles van en un ConfigMap y las credenciales (BD, JAAS de Kafka, Schema Registry, `ACS_CONNECTION_STRING`) en un Secret; probes de liveness/readiness contra `/actuator/health/liveness` y `/actuator/health/readiness`; y `NOTIFICATION_INSTANCE_ID` único por pod (ej. inyectando `metadata.name` vía fieldRef).
 
-Los deployments ya incluyen probes de liveness/readiness contra Actuator, límites de recursos y `NOTIFICATION_INSTANCE_ID` único por pod. Para escalar: `kubectl scale deployment notification-service --replicas=3` (los consumer groups de Kafka y el locking optimista del outbox soportan múltiples instancias).
+Para escalar: `kubectl scale deployment notification-service --replicas=3` (los consumer groups de Kafka y el locking optimista del outbox soportan múltiples instancias; máximo 3 réplicas útiles por las 3 particiones).
 
 ## Servicios de contenedores gestionados
 

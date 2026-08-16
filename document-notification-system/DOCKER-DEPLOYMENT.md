@@ -575,7 +575,7 @@ az containerapp create \
     "MAIL_PASSWORD=${MAIL_PASSWORD:-}"
 ```
 
-> **Email provider:** the app default is Azure Communication Services Email (`MAIL_PROVIDER=azure`), which requires `ACS_CONNECTION_STRING=<connection-string>` (store it as a secret + `secretref:`) and `MAIL_FROM` set to the verified ACS sender address — see `docs/AZURE-ESCALADO-PRUEBAS-MASIVAS.md` section 0.2 for the full setup. To use Gmail/SMTP instead, add `MAIL_PROVIDER=smtp` to the env vars above.
+> **Email provider:** the app default is Azure Communication Services Email (`MAIL_PROVIDER=azure`), which requires `ACS_CONNECTION_STRING=<connection-string>` (store it as a secret + `secretref:`) and `MAIL_FROM` set to the verified ACS sender address — see `docs/AZURE-ESTUDIANTE-PASO-A-PASO.md` (Paso 7) for the full setup. To use Gmail/SMTP instead, add `MAIL_PROVIDER=smtp` to the env vars above.
 
 ### Step 5 - Configure Scaling Rules
 
@@ -821,7 +821,7 @@ document-notification-system/
 ├── DOCKER-DEPLOYMENT.md                # This guide
 │
 ├── azure/
-│   └── deploy.sh                       # Automated Azure deployment script
+│   └── mailpit.yaml                    # Mailpit test-mail server for Container Apps
 │
 ├── infraestructure/docker-compose/
 │   ├── init-db.sql                     # Consolidated DB init (all 4 schemas)
