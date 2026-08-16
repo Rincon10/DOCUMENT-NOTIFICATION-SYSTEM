@@ -274,28 +274,100 @@ Te pedirá la contraseña que inventaste arriba. `sslmode=require` es obligatori
 
 ## 6. Kafka y Schema Registry: Confluent Cloud (directo, NO por Marketplace)
 
-Los microservicios se comunican con **Kafka** (mensajería de eventos) y validan los mensajes Avro contra un **Schema Registry de Confluent**. Montar Kafka tú mismo en contenedores consumiría mucho cómputo (y crédito), así que usamos el servicio gestionado de Confluent.
+Los microservicios se comunican con **Kafka** (mensajería de eventos) y validan los mensajes **Avro** contra un **Schema Registry de Confluent**. Montar Kafka tú mismo en contenedores consumiría mucho cómputo (y crédito), así que usamos el servicio gestionado de Confluent.
 
-⚠️ La cuenta de estudiante **no permite compras de Marketplace**, así que no puedes usar "Apache Kafka on Confluent Cloud" desde el portal de Azure. En su lugar:
+⚠️ La cuenta de estudiante **no permite compras de Marketplace**, así que no puedes usar "Apache Kafka on Confluent Cloud" desde el portal de Azure. Te registras directamente en confluent.cloud — no pasa por Azure ni toca tu suscripción.
 
-1. Regístrate **directamente** en <https://confluent.cloud> (con cualquier correo; no pasa por Azure ni pide facturación a tu suscripción). Los registros nuevos reciben **créditos de prueba (~US$400 por 30 días)**, de sobra para esto.
-2. Crea un cluster **Basic** — elige nube **Azure** y región **eastus** (la misma de tus contenedores, para reducir latencia).
-3. Crea los **5 topics**, cada uno con **3 particiones**: `customer`, `generator-request`, `generator-response`, `notification-request`, `notification-response`.
-4. Activa **Schema Registry** (paquete *Essentials*, misma región).
-5. Genera dos pares de credenciales:
-   - **API key + secret del cluster** (menú *API Keys* del cluster).
-   - **API key + secret del Schema Registry** (en la sección Schema Registry).
+**Lo que este proyecto necesita de Confluent (el porqué de cada paso):**
 
-Anota estos 4 valores — los usarás en el paso 8:
+| Requisito | Valor | De dónde sale |
+|---|---|---|
+| Tipo de cluster | **Basic** | El más barato; replicación 3 incluida (coincide con `KAFKA_REPLICATION_FACTOR:3` del `application.yml`) |
+| Nube / región | **Azure / eastus** | La misma región de tus Container Apps → menor latencia |
+| Topics (5) | `customer`, `generator-request`, `generator-response`, `notification-request`, `notification-response` | Nombres por defecto en los `application.yml` de los servicios |
+| Particiones por topic | **3** | Coincide con `KAFKA_NUM_PARTITIONS:3` y `KAFKA_CONSUMER_CONCURRENCY:3`; define el tope de 3 réplicas por consumidor |
+| Schema Registry | paquete **Essentials** | Los serializadores Avro de Confluent lo consultan en cada publish/consume |
+| Credenciales | 2 pares (cluster + Schema Registry) | Son servicios distintos, cada uno con su propia API key |
 
-| Dato | Ejemplo de formato |
-|---|---|
-| Bootstrap server | `pkc-xxxxx.eastus.azure.confluent.cloud:9092` |
-| API key/secret del cluster | `ABCDEF...` / `xyz123...` |
-| URL del Schema Registry | `https://psrc-xxxxx.eastus.azure.confluent.cloud` |
-| Key/secret del Schema Registry | `GHIJKL...` / `abc456...` |
+### 6.1 Crear la cuenta
 
-> **Cuando se acaben los créditos de prueba de Confluent:** un cluster Basic sin tráfico cuesta casi nada, pero lo seguro es **borrar el cluster** al terminar tus demos y recrearlo cuando lo necesites (los topics se recrean en 2 minutos). Otra alternativa sin costo es Azure Event Hubs (tiene modo compatible con Kafka), pero su registro de esquemas **no** es compatible con el serializador de Confluent que usa este proyecto, así que requeriría desplegar un contenedor `cp-schema-registry` propio — no lo recomiendo para empezar.
+1. Entra a <https://confluent.cloud/signup> y regístrate (sirve cualquier correo; no pide tarjeta para empezar).
+2. Confirma el correo de verificación y entra a la consola.
+3. Los registros nuevos reciben **créditos de prueba (~US$400 por 30 días)** — de sobra para todo el semestre de demos. El banner del saldo se ve en *Billing & payment*.
+4. Si te pregunta por un caso de uso / experiencia, elige lo básico ("Learning" / "Developer") — no cambia nada técnico.
+
+### 6.2 Crear el cluster
+
+1. En la consola: **Environments** → `default` (o crea uno) → **Add cluster**.
+2. Tipo: **Basic** (el gratuito de la izquierda; los Standard/Dedicated cobran por hora aunque no los uses).
+3. Proveedor y región: **Azure** → **East US (eastus)** — la misma región del paso 3 de esta guía. *Single zone* es suficiente.
+4. Nombre: por ejemplo `dns-cluster` → **Launch cluster**. Queda listo en segundos.
+5. Copia ya el **bootstrap server**: menú del cluster → **Cluster settings** → *Bootstrap server* (formato `pkc-xxxxx.eastus.azure.confluent.cloud:9092`). Este valor va en `KAFKA_BOOTSTRAP_SERVERS`.
+
+### 6.3 Crear los 5 topics (3 particiones cada uno)
+
+En el menú del cluster → **Topics** → **Create topic**. Para **cada uno** de los 5:
+
+1. **Topic name**: exactamente como aparece abajo (los servicios los buscan por estos nombres; un typo = el servicio arranca pero no fluyen eventos).
+2. **Partitions**: cambia el default (6) a **3**.
+3. **Create with defaults** — no actives *infinite retention* ni ajustes extra.
+4. Si al crear ofrece "Define a data contract / schema", **sáltalo** (*Skip*): los esquemas Avro los registran los propios servicios al publicar el primer mensaje.
+
+| # | Topic | Quién publica → quién consume |
+|---|---|---|
+| 1 | `customer` | customer-service → generator/document (datos de clientes) |
+| 2 | `generator-request` | document-service → generator-service |
+| 3 | `generator-response` | generator-service → document-service |
+| 4 | `notification-request` | document-service → notification-service |
+| 5 | `notification-response` | notification-service → document-service |
+
+> Los **consumer groups** (`generator-topic-consumer`, `notification-topic-consumer`, `customer-topic-consumer`) **no se crean aquí**: Kafka los registra solo cuando cada servicio se conecta. Los verás aparecer en *Clients → Consumer groups* cuando el sistema arranque — y ahí mismo se monitorea el *lag* durante las pruebas de carga.
+
+### 6.4 Activar el Schema Registry
+
+1. En el menú lateral izquierdo del **environment** (no del cluster): **Schema Registry** → **Enable** (si no venía activado).
+2. Paquete **Essentials**, proveedor **Azure**, región **eastus** (misma región otra vez).
+3. Copia el **endpoint público** (formato `https://psrc-xxxxx.eastus.azure.confluent.cloud`). Este valor va en `SCHEMA_REGISTRY_URL`.
+
+> No hay que registrar ningún esquema a mano: los serializadores de los servicios publican los `.avsc` automáticamente la primera vez que envían cada tipo de evento (verás aparecer subjects como `generator-request-value` tras la primera petición).
+
+### 6.5 Generar las 2 credenciales
+
+**a) API key del cluster** (autentica la conexión Kafka):
+
+1. Menú del cluster → **API Keys** → **Create key** → *Global access* (para simplificar; *Granular* es mejor práctica pero exige configurar ACLs por topic).
+2. Descarga o copia **Key** y **Secret** — el secret **solo se muestra una vez**.
+3. Estos 2 valores van dentro de la cadena JAAS (secreto `kafkajaas` del paso 8):
+   ```
+   org.apache.kafka.common.security.plain.PlainLoginModule required username="<KEY>" password="<SECRET>";
+   ```
+
+**b) API key del Schema Registry** (es un servicio aparte, con llaves propias):
+
+1. Página del **Schema Registry** (menú del environment) → **API Keys** → **Create key**.
+2. Copia **Key** y **Secret**. Van juntos, separados por dos puntos, en el secreto `srauth` del paso 8: `<SR_KEY>:<SR_SECRET>` (variable `SCHEMA_REGISTRY_AUTH_USER_INFO`).
+
+⚠️ Error clásico: usar la key del **cluster** para el **Schema Registry** (o al revés). Síntoma: el servicio conecta a Kafka pero falla al serializar con `401 Unauthorized` del registry.
+
+### 6.6 Checklist de salida del paso 6
+
+Al terminar debes tener anotados **exactamente estos 4 valores** (los usarás en el paso 8):
+
+| Dato | Formato | Variable destino |
+|---|---|---|
+| Bootstrap server | `pkc-xxxxx.eastus.azure.confluent.cloud:9092` | `KAFKA_BOOTSTRAP_SERVERS` |
+| API key/secret del **cluster** | par key/secret | dentro del JAAS → secreto `kafkajaas` |
+| URL del **Schema Registry** | `https://psrc-xxxxx.eastus.azure.confluent.cloud` | `SCHEMA_REGISTRY_URL` |
+| API key/secret del **Schema Registry** | `key:secret` | secreto `srauth` → `SCHEMA_REGISTRY_AUTH_USER_INFO` |
+
+Y verificado en la consola:
+
+- [ ] Cluster **Basic** en **Azure / eastus**, estado *Running*.
+- [ ] Los **5 topics** listados, cada uno con **3 particiones**.
+- [ ] Schema Registry habilitado en la misma región.
+- [ ] Las 2 API keys guardadas (el secret no se puede volver a consultar — si lo pierdes, se genera una key nueva y se borra la vieja).
+
+> **Cuando se acaben los créditos de prueba de Confluent:** un cluster Basic sin tráfico cuesta casi nada, pero lo seguro es **borrar el cluster** al terminar tus demos y recrearlo cuando lo necesites (con esta sección, los topics se recrean en 2 minutos). Otra alternativa sin costo es Azure Event Hubs (tiene modo compatible con Kafka), pero su registro de esquemas **no** es compatible con el serializador de Confluent que usa este proyecto, así que requeriría desplegar un contenedor `cp-schema-registry` propio — no lo recomiendo para empezar.
 
 ## 7. El correo: Azure Communication Services Email (el proveedor del sistema)
 

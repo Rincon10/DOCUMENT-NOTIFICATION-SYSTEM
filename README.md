@@ -20,6 +20,7 @@ Un sistema de notificaciones distribuido orientado a documentos, diseñado con p
 - [Grafo de dependencias completo del sistema](#grafo-de-dependencias-completo-del-sistema)
 - [Principios arquitectónicos aplicados](#principios-arquitectónicos-aplicados)
 - [Flujo de notificación (alto nivel)](#flujo-de-notificación-alto-nivel)
+- [Arquitectura en la nube (Azure)](#arquitectura-en-la-nube-azure)
 - [Tecnologías y patterns recomendados](#tecnologías-y-patterns-recomendados)
 - [Cómo empezar](#cómo-empezar-resumen)
 - [Buenas prácticas y recomendaciones](#buenas-prácticas-y-recomendaciones)
@@ -246,6 +247,97 @@ El proyecto está guiado por varias prácticas y patrones de arquitectura limpia
 4. Los adaptadores de mensajería entregan las notificaciones a los consumidores interesados (colas, servicios, push, correo).
 5. Mecanismos de reintento y idempotencia aseguran entrega segura en un entorno distribuido.
 
+## Arquitectura en la nube (Azure)
+
+El sistema se despliega en **Azure Container Apps** con una cuenta Azure for Students. La guía completa paso a paso (comandos, variables, escalado y costos) está en [`docs/AZURE-ESTUDIANTE-PASO-A-PASO.md`](docs/AZURE-ESTUDIANTE-PASO-A-PASO.md); las variables de entorno en [`docs/DEPLOYMENT.md`](docs/DEPLOYMENT.md); y las cinco vistas completas de la arquitectura en [`docs/DIAGRAMAS-AZURE.md`](docs/DIAGRAMAS-AZURE.md).
+
+### Vista general del despliegue
+
+Todo vive en el resource group `dns-student-rg`, salvo Kafka: la cuenta de estudiante no permite compras de Marketplace, así que Confluent Cloud se contrata directo, fuera de Azure. El correo sale por **Azure Communication Services** (API HTTPS, sin SMTP), el proveedor por defecto de `notification-service`.
+
+```mermaid
+flowchart TB
+    User(["👤 Usuario / Postman"])
+
+    subgraph Azure["☁️ Azure — resource group: dns-student-rg"]
+        ACR["📦 Azure Container Registry<br/>(imágenes Docker)"]
+
+        subgraph Env["Container Apps Environment (red privada)"]
+            DOC["document-service :8181<br/>ingress: external"]
+            CUS["customer-service :8184<br/>ingress: external"]
+            GEN["generator-service :8182<br/>ingress: internal"]
+            NOT["notification-service :8183<br/>ingress: internal"]
+        end
+
+        PG[("🗄️ PostgreSQL Flexible Server<br/>B1ms · un schema por servicio")]
+
+        ACS["✉️ Azure Communication Services<br/>Email API HTTPS"]
+    end
+
+    subgraph Confluent["☁️ Confluent Cloud (registro directo)"]
+        KAFKA["Kafka Basic<br/>5 topics × 3 particiones"]
+        SR["Schema Registry (Avro)"]
+    end
+
+    User -- "HTTPS público" --> DOC
+    User -- "HTTPS público" --> CUS
+    ACR -. "pull de imágenes" .-> Env
+    DOC & CUS & GEN & NOT -- "JDBC + SSL" --> PG
+    DOC & CUS & GEN & NOT -- "SASL_SSL" --> KAFKA
+    DOC & CUS & GEN & NOT -.-> SR
+    NOT -- "envía correos" --> ACS
+```
+
+Solo `document-service` y `customer-service` exponen URL pública; `generator` y `notification` viven en la red privada del environment y solo se comunican por Kafka. Toda credencial (BD, Kafka, Schema Registry, ACS) se guarda como secreto de Container Apps y las variables de entorno solo la referencian (`secretref:`).
+
+### Flujo de negocio en la nube
+
+```mermaid
+sequenceDiagram
+    actor U as Usuario
+    participant D as document-service
+    participant K as Kafka (Confluent)
+    participant G as generator-service
+    participant N as notification-service
+    participant A as ACS Email (Azure)
+
+    U->>D: POST /documents (HTTPS público)
+    D->>K: evento generator-request (Avro)
+    K->>G: consume
+    Note over G: genera el documento
+    G->>K: evento generator-response
+    K->>D: consume → actualiza estado
+    D->>K: evento notification-request
+    K->>N: consume
+    N->>A: envía el correo (API HTTPS)
+    N->>K: evento notification-response
+```
+
+Si un consumidor está dormido (scale-to-zero), los eventos esperan en Kafka sin perderse: el flujo se pausa, no se rompe.
+
+### Escalado
+
+La regla de oro: **réplicas útiles ≤ particiones del topic** (3). El escalado puede ser **manual** (`az containerapp update --min/max-replicas`) o **automático** con reglas KEDA — concurrencia HTTP para las APIs públicas y lag de Kafka para los consumidores. El patrón outbox con locking optimista ya tolera múltiples instancias sin tocar código.
+
+```mermaid
+flowchart LR
+    subgraph Topic["topic: notification-request (3 particiones)"]
+        P0["partición 0"]
+        P1["partición 1"]
+        P2["partición 2"]
+    end
+    subgraph CG["consumer group: notification-service"]
+        R1["réplica 1"]
+        R2["réplica 2"]
+        R3["réplica 3"]
+    end
+    P0 --> R1
+    P1 --> R2
+    P2 --> R3
+```
+
+El detalle de escalado (requisitos previos, límites de la BD, Mailpit para pruebas de carga y costos por sesión) está en la [sección de escalado de la guía](docs/AZURE-ESTUDIANTE-PASO-A-PASO.md#escalado-múltiples-instancias-manual-y-automático).
+
 ## Tecnologías y patterns recomendados
 
 ### Stack tecnológico actual
@@ -257,7 +349,7 @@ El proyecto está guiado por varias prácticas y patrones de arquitectura limpia
 | **Build** | Maven | Gestión de dependencias y build |
 | **Persistencia** | PostgreSQL | Base de datos relacional |
 | **Mensajería** | Apache Kafka | Comunicación asíncrona entre servicios |
-| **Mailing** | Java Mail / SMTP | Envío de notificaciones por email |
+| **Mailing** | Azure Communication Services (default) / Java Mail SMTP | Envío de notificaciones por email, seleccionable con `MAIL_PROVIDER` |
 | **Contenerización** | Docker | Despliegue de infraestructura |
 | **Testing** | JUnit 5, Mockito, TestContainers | Pruebas unitarias e integración |
 
