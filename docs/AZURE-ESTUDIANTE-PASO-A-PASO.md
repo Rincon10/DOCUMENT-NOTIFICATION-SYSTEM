@@ -302,6 +302,10 @@ Y al terminar los 4, la lista completa:
 
 ![az acr repository list — las 4 imágenes subidas](images/azure-deploy/08-acr-repository-list-all.png)
 
+Lo mismo se puede ver en el **portal de Azure**: recurso `dnsstudentacr` → *Services* → *Repositories* debe mostrar los 4 repositorios:
+
+![Portal de Azure — los 4 repositorios en el Container Registry](images/azure-deploy/29-acr-repositories-portal.png)
+
 ## 5. La base de datos: PostgreSQL gratis por 12 meses
 
 Los microservicios guardan su estado en PostgreSQL. En vez de administrar tú el motor, usarás **Azure Database for PostgreSQL Flexible Server**: Azure lo instala, respalda y parcha por ti.
@@ -593,6 +597,10 @@ az communication email domain show -g dns-student-rg --email-service-name dns-em
 # (si el query devuelve vacío, ejecútalo sin --query y busca el campo fromSenderDomain en el JSON)
 ```
 
+Así se ve el `fromSenderDomain` en la salida del `domain show` (aquí sin `--query`, el campo aparece al inicio del JSON). Con ese valor, el `MAIL_FROM` queda por ejemplo `donotreply@9d0daf71-78e9-4ee0-b251-5e2929db499e.azurecomm.net`:
+
+![az communication email domain show — campo fromSenderDomain para armar MAIL_FROM](images/azure-deploy/26-acs-from-sender-domain.png)
+
 - La connection string tiene la forma `endpoint=https://dns-comm.unitedstates.communication.azure.com/;accesskey=xxxx...`. **Trátala como una contraseña**: quien la tenga puede enviar correos a tu nombre (y con tu crédito). En Container Apps siempre va como secreto (`acsconn`), nunca en texto plano.
 - El dominio devuelto tiene la forma `<guid>.azurecomm.net`. El remitente que usará la app es `donotreply@<ese-dominio>` — con dominio gestionado, **`donotreply` es el único usuario de envío permitido** (no puedes inventar otros remitentes). Con un dominio propio verificado (`CustomerManaged`) puedes usar tu dirección y pedir límites más altos.
 - Verificación en el portal: recurso `dns-email` → *Provision domains* debe listar `AzureManagedDomain` como **Verified**, y en `dns-comm` → *Email* → *Domains* debe aparecer vinculado.
@@ -703,11 +711,26 @@ Para los otros 3 servicios usa el mismo patrón quitando el bloque de correo (`a
 - **Capa gratuita mensual por suscripción**: los primeros **180.000 vCPU-segundos, 360.000 GiB-segundos y 2 millones de requests son gratis cada mes** (~50 horas de CPU).
 - **Scale to zero**: puede apagar un servicio a 0 réplicas cuando no hay tráfico → **$0 mientras duerme**.
 
-Primero el **environment** (la red privada compartida donde vivirán las 4 apps — gratis, solo pagas por los contenedores):
+**Prerrequisito: registrar el proveedor de Log Analytics.** Al crear el environment, Container Apps genera automáticamente un workspace de **Log Analytics** (ahí van los logs de `az containerapp logs show`), y ese servicio tiene su propio proveedor de recursos. Como en los pasos 3 y 5, la suscripción de estudiante no lo trae registrado:
+
+```bash
+az provider register -n Microsoft.OperationalInsights
+
+# Espera a que pase de "Registering" a "Registered" (1-2 min):
+az provider show -n Microsoft.OperationalInsights --query registrationState -o tsv
+```
+
+![az provider register Microsoft.OperationalInsights — Registering y luego Registered](images/azure-deploy/27-provider-operationalinsights.png)
+
+Ahora sí, el **environment** (la red privada compartida donde vivirán las 4 apps — gratis, solo pagas por los contenedores):
 
 ```bash
 az containerapp env create --resource-group dns-student-rg --name dns-student-env --location eastus
 ```
+
+En la salida verás *"No Log Analytics workspace provided. Generating a Log Analytics workspace..."* (normal: al no pasarle uno, lo crea por ti) y al final el mensaje de éxito **"Container Apps environment created"**:
+
+![az containerapp env create — workspace generado automáticamente y environment creado](images/azure-deploy/28-containerapp-env-create.png)
 
 Cada servicio se despliega con `az containerapp create`. El comando es largo porque incluye toda la configuración; primero va el de `customer-service` con la explicación de cada bloque, luego una tabla-resumen de lo que cambia entre servicios, y después **los comandos completos de los otros 3** listos para copiar.
 
