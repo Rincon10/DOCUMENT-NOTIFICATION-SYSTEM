@@ -298,7 +298,7 @@ Los microservicios se comunican con **Kafka** (mensajería de eventos) y validan
 
 ### 6.2 Crear el cluster
 
-1. En la consola: **Environments** → `default` (o crea uno) → **Add cluster**.
+1. En la consola: **Environments** → **Create environment** → nómbralo `dns-student` (el environment agrupa cluster, Schema Registry y credenciales del proyecto; usar el `default` también funciona, pero con nombre propio queda claro qué se borra al final del semestre) → **Add cluster**.
 2. Tipo: **Basic** (el gratuito de la izquierda; los Standard/Dedicated cobran por hora aunque no los uses).
 3. Proveedor y región: **Azure** → **East US (eastus)** — la misma región del paso 3 de esta guía. *Single zone* es suficiente.
 4. Nombre: por ejemplo `dns-cluster` → **Launch cluster**. Queda listo en segundos.
