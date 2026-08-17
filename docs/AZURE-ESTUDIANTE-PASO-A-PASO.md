@@ -794,7 +794,26 @@ Prueba el flujo de negocio igual que en local (crear cliente → crear documento
 
 ## Variables de entorno para la nube (resumen)
 
-La referencia completa (todas las variables, defaults y descripción) está en [`DEPLOYMENT.md`](DEPLOYMENT.md), y la plantilla [`document-notification-system/.env-cloud`](../document-notification-system/.env-cloud) sirve como **hoja de trabajo**: ve anotando ahí los valores a medida que avanzas por los pasos 3–7 (sin comitearla con credenciales reales). Este es el resumen de **lo que SÍ o SÍ debes configurar en Azure**, agrupado por categoría:
+La referencia completa (todas las variables, defaults y descripción) está en [`DEPLOYMENT.md`](DEPLOYMENT.md), y la plantilla [`document-notification-system/.env-cloud`](../document-notification-system/.env-cloud) sirve como **hoja de trabajo**: ve anotando ahí los valores a medida que avanzas por los pasos 3–7 (sin comitearla con credenciales reales).
+
+### Variables de nombres de recursos (solo para los comandos `az`)
+
+El primer bloque de `.env-cloud` no lo leen los microservicios: son los **nombres que tú les diste a los recursos de Azure** al crearlos. Existen para parametrizar los comandos `az` (como en la [sección 7.5](#75-cargar-env-cloud-en-la-terminal-y-desplegar-sin-copiarpegar)) y para que no tengas que recordar qué nombre usaste en cada paso. Dos de ellas, además, **derivan valores que sí usa la aplicación**:
+
+| Variable | Valor en esta guía | Qué nombra y por qué importa |
+|---|---|---|
+| `RESOURCE_GROUP` | `dns-student-rg` | El grupo de recursos del paso 3.1 — la "carpeta" que agrupa todo. Es el `-g`/`--resource-group` de **todos** los comandos `az`, y lo que borras al final del semestre con `az group delete` |
+| `LOCATION` | `eastus` | La región de los Container Apps y el environment. (La BD puede vivir en otra — en este despliegue quedó en `centralus`, ver paso 5b) |
+| `ACR_NAME` | `dnsstudentacr` | El nombre del **Azure Container Registry** del paso 3.2. Debe ser **único en todo Azure** (solo minúsculas/números) porque forma el DNS del registro: `<ACR_NAME>.azurecr.io`. De él derivan las etiquetas de las imágenes (`docker tag ... <ACR_NAME>.azurecr.io/document-service:1.0`) y los flags `--image` y `--registry-server` del paso 8 |
+| `CONTAINERAPPS_ENV` | `dns-student-env` | El **Container Apps Environment** del paso 8: la red privada compartida donde viven las 4 apps (y donde `generator`/`notification` quedan escondidos con ingress `internal`). Es el valor de `--environment` en cada `az containerapp create` — las 4 apps deben apuntar **al mismo** para poder verse entre sí |
+| `PG_SERVER_NAME` | `dns-student-pg` | El **PostgreSQL Flexible Server** del paso 5. También único globalmente, porque forma el DNS del servidor: `<PG_SERVER_NAME>.postgres.database.azure.com` — y ese DNS es exactamente el valor de `DB_HOST` que sí leen los 4 servicios. Es el `-n` de los comandos de operación de la BD (`stop`/`start`/`update`) |
+| `ACS_RESOURCE_NAME` / `ACS_EMAIL_SERVICE_NAME` | `dns-comm` / `dns-email` | Los recursos de correo del paso 7 (recurso de comunicación y servicio de email). Se usan en los comandos de `az communication` para obtener la connection string y el dominio remitente |
+
+En resumen: `RESOURCE_GROUP`, `LOCATION`, `CONTAINERAPPS_ENV` y los nombres de ACS solo viven en los comandos; `ACR_NAME` y `PG_SERVER_NAME` además determinan valores de la aplicación (el prefijo de las imágenes y `DB_HOST` respectivamente) — si los cambias, cambia también lo que despliegas.
+
+### Variables de la aplicación
+
+Este es el resumen de **lo que SÍ o SÍ debes configurar en Azure**, agrupado por categoría:
 
 | Categoría | Variable | Valor en Azure | Notas |
 |---|---|---|---|
