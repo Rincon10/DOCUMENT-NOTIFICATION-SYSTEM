@@ -174,17 +174,19 @@ El **Azure CLI** (`az`) es la herramienta de línea de comandos para manejar Azu
 az version
 ```
 
-3. Inicia sesión (abre el navegador para autenticarte):
+3. Inicia sesión (abre el navegador para autenticarte). Al volver a la terminal, el CLI muestra la lista de suscripciones y te pide elegir — debe aparecer **"Azure for Students"** con el tenant de tu universidad (Enter para aceptar la marcada con `*`):
 
 ```bash
 az login
 ```
 
+![az login — selección de tenant y suscripción Azure for Students](images/azure-deploy/01-az-login-subscription.png)
+
 4. Confirma que estás en la suscripción de estudiante:
 
 ```bash
-az account show --query name -o tsv
-# Debe decir: "Azure for Students"
+az account show --output table
+# En la columna "Name" debe decir: "Azure for Students"
 ```
 
 ## 3. Crear el grupo de recursos y el registro de contenedores
@@ -197,6 +199,10 @@ Un **resource group** es una carpeta lógica: agrupa todo lo del proyecto para p
 az group create --name dns-student-rg --location eastus
 ```
 
+Si todo sale bien, la respuesta JSON muestra `"provisioningState": "Succeeded"`:
+
+![az group create — provisioningState Succeeded](images/azure-deploy/02-resource-group-create.png)
+
 - `--name`: el nombre de la carpeta (elige el que quieras, aquí `dns-student-rg`).
 - `--location`: el datacenter físico. `eastus` suele tener disponibilidad para cuentas de estudiante; si algún recurso te dice "no disponible en tu suscripción", prueba `eastus2` o `westus2`.
 
@@ -208,47 +214,123 @@ Tus 4 microservicios se empaquetan como **imágenes Docker** (una "foto" del ser
 az acr create --resource-group dns-student-rg --name dnsstudentacr --sku Basic --admin-enabled true
 ```
 
+> ⚠️ **Error frecuente en cuentas nuevas — `MissingSubscriptionRegistration`:** si el comando falla diciendo que el proveedor `Microsoft.ContainerRegistry` no está registrado, es porque una suscripción recién creada no tiene habilitados todos los tipos de recurso. Se arregla registrando el proveedor una sola vez:
+>
+> ```bash
+> az provider register --namespace Microsoft.ContainerRegistry
+>
+> # Revisar el estado (pasa de "Registering" a "Registered" en 1-2 minutos):
+> az provider show --namespace Microsoft.ContainerRegistry --query "registrationState" -o tsv
+> ```
+>
+> ![az provider register — estado Registering y luego Registered](images/azure-deploy/03-provider-containerregistry-registered.png)
+>
+> Cuando diga `Registered`, vuelve a ejecutar el `az acr create`.
+
 - `--name`: debe ser **único en todo Azure** y solo minúsculas/números (cámbialo si está tomado).
 - `--sku Basic`: la versión más barata (~$0.17/día). **Se cobra por existir**, no por uso — bórralo cuando no lo necesites.
 - `--admin-enabled true`: habilita usuario/contraseña simples para que Container Apps pueda descargar las imágenes.
 
-La gran ventaja de ACR: el comando `az acr build` **compila la imagen en la nube**, así no necesitas Docker instalado en tu PC ni una máquina potente.
+> ⚠️ **Limitación real de la cuenta de estudiante:** el comando `az acr build` (compilar la imagen en la nube) **falla con el error `TasksOperationsNotAllowed`** en suscripciones Azure for Students — las ACR Tasks no están permitidas en este tipo de suscripción. La solución (paso 4) es construir las imágenes **localmente con Docker** y subirlas con `docker push`. Microsoft indica que pasar a Pay-As-You-Go habilita `az acr build`, pero para un proyecto universitario no hace falta: el build local funciona perfectamente.
 
 > **Alternativa $0:** si tu repo es público, GitHub Container Registry (ghcr.io) aloja imágenes gratis (se publican con GitHub Actions y Container Apps las descarga con un PAT con permiso `read:packages`). Para tu primera vez recomiendo ACR por simplicidad.
 
-## 4. Construir y subir las 4 imágenes
+## 4. Construir y subir las 4 imágenes (build local + push)
 
-Desde la raíz del repo:
+Como `az acr build` no está permitido en la cuenta de estudiante (ver nota del paso 3.2), el flujo que **sí funciona** es: construir cada imagen localmente con Docker, etiquetarla con el nombre de tu registro y subirla. Necesitas **Docker Desktop** corriendo en tu PC.
+
+**a) Autentícate contra tu ACR** (Docker queda autorizado para hacer push):
+
+```bash
+az acr login --name dnsstudentacr
+```
+
+**b) Averigua el servidor de tu registro** (es el prefijo con el que se etiquetan las imágenes):
+
+```bash
+az acr show --name dnsstudentacr --query loginServer --output tsv
+# → dnsstudentacr.azurecr.io
+```
+
+**c) Build → tag → push, por cada servicio.** Desde la carpeta `document-notification-system` (el `.` final es el "contexto de build": la compilación necesita ver toda la carpeta porque los servicios comparten los módulos `common` e `infraestructure`):
 
 ```bash
 cd document-notification-system
 
-az acr build --registry dnsstudentacr --image document-service:1.0     --file document-service/Dockerfile .
-az acr build --registry dnsstudentacr --image customer-service:1.0     --file customer-service/Dockerfile .
-az acr build --registry dnsstudentacr --image generator-service:1.0    --file generator-service/Dockerfile .
-az acr build --registry dnsstudentacr --image notification-service:1.0 --file notification-service/Dockerfile .
+# --- document-service ---
+docker build --no-cache -t document-service:1.0 -f document-service/Dockerfile .
+docker tag document-service:1.0 dnsstudentacr.azurecr.io/document-service:1.0
+docker push dnsstudentacr.azurecr.io/document-service:1.0
+
+# --- customer-service ---
+docker build --no-cache -t customer-service:1.0 -f customer-service/Dockerfile .
+docker tag customer-service:1.0 dnsstudentacr.azurecr.io/customer-service:1.0
+docker push dnsstudentacr.azurecr.io/customer-service:1.0
+
+# --- generator-service ---
+docker build --no-cache -t generator-service:1.0 -f generator-service/Dockerfile .
+docker tag generator-service:1.0 dnsstudentacr.azurecr.io/generator-service:1.0
+docker push dnsstudentacr.azurecr.io/generator-service:1.0
+
+# --- notification-service ---
+docker build --no-cache -t notification-service:1.0 -f notification-service/Dockerfile .
+docker tag notification-service:1.0 dnsstudentacr.azurecr.io/notification-service:1.0
+docker push dnsstudentacr.azurecr.io/notification-service:1.0
 ```
 
-**¿Qué hace cada comando?** Comprime tu código, lo sube a Azure, y allá un servidor ejecuta el `Dockerfile` (compila con Maven y empaqueta el `.jar`). Al final la imagen queda guardada en tu registro como `dnsstudentacr.azurecr.io/document-service:1.0`. Cada build tarda varios minutos (es un proyecto Maven multi-módulo).
+Cada build tarda varios minutos (es un proyecto Maven multi-módulo; Maven descarga dependencias dentro del contenedor):
 
-> El `.` final es el "contexto de build": indica que la compilación puede ver toda la carpeta `document-notification-system` (necesario porque los servicios comparten los módulos `common` e `infraestructure`).
+![docker build de document-service en progreso](images/azure-deploy/04-docker-build-document-service.png)
 
-Verifica que las 4 imágenes quedaron subidas:
+![docker build terminado (FINISHED)](images/azure-deploy/05-docker-build-finished.png)
+
+El `docker push` sube las capas de la imagen a tu ACR:
+
+![docker push de document-service al ACR](images/azure-deploy/06-docker-push-document-service.png)
+
+**d) Verifica después de cada push** que la imagen quedó en el registro:
 
 ```bash
 az acr repository list --name dnsstudentacr -o table
 ```
 
+Tras el primer push verás solo `document-service`:
+
+![az acr repository list — primera imagen subida](images/azure-deploy/07-acr-repository-list-first.png)
+
+Y al terminar los 4, la lista completa:
+
+![az acr repository list — las 4 imágenes subidas](images/azure-deploy/08-acr-repository-list-all.png)
+
 ## 5. La base de datos: PostgreSQL gratis por 12 meses
 
 Los microservicios guardan su estado en PostgreSQL. En vez de administrar tú el motor, usarás **Azure Database for PostgreSQL Flexible Server**: Azure lo instala, respalda y parcha por ti.
 
-La capa gratuita de la cuenta de estudiante incluye **750 horas/mes del tamaño B1ms durante 12 meses** — un mes tiene ~730 horas, o sea que **puede quedarse encendida todo el mes gratis**. Solo aplica al tamaño B1ms con hasta 32 GB de disco, por eso los parámetros exactos importan:
+La capa gratuita de la cuenta de estudiante incluye **750 horas/mes del tamaño B1ms durante 12 meses** — un mes tiene ~730 horas, o sea que **puede quedarse encendida todo el mes gratis**. Solo aplica al tamaño B1ms con hasta 32 GB de disco, por eso los parámetros exactos importan.
+
+**a) Registra el proveedor de PostgreSQL** (mismo caso que con ACR en el paso 3.2 — las suscripciones nuevas no lo traen habilitado):
+
+```bash
+az provider register --namespace Microsoft.DBforPostgreSQL
+
+# Espera a que diga "Registered":
+az provider show --namespace Microsoft.DBforPostgreSQL --query registrationState --output tsv
+```
+
+**b) Verifica en qué región hay B1ms disponible.** No todas las regiones ofrecen el SKU gratuito para cuentas de estudiante; `list-skus` es el comando oficial para consultarlo. En este despliegue `eastus` no lo tenía disponible y se usó **`centralus`**:
+
+```bash
+az postgres flexible-server list-skus --location centralus
+# Si en la salida aparece Standard_B1ms, esa región sirve
+```
+
+**c) Crea el servidor** especificando explícitamente la región donde encontraste el B1ms:
 
 ```bash
 az postgres flexible-server create \
   --resource-group dns-student-rg \
   --name dns-student-pg \
+  --location centralus \
   --admin-user dnsadmin \
   --admin-password '<INVENTA-UNA-CONTRASEÑA-FUERTE>' \
   --sku-name Standard_B1ms --tier Burstable \
@@ -257,6 +339,11 @@ az postgres flexible-server create \
   --public-access 0.0.0.0
 ```
 
+![az postgres flexible-server create — salida de la creación](images/azure-deploy/09-postgres-flexible-server-create.png)
+
+> El mensaje *"is using sku 'Standard_B1ms' (Paid Tier)"* de la salida es normal: el SKU es de pago en general, pero con la cuenta de estudiante las primeras 750 h/mes de B1ms están cubiertas por la capa gratuita.
+
+- `--location centralus`: la región donde `list-skus` confirmó disponibilidad de B1ms. Que la BD quede en una región distinta a los Container Apps (`eastus`) funciona sin problema — solo añade unos pocos ms de latencia.
 - `--sku-name Standard_B1ms --tier Burstable`: **exactamente este tamaño** es el gratuito. Otro tamaño = cobra.
 - `--storage-size 32`: 32 GB, el máximo cubierto por la capa gratuita.
 - `--public-access 0.0.0.0`: regla especial que significa "permitir conexiones desde servicios de Azure" (tus contenedores). Para conectarte tú desde tu PC, añade además tu IP: `az postgres flexible-server firewall-rule create -g dns-student-rg -n dns-student-pg --rule-name mi-pc --start-ip-address <TU-IP> --end-ip-address <TU-IP>`.
@@ -271,6 +358,14 @@ psql "host=dns-student-pg.postgres.database.azure.com port=5432 dbname=postgres 
 ```
 
 Te pedirá la contraseña que inventaste arriba. `sslmode=require` es obligatorio: Azure solo acepta conexiones cifradas.
+
+![psql ejecutando init-db.sql contra el Flexible Server](images/azure-deploy/10-psql-init-db.png)
+
+> **Sobre la salida del script:** los `NOTICE: ... does not exist, skipping` son normales (el script hace `DROP ... IF EXISTS` antes de crear). El único error que verás es `extension "uuid-ossp" is not allow-listed for users in Azure Database for PostgreSQL` — **no detiene el script** (schemas, tablas y datos semilla se crean igual y los servicios funcionan). Si quisieras habilitar la extensión, se permite desde los parámetros del servidor: `az postgres flexible-server parameter set -g dns-student-rg --server-name dns-student-pg --name azure.extensions --value uuid-ossp` y reejecutas el script.
+
+**Verificación opcional con DBeaver** (o cualquier cliente SQL): conéctate con host `dns-student-pg.postgres.database.azure.com`, puerto `5432`, base `postgres`, usuario `dnsadmin` y tu contraseña (recuerda haber añadido tu IP con la regla de firewall de arriba). Un *Test Connection* exitoso confirma que la BD está lista:
+
+![DBeaver — Connection Test exitoso contra el Flexible Server](images/azure-deploy/11-dbeaver-connection-test.png)
 
 ## 6. Kafka y Schema Registry: Confluent Cloud (directo, NO por Marketplace)
 
@@ -295,14 +390,27 @@ Los microservicios se comunican con **Kafka** (mensajería de eventos) y validan
 2. Confirma el correo de verificación y entra a la consola.
 3. Los registros nuevos reciben **créditos de prueba (~US$400 por 30 días)** — de sobra para todo el semestre de demos. El banner del saldo se ve en *Billing & payment*.
 4. Si te pregunta por un caso de uso / experiencia, elige lo básico ("Learning" / "Developer") — no cambia nada técnico.
+5. 💡 **Para no registrar tarjeta:** en *Billing & payment* → *Promo codes* aplica el código **`CONFLUENTDEV1`** — habilita el modo de pruebas de desarrollador sin pedir método de pago.
+
+Al entrar por primera vez, la consola te lleva directo al asistente de creación de cluster:
+
+![Confluent Cloud — pantalla inicial "Create your first cluster"](images/azure-deploy/12-confluent-create-first-cluster.png)
 
 ### 6.2 Crear el cluster
 
 1. En la consola: **Environments** → **Create environment** → nómbralo `dns-student` (el environment agrupa cluster, Schema Registry y credenciales del proyecto; usar el `default` también funciona, pero con nombre propio queda claro qué se borra al final del semestre) → **Add cluster**.
-2. Tipo: **Basic** (el gratuito de la izquierda; los Standard/Dedicated cobran por hora aunque no los uses).
-3. Proveedor y región: **Azure** → **East US (eastus)** — la misma región del paso 3 de esta guía. *Single zone* es suficiente.
-4. Nombre: por ejemplo `dns-cluster` → **Launch cluster**. Queda listo en segundos.
-5. Copia ya el **bootstrap server**: menú del cluster → **Cluster settings** → *Bootstrap server* (formato `pkc-xxxxx.eastus.azure.confluent.cloud:9092`). Este valor va en `KAFKA_BOOTSTRAP_SERVERS`.
+
+   ![Environment dns-student creado — provider Azure, región eastus](images/azure-deploy/13-confluent-environment-dns-student.png)
+
+2. Tipo: **Basic** (el de la derecha en el selector; los Standard/Dedicated cobran por hora aunque no los uses — el resumen de costo debe decir **$0/month**).
+3. Proveedor y región: **Microsoft Azure** → **Virginia (eastus)** — la misma región del paso 3 de esta guía. *Single zone* es suficiente.
+
+   ![Selección de cluster Basic + Microsoft Azure + Virginia (eastus)](images/azure-deploy/14-confluent-cluster-type-basic-azure.png)
+
+4. Nombre: por ejemplo `kafka_cluster` → **Launch cluster**. Queda listo en segundos.
+5. Copia ya el **bootstrap server**: se ve directo en el **Overview** del cluster (o en **Cluster settings**), formato `pkc-xxxxx.eastus.azure.confluent.cloud:9092`. Este valor va en `KAFKA_BOOTSTRAP_SERVERS`.
+
+   ![Cluster corriendo — el Overview muestra el bootstrap server y el REST endpoint](images/azure-deploy/15-confluent-cluster-overview.png)
 
 ### 6.3 Crear los 5 topics (3 particiones cada uno)
 
@@ -321,11 +429,24 @@ En el menú del cluster → **Topics** → **Create topic**. Para **cada uno** d
 | 4 | `notification-request` | document-service → notification-service |
 | 5 | `notification-response` | notification-service → document-service |
 
+Al abrir un topic verás su **Data contract**: el esquema **Avro** que los servicios registran automáticamente al publicar (aquí el del topic `customer`, con sus campos `id`, `username`, `firstName`...):
+
+![Topic customer — data contract Avro registrado automáticamente](images/azure-deploy/16-confluent-topic-avro-schema.png)
+
+Así queda la lista con los 5 topics creados:
+
+![Lista de los 5 topics en el cluster](images/azure-deploy/17-confluent-topics-list.png)
+
+> En las capturas los topics quedaron con las **6 particiones** por defecto — también funciona (solo sube el tope de réplicas útiles por consumidor a 6). La recomendación de esta guía sigue siendo **3**, alineada con `KAFKA_NUM_PARTITIONS:3` y `KAFKA_CONSUMER_CONCURRENCY:3` de los `application.yml`.
+
 > Los **consumer groups** (`generator-topic-consumer`, `notification-topic-consumer`, `customer-topic-consumer`) **no se crean aquí**: Kafka los registra solo cuando cada servicio se conecta. Los verás aparecer en *Clients → Consumer groups* cuando el sistema arranque — y ahí mismo se monitorea el *lag* durante las pruebas de carga.
 
 ### 6.4 Activar el Schema Registry
 
-1. En el menú lateral izquierdo del **environment** (no del cluster): **Schema Registry** → **Enable** (si no venía activado).
+1. En el menú lateral izquierdo del **environment** (no del cluster): **Schema Registry** → **Enable** (si no venía activado). Si no lo encuentras, el buscador global de la consola (arriba a la derecha) lleva directo:
+
+   ![Buscar "Schema Registry" en la consola de Confluent](images/azure-deploy/18-confluent-schema-registry-search.png)
+
 2. Paquete **Essentials**, proveedor **Azure**, región **eastus** (misma región otra vez).
 3. Copia el **endpoint público** (formato `https://psrc-xxxxx.eastus.azure.confluent.cloud`). Este valor va en `SCHEMA_REGISTRY_URL`.
 
@@ -336,7 +457,13 @@ En el menú del cluster → **Topics** → **Create topic**. Para **cada uno** d
 **a) API key del cluster** (autentica la conexión Kafka):
 
 1. Menú del cluster → **API Keys** → **Create key** → *Global access* (para simplificar; *Granular* es mejor práctica pero exige configurar ACLs por topic).
-2. Descarga o copia **Key** y **Secret** — el secret **solo se muestra una vez**.
+2. Descarga o copia **Key** y **Secret** — el secret **solo se muestra una vez**. Ponle una descripción reconocible (ej. `CLUSTER_API_KEY`) y usa **Download and continue** para guardar el archivo:
+
+   ![Create key — la única vez que se muestra el secret del cluster](images/azure-deploy/19-confluent-cluster-api-key-create.png)
+
+   La key queda listada en la pestaña *API keys* del cluster:
+
+   ![Pestaña API keys del cluster con CLUSTER_API_KEY creada](images/azure-deploy/20-confluent-cluster-api-keys-list.png)
 3. Estos 2 valores van dentro de la cadena JAAS (secreto `kafkajaas` del paso 8):
    ```
    org.apache.kafka.common.security.plain.PlainLoginModule required username="<KEY>" password="<SECRET>";
@@ -346,6 +473,10 @@ En el menú del cluster → **Topics** → **Create topic**. Para **cada uno** d
 
 1. Página del **Schema Registry** (menú del environment) → **API Keys** → **Create key**.
 2. Copia **Key** y **Secret**. Van juntos, separados por dos puntos, en el secreto `srauth` del paso 8: `<SR_KEY>:<SR_SECRET>` (variable `SCHEMA_REGISTRY_AUTH_USER_INFO`).
+
+Al final debes tener **2 API keys** — se comprueban en el menú de la organización → **API keys** (fíjate en la columna *Resource scope*: una `Global`/Schema Registry y otra `Kafka cluster`):
+
+![Vista de API keys de la organización — SCHEMA_REGISTRY_API_KEY y KAFKA_CLUSTER_API_KEY](images/azure-deploy/21-confluent-api-keys-all.png)
 
 ⚠️ Error clásico: usar la key del **cluster** para el **Schema Registry** (o al revés). Síntoma: el servicio conecta a Kafka pero falla al serializar con `401 Unauthorized` del registry.
 
