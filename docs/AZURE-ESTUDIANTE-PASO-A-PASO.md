@@ -504,32 +504,176 @@ Y verificado en la consola:
 
 `notification-service` envía los correos por **Azure Communication Services (ACS) Email**, el proveedor **por defecto** de la aplicación (`MAIL_PROVIDER=azure`). Es un servicio **nativo de Azure** (no Marketplace, así que **sí se paga con el crédito de estudiante**): ~$0.00025 por correo (10.000 correos ≈ $2.50), diseñado para envío en volumen, y va por API HTTPS — no hay SMTP ni contraseñas de Gmail de por medio.
 
-**Crear el recurso ACS (una sola vez; la CLI instala la extensión `communication` la primera vez):**
+### 7.1 Cómo funciona (los 3 recursos y las 2 credenciales)
+
+ACS Email no es un solo recurso: son **tres piezas encadenadas**, y entender qué hace cada una evita el error más común (crear el recurso pero no vincular el dominio, con lo que el envío falla con "domain not linked"):
+
+| Recurso | Nombre en esta guía | Qué es |
+|---|---|---|
+| **Communication Services** | `dns-comm` | El recurso con el que habla tu aplicación: expone la **connection string** (endpoint + access key) que `notification-service` usa para autenticarse por HTTPS |
+| **Email Communication Service** | `dns-email` | El servicio de correo propiamente dicho: agrupa dominios de envío y sus estadísticas |
+| **Dominio de email** | `AzureManagedDomain` | El dominio **desde el que salen** los correos. `AzureManaged` significa que Azure te regala un subdominio ya verificado (`<guid>.azurecomm.net`) — sin comprar dominio ni configurar DNS |
+
+```mermaid
+flowchart LR
+    NOT["notification-service<br/>MAIL_PROVIDER=azure"] -- "connection string<br/>(ACS_CONNECTION_STRING)" --> COMM["dns-comm<br/>Communication Services"]
+    COMM -- "dominio vinculado<br/>(--linked-domains)" --> DOM["AzureManagedDomain<br/>donotreply@&lt;guid&gt;.azurecomm.net"]
+    DOM -- "correo al cliente" --> INBOX["📬 bandeja del destinatario"]
+    EMAIL["dns-email<br/>Email Service"] -. "contiene" .-> DOM
+```
+
+De aquí salen **los 2 únicos valores** que la aplicación necesita:
+
+1. La **connection string** de `dns-comm` → variable `ACS_CONNECTION_STRING` (como secreto).
+2. El **dominio del remitente** → variable `MAIL_FROM` (el remitente completo: `donotreply@<dominio>`).
+
+### 7.2 Crear los recursos (una sola vez)
+
+La CLI instala la extensión `communication` automáticamente la primera vez que uses estos comandos.
 
 ```bash
-# Recurso de comunicación + servicio de email con dominio gestionado por Azure:
+# 1) El recurso de comunicación (el que da la connection string):
 az communication create -g dns-student-rg -n dns-comm --location global --data-location UnitedStates
+
+# 2) El servicio de email:
 az communication email create -g dns-student-rg -n dns-email --location global --data-location UnitedStates
+
+# 3) El dominio gestionado por Azure (subdominio *.azurecomm.net ya verificado):
 az communication email domain create -g dns-student-rg --email-service-name dns-email \
   --name AzureManagedDomain --location global --domain-management AzureManaged
+```
 
-# Vincular el dominio al recurso de comunicación:
+- `--location global`: ACS es un servicio global; la residencia de los datos se fija con `--data-location` (aquí `UnitedStates`, coherente con el resto del despliegue).
+- `--domain-management AzureManaged`: la alternativa es `CustomerManaged` (tu propio dominio con registros DNS SPF/DKIM); para la primera vez, el gestionado es inmediato y sin configuración.
+
+**4) Vincular el dominio al recurso de comunicación.** Este paso es el que suele olvidarse: `dns-comm` (con quien habla la app) y el dominio (desde donde salen los correos) son recursos separados hasta que los unes:
+
+```bash
 DOMAIN_ID=$(az communication email domain show -g dns-student-rg --email-service-name dns-email \
   --name AzureManagedDomain --query id -o tsv)
 az communication update -g dns-student-rg -n dns-comm --linked-domains $DOMAIN_ID
+```
 
-# Datos que necesitas para el paso 8:
-az communication list-key -g dns-student-rg -n dns-comm --query primaryConnectionString -o tsv   # connection string
+> En PowerShell (Windows) la variable se asigna distinto:
+> ```powershell
+> $DOMAIN_ID = az communication email domain show -g dns-student-rg --email-service-name dns-email --name AzureManagedDomain --query id -o tsv
+> az communication update -g dns-student-rg -n dns-comm --linked-domains $DOMAIN_ID
+> ```
+
+### 7.3 Obtener los 2 valores para la aplicación
+
+```bash
+# a) Connection string (endpoint + access key) → variable ACS_CONNECTION_STRING (secreto acsconn):
+az communication list-key -g dns-student-rg -n dns-comm --query primaryConnectionString -o tsv
+
+# b) Dominio del remitente → arma con él la variable MAIL_FROM:
 az communication email domain show -g dns-student-rg --email-service-name dns-email \
-  --name AzureManagedDomain --query "properties.fromSenderDomain" -o tsv                          # dominio del remitente
+  --name AzureManagedDomain --query "properties.fromSenderDomain" -o tsv
 # (si el query devuelve vacío, ejecútalo sin --query y busca el campo fromSenderDomain en el JSON)
 ```
 
-El remitente con dominio gestionado tiene la forma `donotreply@<guid>.azurecomm.net`. (Con un dominio propio verificado puedes usar tu dirección y obtener límites más altos; el dominio gestionado trae límites iniciales que se amplían con una solicitud de cuota.)
+- La connection string tiene la forma `endpoint=https://dns-comm.unitedstates.communication.azure.com/;accesskey=xxxx...`. **Trátala como una contraseña**: quien la tenga puede enviar correos a tu nombre (y con tu crédito). En Container Apps siempre va como secreto (`acsconn`), nunca en texto plano.
+- El dominio devuelto tiene la forma `<guid>.azurecomm.net`. El remitente que usará la app es `donotreply@<ese-dominio>` — con dominio gestionado, **`donotreply` es el único usuario de envío permitido** (no puedes inventar otros remitentes). Con un dominio propio verificado (`CustomerManaged`) puedes usar tu dirección y pedir límites más altos.
+- Verificación en el portal: recurso `dns-email` → *Provision domains* debe listar `AzureManagedDomain` como **Verified**, y en `dns-comm` → *Email* → *Domains* debe aparecer vinculado.
 
-**Anota estos 2 valores:** la *connection string* (irá como secreto `acsconn`) y el *dominio del remitente* (irá en `MAIL_FROM`).
+### 7.4 Las variables de correo, explicadas (y dónde escribirlas)
 
-> **Alternativas al ACS** (ambas soportadas sin recompilar, cambiando `MAIL_PROVIDER=smtp`): **Gmail** para demos pequeñas (App Password, ~500 correos/día, se bloquea con ráfagas) y **Mailpit** para pruebas de carga sin enviar correos reales (ver la [sección de escalado](#pruebas-de-carga-mailpit-en-vez-de-correos-reales)). Las variables SMTP están en [`DEPLOYMENT.md`](DEPLOYMENT.md).
+Anota los valores en la plantilla [`document-notification-system/.env-cloud`](../document-notification-system/.env-cloud) (sección *Correo*) — es la "hoja de trabajo" del despliegue: se versiona vacía y **no debes comitearla con credenciales reales**. Estas son todas las variables de correo que entiende `notification-service` con el proveedor `azure`:
+
+| Variable | Valor | Por qué |
+|---|---|---|
+| `MAIL_PROVIDER` | `azure` (default — puede omitirse) | Selecciona el adaptador `AzureEmailNotificationSender` (API HTTPS de ACS). Con `smtp` se activa el adaptador SMTP clásico (Gmail/Mailpit) sin recompilar |
+| `ACS_CONNECTION_STRING` | secreto `acsconn` (valor del paso 7.3a) | **Obligatoria** con el proveedor `azure`: el servicio valida al arrancar y **falla con un mensaje claro** si falta (`ACS_CONNECTION_STRING is required when MAIL_PROVIDER=azure`) — mejor un arranque fallido que descubrirlo con el primer correo |
+| `MAIL_FROM` | `donotreply@<guid>.azurecomm.net` (paso 7.3b) | El remitente. Debe pertenecer al dominio **vinculado** en 7.2; cualquier otra dirección hace fallar el envío |
+| `MAIL_RATE_LIMIT_TOKENS` / `MAIL_RATE_LIMIT_REFILL_MS` | `20` / `1000` | Rate limiter interno (token bucket): N correos por intervalo. El default (`5`/`20000` ≈ 15/min) protege cuentas Gmail; con ACS puedes subirlo a tu cuota |
+| `ACS_EMAIL_TIMEOUT_SECONDS` | `60` (default — puede omitirse) | Cuánto espera el servicio la confirmación de envío de ACS antes de marcar el intento como fallido |
+
+Las variables `MAIL_HOST`, `MAIL_PORT`, `MAIL_USERNAME`, `MAIL_PASSWORD` y `MAIL_SMTP_*` **solo aplican con `MAIL_PROVIDER=smtp`** — con `azure` se ignoran y no hay que configurarlas.
+
+En el paso 8 estas variables se inyectan al `az containerapp create` de `notification-service` así: la connection string entra por `--secrets acsconn='...'` y la variable la referencia con `ACS_CONNECTION_STRING=secretref:acsconn`; `MAIL_FROM` y el rate limiter van directo en `--env-vars` (no son secretos).
+
+**Cómo verificar que el correo funciona** (tras desplegar en el paso 8): mira los logs de `notification-service` mientras corres el flujo de negocio —
+
+```bash
+az containerapp logs show -g dns-student-rg -n notification-service --follow
+# éxito → "Email sent successfully to: ... | MessageId: ..."
+# credencial mala → 401 Unauthorized de communication.azure.com
+# dominio sin vincular o MAIL_FROM ajeno → error de dominio en el envío
+```
+
+> **Alternativas al ACS** (ambas soportadas sin recompilar, cambiando `MAIL_PROVIDER=smtp`): **Gmail** para demos pequeñas (App Password, ~500 correos/día, se bloquea con ráfagas) y **Mailpit** para pruebas de carga sin enviar correos reales (ver la [sección de escalado](#pruebas-de-carga-mailpit-en-vez-de-correos-reales)). Las variables SMTP están en [`DEPLOYMENT.md`](DEPLOYMENT.md) y comentadas en la misma sección de correo de `.env-cloud`.
+
+### 7.5 Cargar `.env-cloud` en la terminal y desplegar sin copiar/pegar
+
+Con la plantilla llena, en vez de pegar cada valor a mano dentro del `az containerapp create` del paso 8, puedes **cargar el archivo como variables de entorno de tu terminal** y que los comandos las referencien. Así el comando largo queda genérico y reutilizable, y las credenciales viven en un solo sitio.
+
+> **Regla de formato al llenar la plantilla:** los valores que contienen `;`, espacios o `#` — la connection string de ACS y la cadena JAAS de Kafka — deben ir **entre comillas simples** en el archivo, ej. `ACS_CONNECTION_STRING='endpoint=https://...;accesskey=...'`. Sin comillas, el `;` rompe la carga en Bash.
+
+**En Bash (Git Bash / Linux / macOS):**
+
+```bash
+cd document-notification-system
+set -a            # exporta automáticamente todo lo que se defina...
+source .env-cloud # ...al leer el archivo
+set +a
+
+# Verifica que cargó (no imprimas los secretos completos en pantalla):
+echo "$MAIL_FROM"
+echo "${ACS_CONNECTION_STRING:0:30}..."
+```
+
+**En PowerShell (Windows):**
+
+```powershell
+cd document-notification-system
+Get-Content .env-cloud | Where-Object { $_ -match '^\s*[^#\s]' } | ForEach-Object {
+  $name, $value = $_ -split '=', 2
+  $value = ($value -replace '\s+#.*$','').Trim().Trim("'").Trim('"')
+  if ($value) { Set-Item -Path "env:$($name.Trim())" -Value $value }
+}
+
+# Verifica:
+$env:MAIL_FROM
+$env:ACS_CONNECTION_STRING.Substring(0,30) + "..."
+```
+
+**Y el despliegue de `notification-service` del paso 8 queda así** (Bash — cada valor sale de la variable cargada; fíjate que el secreto entra por `--secrets` con el *valor* y la env var solo lleva la *referencia* `secretref:`):
+
+```bash
+az containerapp create \
+  --resource-group "$RESOURCE_GROUP" \
+  --name notification-service \
+  --environment "$CONTAINERAPPS_ENV" \
+  --image "$ACR_NAME.azurecr.io/notification-service:1.0" \
+  --registry-server "$ACR_NAME.azurecr.io" \
+  --cpu 0.5 --memory 1.0Gi \
+  --target-port 8183 --ingress internal \
+  --min-replicas 0 --max-replicas 1 \
+  --secrets pgpass="$POSTGRES_PASSWORD" \
+            kafkajaas="$KAFKA_SASL_JAAS_CONFIG" \
+            srauth="$SCHEMA_REGISTRY_AUTH_USER_INFO" \
+            acsconn="$ACS_CONNECTION_STRING" \
+  --env-vars \
+    DB_HOST="$DB_HOST" DB_PORT="$DB_PORT" DB_NAME="$DB_NAME" \
+    "DB_EXTRA_PARAMS=$DB_EXTRA_PARAMS" \
+    POSTGRES_USER="$POSTGRES_USER" POSTGRES_PASSWORD=secretref:pgpass \
+    SQL_INIT_MODE=never \
+    KAFKA_BOOTSTRAP_SERVERS="$KAFKA_BOOTSTRAP_SERVERS" \
+    KAFKA_SECURITY_PROTOCOL="$KAFKA_SECURITY_PROTOCOL" \
+    KAFKA_SASL_MECHANISM="$KAFKA_SASL_MECHANISM" \
+    KAFKA_SASL_JAAS_CONFIG=secretref:kafkajaas \
+    SCHEMA_REGISTRY_URL="$SCHEMA_REGISTRY_URL" \
+    SCHEMA_REGISTRY_AUTH_USER_INFO=secretref:srauth \
+    ACS_CONNECTION_STRING=secretref:acsconn \
+    MAIL_FROM="$MAIL_FROM" \
+    MAIL_RATE_LIMIT_TOKENS="$MAIL_RATE_LIMIT_TOKENS" \
+    MAIL_RATE_LIMIT_REFILL_MS="$MAIL_RATE_LIMIT_REFILL_MS" \
+    APP_LOG_LEVEL="$APP_LOG_LEVEL"
+```
+
+Para los otros 3 servicios usa el mismo patrón quitando el bloque de correo (`acsconn`, `ACS_CONNECTION_STRING`, `MAIL_FROM`, `MAIL_RATE_LIMIT_*`) y cambiando puerto/ingress según la tabla del paso 8.
+
+> Las variables cargadas viven solo en **esa sesión de terminal** — al cerrarla desaparecen, que es exactamente lo que quieres con credenciales. Recuerda: `.env-cloud` lleno **no se comitea**.
 
 ## 8. Crear el entorno y desplegar los 4 microservicios
 
@@ -650,7 +794,7 @@ Prueba el flujo de negocio igual que en local (crear cliente → crear documento
 
 ## Variables de entorno para la nube (resumen)
 
-La referencia completa (todas las variables, defaults y descripción) está en [`DEPLOYMENT.md`](DEPLOYMENT.md). Este es el resumen de **lo que SÍ o SÍ debes configurar en Azure**, agrupado por categoría:
+La referencia completa (todas las variables, defaults y descripción) está en [`DEPLOYMENT.md`](DEPLOYMENT.md), y la plantilla [`document-notification-system/.env-cloud`](../document-notification-system/.env-cloud) sirve como **hoja de trabajo**: ve anotando ahí los valores a medida que avanzas por los pasos 3–7 (sin comitearla con credenciales reales). Este es el resumen de **lo que SÍ o SÍ debes configurar en Azure**, agrupado por categoría:
 
 | Categoría | Variable | Valor en Azure | Notas |
 |---|---|---|---|
