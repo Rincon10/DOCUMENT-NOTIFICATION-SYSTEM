@@ -529,19 +529,34 @@ De aquí salen **los 2 únicos valores** que la aplicación necesita:
 
 ### 7.2 Crear los recursos (una sola vez)
 
-La CLI instala la extensión `communication` automáticamente la primera vez que uses estos comandos.
+**1) El recurso de comunicación** (el que da la connection string). La primera vez, la CLI pregunta si instala la extensión `communication` (responde `Y`) y **registra sola** el proveedor `Microsoft.Communication` ("We are registering for you... Registration succeeded") — aquí no hace falta el `az provider register` manual de los pasos 3 y 5:
 
 ```bash
-# 1) El recurso de comunicación (el que da la connection string):
 az communication create -g dns-student-rg -n dns-comm --location global --data-location UnitedStates
+```
 
-# 2) El servicio de email:
+![az communication create — instala la extensión, registra el provider y crea dns-comm](images/azure-deploy/22-acs-communication-create.png)
+
+**2) El servicio de email:**
+
+```bash
 az communication email create -g dns-student-rg -n dns-email --location global --data-location UnitedStates
+```
 
-# 3) El dominio gestionado por Azure (subdominio *.azurecomm.net ya verificado):
+![az communication email create — dns-email con provisioningState Succeeded](images/azure-deploy/23-acs-email-service-create.png)
+
+> El aviso *"Command group 'communication email' is in preview"* es solo informativo — los comandos funcionan.
+
+**3) El dominio gestionado por Azure** (subdominio `*.azurecomm.net` ya verificado):
+
+```bash
 az communication email domain create -g dns-student-rg --email-service-name dns-email \
   --name AzureManagedDomain --location global --domain-management AzureManaged
 ```
+
+La salida ya trae los dos datos importantes: el campo **`fromSenderDomain`** (el `<guid>.azurecomm.net` con el que armarás `MAIL_FROM`) y el bloque `verificationStates` con **DKIM, DKIM2, DMARC, Domain y SPF en `Verified`** — Azure verifica el dominio gestionado por ti, sin tocar DNS:
+
+![az communication email domain create — fromSenderDomain y verificaciones en Verified](images/azure-deploy/24-acs-managed-domain-create.png)
 
 - `--location global`: ACS es un servicio global; la residencia de los datos se fija con `--data-location` (aquí `UnitedStates`, coherente con el resto del despliegue).
 - `--domain-management AzureManaged`: la alternativa es `CustomerManaged` (tu propio dominio con registros DNS SPF/DKIM); para la primera vez, el gestionado es inmediato y sin configuración.
@@ -551,14 +566,20 @@ az communication email domain create -g dns-student-rg --email-service-name dns-
 ```bash
 DOMAIN_ID=$(az communication email domain show -g dns-student-rg --email-service-name dns-email \
   --name AzureManagedDomain --query id -o tsv)
+echo $DOMAIN_ID   # verifica que capturó el ID completo (/subscriptions/.../domains/AzureManagedDomain)
 az communication update -g dns-student-rg -n dns-comm --linked-domains $DOMAIN_ID
 ```
 
-> En PowerShell (Windows) la variable se asigna distinto:
+En la salida del `update`, el array **`linkedDomains`** debe listar el ID del dominio — esa es la confirmación de que quedaron unidos:
+
+![az communication update --linked-domains — linkedDomains poblado](images/azure-deploy/25-acs-link-domain.png)
+
+> La sintaxis `$(...)` y `$DOMAIN_ID` es de **Bash** (Git Bash o WSL — en la captura se ejecutó desde WSL). En PowerShell la variable se asigna distinto:
 > ```powershell
 > $DOMAIN_ID = az communication email domain show -g dns-student-rg --email-service-name dns-email --name AzureManagedDomain --query id -o tsv
 > az communication update -g dns-student-rg -n dns-comm --linked-domains $DOMAIN_ID
 > ```
+> Si la captura de la variable te falla, también puedes pegar el ID literal (el `"id"` que imprimió el paso 3) directamente en `--linked-domains`.
 
 ### 7.3 Obtener los 2 valores para la aplicación
 
@@ -688,7 +709,7 @@ Primero el **environment** (la red privada compartida donde vivirán las 4 apps 
 az containerapp env create --resource-group dns-student-rg --name dns-student-env --location eastus
 ```
 
-Cada servicio se despliega con `az containerapp create`. El comando es largo porque incluye toda la configuración; aquí está completo para `customer-service` con la explicación de cada bloque, y luego una tabla con lo que cambia en los otros 3.
+Cada servicio se despliega con `az containerapp create`. El comando es largo porque incluye toda la configuración; primero va el de `customer-service` con la explicación de cada bloque, luego una tabla-resumen de lo que cambia entre servicios, y después **los comandos completos de los otros 3** listos para copiar.
 
 **Importante para el primer arranque:** `customer-service` debe ir primero y con `SQL_INIT_MODE=always` (ejecuta `init-schema.sql` + `init-data.sql`, creando tablas y datos semilla). Después del primer arranque exitoso se cambia a `never` para que no re-ejecute los scripts.
 
@@ -737,18 +758,102 @@ az containerapp create \
 | `customer-service` | 8184 | `external` | `SQL_INIT_MODE=always` solo la primera vez |
 | `document-service` | 8181 | `external` | Es el API principal que llamarás desde Postman/curl |
 | `generator-service` | 8182 | `internal` | — |
-| `notification-service` | 8183 | `internal` | Variables de correo del paso 7: añadir a `--secrets` el valor `acsconn='<CONNECTION-STRING-DE-ACS>'` y a `--env-vars`: `ACS_CONNECTION_STRING=secretref:acsconn` y `MAIL_FROM=donotreply@<guid>.azurecomm.net` |
+| `notification-service` | 8183 | `internal` | Variables de correo del paso 7: secreto `acsconn` + `ACS_CONNECTION_STRING`, `MAIL_FROM` y rate limiter |
 
-Para `notification-service`, el bloque de correo completo dentro del `az containerapp create` queda así:
+Y aquí están los **comandos completos de los 3 restantes, listos para copiar** — reemplaza los mismos placeholders del comando de `customer-service` (`<TU-PASSWORD-DE-POSTGRES>`, la API key/secret del cluster, `<SR_KEY>:<SR_SECRET>`, el bootstrap server y la URL del Schema Registry):
+
+**`document-service`** (el API principal — puerto 8181, con URL pública):
 
 ```bash
-  --secrets pgpass='...' kafkajaas='...' srauth='...' \
+az containerapp create \
+  --resource-group dns-student-rg \
+  --name document-service \
+  --environment dns-student-env \
+  --image dnsstudentacr.azurecr.io/document-service:1.0 \
+  --registry-server dnsstudentacr.azurecr.io \
+  --cpu 0.5 --memory 1.0Gi \
+  --target-port 8181 --ingress external \
+  --min-replicas 0 --max-replicas 1 \
+  --secrets pgpass='<TU-PASSWORD-DE-POSTGRES>' \
+            kafkajaas='org.apache.kafka.common.security.plain.PlainLoginModule required username="<API_KEY_CLUSTER>" password="<API_SECRET_CLUSTER>";' \
+            srauth='<SR_KEY>:<SR_SECRET>' \
+  --env-vars \
+    DB_HOST=dns-student-pg.postgres.database.azure.com \
+    DB_PORT=5432 DB_NAME=postgres \
+    'DB_EXTRA_PARAMS=&sslmode=require' \
+    POSTGRES_USER=dnsadmin POSTGRES_PASSWORD=secretref:pgpass \
+    SQL_INIT_MODE=never \
+    KAFKA_BOOTSTRAP_SERVERS='pkc-xxxxx.eastus.azure.confluent.cloud:9092' \
+    KAFKA_SECURITY_PROTOCOL=SASL_SSL \
+    KAFKA_SASL_MECHANISM=PLAIN \
+    KAFKA_SASL_JAAS_CONFIG=secretref:kafkajaas \
+    SCHEMA_REGISTRY_URL='https://psrc-xxxxx.eastus.azure.confluent.cloud' \
+    SCHEMA_REGISTRY_AUTH_USER_INFO=secretref:srauth \
+    APP_LOG_LEVEL=INFO
+```
+
+**`generator-service`** (consumidor de Kafka — puerto 8182, solo red interna):
+
+```bash
+az containerapp create \
+  --resource-group dns-student-rg \
+  --name generator-service \
+  --environment dns-student-env \
+  --image dnsstudentacr.azurecr.io/generator-service:1.0 \
+  --registry-server dnsstudentacr.azurecr.io \
+  --cpu 0.5 --memory 1.0Gi \
+  --target-port 8182 --ingress internal \
+  --min-replicas 0 --max-replicas 1 \
+  --secrets pgpass='<TU-PASSWORD-DE-POSTGRES>' \
+            kafkajaas='org.apache.kafka.common.security.plain.PlainLoginModule required username="<API_KEY_CLUSTER>" password="<API_SECRET_CLUSTER>";' \
+            srauth='<SR_KEY>:<SR_SECRET>' \
+  --env-vars \
+    DB_HOST=dns-student-pg.postgres.database.azure.com \
+    DB_PORT=5432 DB_NAME=postgres \
+    'DB_EXTRA_PARAMS=&sslmode=require' \
+    POSTGRES_USER=dnsadmin POSTGRES_PASSWORD=secretref:pgpass \
+    SQL_INIT_MODE=never \
+    KAFKA_BOOTSTRAP_SERVERS='pkc-xxxxx.eastus.azure.confluent.cloud:9092' \
+    KAFKA_SECURITY_PROTOCOL=SASL_SSL \
+    KAFKA_SASL_MECHANISM=PLAIN \
+    KAFKA_SASL_JAAS_CONFIG=secretref:kafkajaas \
+    SCHEMA_REGISTRY_URL='https://psrc-xxxxx.eastus.azure.confluent.cloud' \
+    SCHEMA_REGISTRY_AUTH_USER_INFO=secretref:srauth \
+    APP_LOG_LEVEL=INFO
+```
+
+**`notification-service`** (consumidor de Kafka + correo — puerto 8183, solo red interna; es el único con el secreto `acsconn` y las variables de correo del paso 7):
+
+```bash
+az containerapp create \
+  --resource-group dns-student-rg \
+  --name notification-service \
+  --environment dns-student-env \
+  --image dnsstudentacr.azurecr.io/notification-service:1.0 \
+  --registry-server dnsstudentacr.azurecr.io \
+  --cpu 0.5 --memory 1.0Gi \
+  --target-port 8183 --ingress internal \
+  --min-replicas 0 --max-replicas 1 \
+  --secrets pgpass='<TU-PASSWORD-DE-POSTGRES>' \
+            kafkajaas='org.apache.kafka.common.security.plain.PlainLoginModule required username="<API_KEY_CLUSTER>" password="<API_SECRET_CLUSTER>";' \
+            srauth='<SR_KEY>:<SR_SECRET>' \
             acsconn='<CONNECTION-STRING-DE-ACS>' \
   --env-vars \
-    ... (las mismas de BD y Kafka) ... \
+    DB_HOST=dns-student-pg.postgres.database.azure.com \
+    DB_PORT=5432 DB_NAME=postgres \
+    'DB_EXTRA_PARAMS=&sslmode=require' \
+    POSTGRES_USER=dnsadmin POSTGRES_PASSWORD=secretref:pgpass \
+    SQL_INIT_MODE=never \
+    KAFKA_BOOTSTRAP_SERVERS='pkc-xxxxx.eastus.azure.confluent.cloud:9092' \
+    KAFKA_SECURITY_PROTOCOL=SASL_SSL \
+    KAFKA_SASL_MECHANISM=PLAIN \
+    KAFKA_SASL_JAAS_CONFIG=secretref:kafkajaas \
+    SCHEMA_REGISTRY_URL='https://psrc-xxxxx.eastus.azure.confluent.cloud' \
+    SCHEMA_REGISTRY_AUTH_USER_INFO=secretref:srauth \
     ACS_CONNECTION_STRING=secretref:acsconn \
     MAIL_FROM='donotreply@<guid>.azurecomm.net' \
-    MAIL_RATE_LIMIT_TOKENS=20 MAIL_RATE_LIMIT_REFILL_MS=1000
+    MAIL_RATE_LIMIT_TOKENS=20 MAIL_RATE_LIMIT_REFILL_MS=1000 \
+    APP_LOG_LEVEL=INFO
 ```
 
 - `MAIL_PROVIDER` puede omitirse: `azure` es el valor por defecto de la aplicación.
