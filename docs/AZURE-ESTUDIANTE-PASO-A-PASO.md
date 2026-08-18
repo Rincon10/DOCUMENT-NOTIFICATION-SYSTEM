@@ -722,10 +722,14 @@ az provider show -n Microsoft.OperationalInsights --query registrationState -o t
 
 ![az provider register Microsoft.OperationalInsights — Registering y luego Registered](images/azure-deploy/27-provider-operationalinsights.png)
 
+> 📋 **Todos los comandos de este paso usan las variables de `.env-cloud`.** Antes de ejecutarlos, llena la plantilla y cárgala en tu terminal como se explica en la [sección 7.5](#75-cargar-env-cloud-en-la-terminal-y-desplegar-sin-copiarpegar) (`set -a; source .env-cloud; set +a` en Bash). Están escritos en sintaxis **Bash** (Git Bash / WSL); si prefieres PowerShell, carga el archivo con el snippet de la 7.5 y sustituye cada `$VARIABLE` por `$env:VARIABLE` y las continuaciones `\` por `` ` ``.
+
 Ahora sí, el **environment** (la red privada compartida donde vivirán las 4 apps — gratis, solo pagas por los contenedores):
 
 ```bash
-az containerapp env create --resource-group dns-student-rg --name dns-student-env --location eastus
+# Con los valores de esta guía equivale a:
+#   az containerapp env create -g dns-student-rg -n dns-student-env --location eastus
+az containerapp env create --resource-group "$RESOURCE_GROUP" --name "$CONTAINERAPPS_ENV" --location "$LOCATION"
 ```
 
 En la salida verás *"No Log Analytics workspace provided. Generating a Log Analytics workspace..."* (normal: al no pasarle uno, lo crea por ti) y al final el mensaje de éxito **"Container Apps environment created"**:
@@ -738,31 +742,32 @@ Cada servicio se despliega con `az containerapp create`. El comando es largo por
 
 ```bash
 az containerapp create \
-  --resource-group dns-student-rg \
+  --resource-group "$RESOURCE_GROUP" \
   --name customer-service \
-  --environment dns-student-env \
-  --image dnsstudentacr.azurecr.io/customer-service:1.0 \
-  --registry-server dnsstudentacr.azurecr.io \
+  --environment "$CONTAINERAPPS_ENV" \
+  --image "$ACR_NAME.azurecr.io/customer-service:1.0" \
+  --registry-server "$ACR_NAME.azurecr.io" \
   --cpu 0.5 --memory 1.0Gi \
   --target-port 8184 --ingress external \
   --min-replicas 0 --max-replicas 1 \
-  --secrets pgpass='<TU-PASSWORD-DE-POSTGRES>' \
-            kafkajaas='org.apache.kafka.common.security.plain.PlainLoginModule required username="<API_KEY_CLUSTER>" password="<API_SECRET_CLUSTER>";' \
-            srauth='<SR_KEY>:<SR_SECRET>' \
+  --secrets pgpass="$POSTGRES_PASSWORD" \
+            kafkajaas="$KAFKA_SASL_JAAS_CONFIG" \
+            srauth="$SCHEMA_REGISTRY_AUTH_USER_INFO" \
   --env-vars \
-    DB_HOST=dns-student-pg.postgres.database.azure.com \
-    DB_PORT=5432 DB_NAME=postgres \
-    'DB_EXTRA_PARAMS=&sslmode=require' \
-    POSTGRES_USER=dnsadmin POSTGRES_PASSWORD=secretref:pgpass \
+    DB_HOST="$DB_HOST" DB_PORT="$DB_PORT" DB_NAME="$DB_NAME" \
+    "DB_EXTRA_PARAMS=$DB_EXTRA_PARAMS" \
+    POSTGRES_USER="$POSTGRES_USER" POSTGRES_PASSWORD=secretref:pgpass \
     SQL_INIT_MODE=always \
-    KAFKA_BOOTSTRAP_SERVERS='pkc-xxxxx.eastus.azure.confluent.cloud:9092' \
-    KAFKA_SECURITY_PROTOCOL=SASL_SSL \
-    KAFKA_SASL_MECHANISM=PLAIN \
+    KAFKA_BOOTSTRAP_SERVERS="$KAFKA_BOOTSTRAP_SERVERS" \
+    KAFKA_SECURITY_PROTOCOL="$KAFKA_SECURITY_PROTOCOL" \
+    KAFKA_SASL_MECHANISM="$KAFKA_SASL_MECHANISM" \
     KAFKA_SASL_JAAS_CONFIG=secretref:kafkajaas \
-    SCHEMA_REGISTRY_URL='https://psrc-xxxxx.eastus.azure.confluent.cloud' \
+    SCHEMA_REGISTRY_URL="$SCHEMA_REGISTRY_URL" \
     SCHEMA_REGISTRY_AUTH_USER_INFO=secretref:srauth \
-    APP_LOG_LEVEL=INFO
+    APP_LOG_LEVEL="$APP_LOG_LEVEL"
 ```
+
+> Fíjate que `SQL_INIT_MODE=always` va **literal** (no sale de `.env-cloud`, donde queda `never`): es el override deliberado del primer arranque.
 
 **Explicación bloque por bloque:**
 
@@ -771,7 +776,7 @@ az containerapp create \
 - `--target-port 8184`: puerto interno donde escucha el servicio (cada microservicio tiene el suyo, ver tabla abajo).
 - `--ingress external`: le da una **URL pública HTTPS**. Los servicios que no necesitan ser llamados desde internet van con `internal` (solo visibles dentro del environment) — menos superficie de ataque.
 - `--min-replicas 0`: **la clave del ahorro.** Con 0 réplicas mínimas, si nadie llama al servicio en unos minutos, Azure lo apaga y deja de cobrar. Al llegar una petición HTTP lo enciende de nuevo (tarda ~15-30 s, el "cold start" — normal y aceptable para demos).
-- `--secrets` + `secretref:`: las contraseñas se guardan como **secretos** (cifrados, no visibles en el portal) y las variables de entorno solo las *referencian*. Nunca pongas contraseñas directamente en `--env-vars`.
+- `--secrets` + `secretref:`: las contraseñas se guardan como **secretos** (cifrados, no visibles en el portal) y las variables de entorno solo las *referencian*. Nunca pongas contraseñas directamente en `--env-vars`. Fíjate en el patrón: el secreto recibe el **valor** desde la variable de tu terminal (`pgpass="$POSTGRES_PASSWORD"`, cargada de `.env-cloud`) y la env var del contenedor lleva solo la **referencia** (`POSTGRES_PASSWORD=secretref:pgpass`).
 - `SQL_INIT_MODE=always`: **solo esta primera vez.** Cuando el servicio arranque bien, cámbialo: `az containerapp update -g dns-student-rg -n customer-service --set-env-vars SQL_INIT_MODE=never`.
 
 **Los otros 3 servicios** usan el mismo comando cambiando lo de esta tabla (y sin `SQL_INIT_MODE=always`, van directo con `never`):
@@ -783,100 +788,98 @@ az containerapp create \
 | `generator-service` | 8182 | `internal` | — |
 | `notification-service` | 8183 | `internal` | Variables de correo del paso 7: secreto `acsconn` + `ACS_CONNECTION_STRING`, `MAIL_FROM` y rate limiter |
 
-Y aquí están los **comandos completos de los 3 restantes, listos para copiar** — reemplaza los mismos placeholders del comando de `customer-service` (`<TU-PASSWORD-DE-POSTGRES>`, la API key/secret del cluster, `<SR_KEY>:<SR_SECRET>`, el bootstrap server y la URL del Schema Registry):
+Y aquí están los **comandos completos de los 3 restantes** — con `.env-cloud` cargado en la terminal se ejecutan **tal cual, sin editar nada**:
 
 **`document-service`** (el API principal — puerto 8181, con URL pública):
 
 ```bash
 az containerapp create \
-  --resource-group dns-student-rg \
+  --resource-group "$RESOURCE_GROUP" \
   --name document-service \
-  --environment dns-student-env \
-  --image dnsstudentacr.azurecr.io/document-service:1.0 \
-  --registry-server dnsstudentacr.azurecr.io \
+  --environment "$CONTAINERAPPS_ENV" \
+  --image "$ACR_NAME.azurecr.io/document-service:1.0" \
+  --registry-server "$ACR_NAME.azurecr.io" \
   --cpu 0.5 --memory 1.0Gi \
   --target-port 8181 --ingress external \
   --min-replicas 0 --max-replicas 1 \
-  --secrets pgpass='<TU-PASSWORD-DE-POSTGRES>' \
-            kafkajaas='org.apache.kafka.common.security.plain.PlainLoginModule required username="<API_KEY_CLUSTER>" password="<API_SECRET_CLUSTER>";' \
-            srauth='<SR_KEY>:<SR_SECRET>' \
+  --secrets pgpass="$POSTGRES_PASSWORD" \
+            kafkajaas="$KAFKA_SASL_JAAS_CONFIG" \
+            srauth="$SCHEMA_REGISTRY_AUTH_USER_INFO" \
   --env-vars \
-    DB_HOST=dns-student-pg.postgres.database.azure.com \
-    DB_PORT=5432 DB_NAME=postgres \
-    'DB_EXTRA_PARAMS=&sslmode=require' \
-    POSTGRES_USER=dnsadmin POSTGRES_PASSWORD=secretref:pgpass \
-    SQL_INIT_MODE=never \
-    KAFKA_BOOTSTRAP_SERVERS='pkc-xxxxx.eastus.azure.confluent.cloud:9092' \
-    KAFKA_SECURITY_PROTOCOL=SASL_SSL \
-    KAFKA_SASL_MECHANISM=PLAIN \
+    DB_HOST="$DB_HOST" DB_PORT="$DB_PORT" DB_NAME="$DB_NAME" \
+    "DB_EXTRA_PARAMS=$DB_EXTRA_PARAMS" \
+    POSTGRES_USER="$POSTGRES_USER" POSTGRES_PASSWORD=secretref:pgpass \
+    SQL_INIT_MODE="$SQL_INIT_MODE" \
+    KAFKA_BOOTSTRAP_SERVERS="$KAFKA_BOOTSTRAP_SERVERS" \
+    KAFKA_SECURITY_PROTOCOL="$KAFKA_SECURITY_PROTOCOL" \
+    KAFKA_SASL_MECHANISM="$KAFKA_SASL_MECHANISM" \
     KAFKA_SASL_JAAS_CONFIG=secretref:kafkajaas \
-    SCHEMA_REGISTRY_URL='https://psrc-xxxxx.eastus.azure.confluent.cloud' \
+    SCHEMA_REGISTRY_URL="$SCHEMA_REGISTRY_URL" \
     SCHEMA_REGISTRY_AUTH_USER_INFO=secretref:srauth \
-    APP_LOG_LEVEL=INFO
+    APP_LOG_LEVEL="$APP_LOG_LEVEL"
 ```
 
 **`generator-service`** (consumidor de Kafka — puerto 8182, solo red interna):
 
 ```bash
 az containerapp create \
-  --resource-group dns-student-rg \
+  --resource-group "$RESOURCE_GROUP" \
   --name generator-service \
-  --environment dns-student-env \
-  --image dnsstudentacr.azurecr.io/generator-service:1.0 \
-  --registry-server dnsstudentacr.azurecr.io \
+  --environment "$CONTAINERAPPS_ENV" \
+  --image "$ACR_NAME.azurecr.io/generator-service:1.0" \
+  --registry-server "$ACR_NAME.azurecr.io" \
   --cpu 0.5 --memory 1.0Gi \
   --target-port 8182 --ingress internal \
   --min-replicas 0 --max-replicas 1 \
-  --secrets pgpass='<TU-PASSWORD-DE-POSTGRES>' \
-            kafkajaas='org.apache.kafka.common.security.plain.PlainLoginModule required username="<API_KEY_CLUSTER>" password="<API_SECRET_CLUSTER>";' \
-            srauth='<SR_KEY>:<SR_SECRET>' \
+  --secrets pgpass="$POSTGRES_PASSWORD" \
+            kafkajaas="$KAFKA_SASL_JAAS_CONFIG" \
+            srauth="$SCHEMA_REGISTRY_AUTH_USER_INFO" \
   --env-vars \
-    DB_HOST=dns-student-pg.postgres.database.azure.com \
-    DB_PORT=5432 DB_NAME=postgres \
-    'DB_EXTRA_PARAMS=&sslmode=require' \
-    POSTGRES_USER=dnsadmin POSTGRES_PASSWORD=secretref:pgpass \
-    SQL_INIT_MODE=never \
-    KAFKA_BOOTSTRAP_SERVERS='pkc-xxxxx.eastus.azure.confluent.cloud:9092' \
-    KAFKA_SECURITY_PROTOCOL=SASL_SSL \
-    KAFKA_SASL_MECHANISM=PLAIN \
+    DB_HOST="$DB_HOST" DB_PORT="$DB_PORT" DB_NAME="$DB_NAME" \
+    "DB_EXTRA_PARAMS=$DB_EXTRA_PARAMS" \
+    POSTGRES_USER="$POSTGRES_USER" POSTGRES_PASSWORD=secretref:pgpass \
+    SQL_INIT_MODE="$SQL_INIT_MODE" \
+    KAFKA_BOOTSTRAP_SERVERS="$KAFKA_BOOTSTRAP_SERVERS" \
+    KAFKA_SECURITY_PROTOCOL="$KAFKA_SECURITY_PROTOCOL" \
+    KAFKA_SASL_MECHANISM="$KAFKA_SASL_MECHANISM" \
     KAFKA_SASL_JAAS_CONFIG=secretref:kafkajaas \
-    SCHEMA_REGISTRY_URL='https://psrc-xxxxx.eastus.azure.confluent.cloud' \
+    SCHEMA_REGISTRY_URL="$SCHEMA_REGISTRY_URL" \
     SCHEMA_REGISTRY_AUTH_USER_INFO=secretref:srauth \
-    APP_LOG_LEVEL=INFO
+    APP_LOG_LEVEL="$APP_LOG_LEVEL"
 ```
 
 **`notification-service`** (consumidor de Kafka + correo — puerto 8183, solo red interna; es el único con el secreto `acsconn` y las variables de correo del paso 7):
 
 ```bash
 az containerapp create \
-  --resource-group dns-student-rg \
+  --resource-group "$RESOURCE_GROUP" \
   --name notification-service \
-  --environment dns-student-env \
-  --image dnsstudentacr.azurecr.io/notification-service:1.0 \
-  --registry-server dnsstudentacr.azurecr.io \
+  --environment "$CONTAINERAPPS_ENV" \
+  --image "$ACR_NAME.azurecr.io/notification-service:1.0" \
+  --registry-server "$ACR_NAME.azurecr.io" \
   --cpu 0.5 --memory 1.0Gi \
   --target-port 8183 --ingress internal \
   --min-replicas 0 --max-replicas 1 \
-  --secrets pgpass='<TU-PASSWORD-DE-POSTGRES>' \
-            kafkajaas='org.apache.kafka.common.security.plain.PlainLoginModule required username="<API_KEY_CLUSTER>" password="<API_SECRET_CLUSTER>";' \
-            srauth='<SR_KEY>:<SR_SECRET>' \
-            acsconn='<CONNECTION-STRING-DE-ACS>' \
+  --secrets pgpass="$POSTGRES_PASSWORD" \
+            kafkajaas="$KAFKA_SASL_JAAS_CONFIG" \
+            srauth="$SCHEMA_REGISTRY_AUTH_USER_INFO" \
+            acsconn="$ACS_CONNECTION_STRING" \
   --env-vars \
-    DB_HOST=dns-student-pg.postgres.database.azure.com \
-    DB_PORT=5432 DB_NAME=postgres \
-    'DB_EXTRA_PARAMS=&sslmode=require' \
-    POSTGRES_USER=dnsadmin POSTGRES_PASSWORD=secretref:pgpass \
-    SQL_INIT_MODE=never \
-    KAFKA_BOOTSTRAP_SERVERS='pkc-xxxxx.eastus.azure.confluent.cloud:9092' \
-    KAFKA_SECURITY_PROTOCOL=SASL_SSL \
-    KAFKA_SASL_MECHANISM=PLAIN \
+    DB_HOST="$DB_HOST" DB_PORT="$DB_PORT" DB_NAME="$DB_NAME" \
+    "DB_EXTRA_PARAMS=$DB_EXTRA_PARAMS" \
+    POSTGRES_USER="$POSTGRES_USER" POSTGRES_PASSWORD=secretref:pgpass \
+    SQL_INIT_MODE="$SQL_INIT_MODE" \
+    KAFKA_BOOTSTRAP_SERVERS="$KAFKA_BOOTSTRAP_SERVERS" \
+    KAFKA_SECURITY_PROTOCOL="$KAFKA_SECURITY_PROTOCOL" \
+    KAFKA_SASL_MECHANISM="$KAFKA_SASL_MECHANISM" \
     KAFKA_SASL_JAAS_CONFIG=secretref:kafkajaas \
-    SCHEMA_REGISTRY_URL='https://psrc-xxxxx.eastus.azure.confluent.cloud' \
+    SCHEMA_REGISTRY_URL="$SCHEMA_REGISTRY_URL" \
     SCHEMA_REGISTRY_AUTH_USER_INFO=secretref:srauth \
     ACS_CONNECTION_STRING=secretref:acsconn \
-    MAIL_FROM='donotreply@<guid>.azurecomm.net' \
-    MAIL_RATE_LIMIT_TOKENS=20 MAIL_RATE_LIMIT_REFILL_MS=1000 \
-    APP_LOG_LEVEL=INFO
+    MAIL_FROM="$MAIL_FROM" \
+    MAIL_RATE_LIMIT_TOKENS="$MAIL_RATE_LIMIT_TOKENS" \
+    MAIL_RATE_LIMIT_REFILL_MS="$MAIL_RATE_LIMIT_REFILL_MS" \
+    APP_LOG_LEVEL="$APP_LOG_LEVEL"
 ```
 
 - `MAIL_PROVIDER` puede omitirse: `azure` es el valor por defecto de la aplicación.
