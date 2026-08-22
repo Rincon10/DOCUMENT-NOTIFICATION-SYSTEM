@@ -50,7 +50,7 @@ DOCUMENT-NOTIFICATION-SYSTEM/
 │   │   └── 05-dependency-graph-all.png
 │   ├── AZURE-ESTUDIANTE-PASO-A-PASO.md      # Guía única de despliegue y escalado en Azure
 │   ├── DIAGRAMAS-AZURE.md                   # Diagramas de la arquitectura en la nube
-│   └── DEPLOYMENT.md                        # Referencia de variables de entorno (cloud)
+│   └── 02-VARIABLES-DEPLOYMENT.md           # Referencia de variables de entorno (local y cloud)
 │
 ├── document-notification-system/            # Proyecto principal Maven multi-módulo
 │   ├── document-service/                    # Bounded Context: Gestión de documentos
@@ -249,7 +249,7 @@ El proyecto está guiado por varias prácticas y patrones de arquitectura limpia
 
 ## Arquitectura en la nube (Azure)
 
-El sistema se despliega en **Azure Container Apps** con una cuenta Azure for Students. La guía completa paso a paso (comandos, variables, escalado y costos) está en [`docs/AZURE-ESTUDIANTE-PASO-A-PASO.md`](docs/AZURE-ESTUDIANTE-PASO-A-PASO.md); las variables de entorno en [`docs/DEPLOYMENT.md`](docs/DEPLOYMENT.md); y las cinco vistas completas de la arquitectura en [`docs/DIAGRAMAS-AZURE.md`](docs/DIAGRAMAS-AZURE.md).
+El sistema se despliega en **Azure Container Apps** con una cuenta Azure for Students. La guía completa paso a paso (comandos, variables, escalado y costos) está en [`docs/AZURE-ESTUDIANTE-PASO-A-PASO.md`](docs/AZURE-ESTUDIANTE-PASO-A-PASO.md); las variables de entorno en [`docs/02-VARIABLES-DEPLOYMENT.md`](docs/02-VARIABLES-DEPLOYMENT.md); y las cinco vistas completas de la arquitectura en [`docs/DIAGRAMAS-AZURE.md`](docs/DIAGRAMAS-AZURE.md).
 
 ### Vista general del despliegue
 
