@@ -58,7 +58,9 @@ kafka-config:
 kafka-producer-config:
   key-serializer-class: org.apache.kafka.common.serialization.StringSerializer
   value-serializer-class: io.confluent.kafka.serializers.KafkaAvroSerializer
-  compression-type: snappy
+  # snappy requiere binarios nativos que no cargan en la imagen Alpine (musl);
+  # default 'none' como document-service. Configurable por si se cambia la imagen base.
+  compression-type: ${KAFKA_PRODUCER_COMPRESSION_TYPE:none}
   acks: all
   batch-size: 16384
   batch-size-boost-factor: 100
