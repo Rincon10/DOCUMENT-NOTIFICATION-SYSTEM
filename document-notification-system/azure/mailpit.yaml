@@ -1,0 +1,39 @@
+# Mailpit — servidor SMTP de pruebas para pruebas masivas (captura todos los
+# correos sin entregarlos; UI web para inspeccionarlos).
+# Guia completa: docs/AZURE-ESTUDIANTE-PASO-A-PASO.md, seccion de escalado (Mailpit).
+#
+# Uso:
+#   1. Reemplazar <ENVIRONMENT_ID> con el resultado de:
+#        az containerapp env show -g <RESOURCE_GROUP> -n <ENVIRONMENT> --query id -o tsv
+#   2. az containerapp create -g <RESOURCE_GROUP> -n mailpit --yaml mailpit.yaml
+#   3. Apuntar notification-service a Mailpit (MAIL_PROVIDER=smtp es imprescindible,
+#      el default de la app es azure/ACS):
+#        az containerapp update -g <RESOURCE_GROUP> -n notification-service \
+#          --set-env-vars MAIL_PROVIDER=smtp MAIL_HOST=mailpit MAIL_PORT=1025 \
+#            MAIL_SMTP_AUTH=false MAIL_SMTP_STARTTLS_ENABLE=false MAIL_SMTP_STARTTLS_REQUIRED=false \
+#            MAIL_RATE_LIMIT_TOKENS=100 MAIL_RATE_LIMIT_REFILL_MS=1000
+#   4. Al terminar: borrar la app y restaurar el proveedor real (ver paso 6 de la guia).
+properties:
+  environmentId: <ENVIRONMENT_ID>
+  configuration:
+    ingress:
+      external: true            # UI web publica para inspeccionar los correos
+      targetPort: 8025
+      transport: http
+      additionalPortMappings:
+        - external: false       # SMTP solo visible DENTRO del environment
+          targetPort: 1025
+          exposedPort: 1025
+  template:
+    containers:
+      - name: mailpit
+        image: docker.io/axllent/mailpit:latest
+        env:
+          - name: MP_MAX_MESSAGES
+            value: "10000"      # correos retenidos visibles; subirlo si la prueba genera mas
+        resources:
+          cpu: 0.25
+          memory: 0.5Gi
+    scale:
+      minReplicas: 1
+      maxReplicas: 1

@@ -3,28 +3,50 @@ server:
 
 logging:
   level:
-    com.document.notification.system: DEBUG
+    com.document.notification.system: ${APP_LOG_LEVEL:DEBUG}
 
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics
+  endpoint:
+    health:
+      probes:
+        enabled: true
+      show-details: when-authorized
+  health:
+    livenessstate:
+      enabled: true
+    readinessstate:
+      enabled: true
+    mail:
+      enabled: ${MAIL_HEALTH_ENABLED:false}
 
 notification-service:
   instance-id: ${NOTIFICATION_INSTANCE_ID:notification-1}
-  notification-request-topic-name: notification-request
-  notification-response-topic-name: notification-response
-  outbox-scheduler-fixed-rate: 10000
-  outbox-scheduler-initial-delay: 10000
+  notification-request-topic-name: ${NOTIFICATION_REQUEST_TOPIC:notification-request}
+  notification-response-topic-name: ${NOTIFICATION_RESPONSE_TOPIC:notification-response}
+  outbox-scheduler-fixed-rate: ${OUTBOX_SCHEDULER_FIXED_RATE:10000}
+  outbox-scheduler-initial-delay: ${OUTBOX_SCHEDULER_INITIAL_DELAY:10000}
   mail:
+    # azure (por defecto) = Azure Communication Services Email | smtp = Gmail o cualquier servidor SMTP (spring.mail.*)
+    provider: ${MAIL_PROVIDER:azure}
     from: ${MAIL_FROM:no-reply@example.com}
     rate-limit:
       tokens-per-interval: ${MAIL_RATE_LIMIT_TOKENS:5}
       refill-interval-ms: ${MAIL_RATE_LIMIT_REFILL_MS:20000}
+    azure:
+      connection-string: ${ACS_CONNECTION_STRING:}
+      operation-timeout-seconds: ${ACS_EMAIL_TIMEOUT_SECONDS:60}
 
 spring:
   jpa:
-    show-sql: true
+    show-sql: ${JPA_SHOW_SQL:true}
   datasource:
-    url: jdbc:postgresql://localhost:5434/postgres?currentSchema=notification&binaryTransfer=true&reWriteBatchedInserts=true&stringtype=unspecified
-    username: postgres
-    password: admin
+    url: jdbc:postgresql://${DB_HOST:localhost}:${DB_PORT:5434}/${DB_NAME:postgres}?currentSchema=notification&binaryTransfer=true&reWriteBatchedInserts=true&stringtype=unspecified${DB_EXTRA_PARAMS:}
+    username: ${POSTGRES_USER:postgres}
+    password: ${POSTGRES_PASSWORD:admin}
     driver-class-name: org.postgresql.Driver
     platform: postgres
   sql:
@@ -50,16 +72,24 @@ spring:
           protocol: smtp
 
 kafka-config:
-  bootstrap-servers: localhost:19092, localhost:29092, localhost:39092
+  bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:localhost:19092, localhost:29092, localhost:39092}
   schema-registry-url-key: schema.registry.url
-  schema-registry-url: http://localhost:8081
-  num-of-partitions: 3
-  replication-factor: 3
+  schema-registry-url: ${SCHEMA_REGISTRY_URL:http://localhost:8081}
+  num-of-partitions: ${KAFKA_NUM_PARTITIONS:3}
+  replication-factor: ${KAFKA_REPLICATION_FACTOR:3}
+  # Optional security for managed Kafka (leave empty for local PLAINTEXT)
+  security-protocol: ${KAFKA_SECURITY_PROTOCOL:}
+  sasl-mechanism: ${KAFKA_SASL_MECHANISM:}
+  sasl-jaas-config: ${KAFKA_SASL_JAAS_CONFIG:}
+  schema-registry-basic-auth-credentials-source: ${SCHEMA_REGISTRY_AUTH_SOURCE:USER_INFO}
+  schema-registry-basic-auth-user-info: ${SCHEMA_REGISTRY_AUTH_USER_INFO:}
 
 kafka-producer-config:
   key-serializer-class: org.apache.kafka.common.serialization.StringSerializer
   value-serializer-class: io.confluent.kafka.serializers.KafkaAvroSerializer
-  compression-type: snappy
+  # snappy requiere binarios nativos que no cargan en la imagen Alpine (musl);
+  # default 'none' como document-service. Configurable por si se cambia la imagen base.
+  compression-type: ${KAFKA_PRODUCER_COMPRESSION_TYPE:none}
   acks: all
   batch-size: 16384
   batch-size-boost-factor: 100
@@ -76,7 +106,7 @@ kafka-consumer-config:
   specific-avro-reader: true
   batch-listener: true
   auto-startup: true
-  concurrency-level: 3
+  concurrency-level: ${KAFKA_CONSUMER_CONCURRENCY:3}
   session-timeout-ms: 10000
   heartbeat-interval-ms: 3000
   max-poll-interval-ms: 300000

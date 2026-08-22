@@ -1,0 +1,6 @@
+Topic name,Tags,Partitions,Production,Consumption,Retained bytes,Consumers,Has data contract,Tableflow sync status,Catalog sync status,Context engine
+customer,,6,,,0B,,true,,,
+generator-request,,6,,,0B,,true,,,
+generator-response,,6,,,0B,,true,,,
+notification-request,,6,,,,,true,,,
+notification-response,,6,,,,,true,,,

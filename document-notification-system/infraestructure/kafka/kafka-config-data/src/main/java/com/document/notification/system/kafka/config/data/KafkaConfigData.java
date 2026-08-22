@@ -18,5 +18,20 @@ public class KafkaConfigData {
     private String schemaRegistryUrl;
     private Integer numOfPartitions;
     private Short replicationFactor;
+    // Optional security settings for managed Kafka (Confluent Cloud, AWS MSK, Azure Event Hubs).
+    // Left empty for local PLAINTEXT brokers.
+    private String securityProtocol;
+    private String saslMechanism;
+    private String saslJaasConfig;
+    private String schemaRegistryBasicAuthCredentialsSource;
+    private String schemaRegistryBasicAuthUserInfo;
+
+    public boolean hasSecurityConfig() {
+        return securityProtocol != null && !securityProtocol.isBlank();
+    }
+
+    public boolean hasSchemaRegistryAuth() {
+        return schemaRegistryBasicAuthUserInfo != null && !schemaRegistryBasicAuthUserInfo.isBlank();
+    }
 }
 
