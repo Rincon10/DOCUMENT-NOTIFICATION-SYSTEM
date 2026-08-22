@@ -306,6 +306,26 @@ Lo mismo se puede ver en el **portal de Azure**: recurso `dnsstudentacr` → *Se
 
 ![Portal de Azure — los 4 repositorios en el Container Registry](images/azure-deploy/29-acr-repositories-portal.png)
 
+### Actualizar una imagen ya desplegada (cuando cambias código o configuración)
+
+Si después del despliegue corriges algo en el código (por ejemplo, un fix en el `application.yml`), el flujo es: **rebuild con una versión nueva → push → apuntar la app a la nueva versión**. Usa siempre un tag nuevo (`1.1`, `1.2`...) — Container Apps **no vuelve a descargar** un tag que ya conoce, así que re-pushear `:1.0` no actualiza nada:
+
+```bash
+cd document-notification-system
+az acr login --name dnsstudentacr
+
+# 1) Rebuild con tag nuevo (ejemplo: generator-service a 1.1):
+docker build --no-cache -t generator-service:1.1 -f generator-service/Dockerfile .
+docker tag generator-service:1.1 dnsstudentacr.azurecr.io/generator-service:1.1
+docker push dnsstudentacr.azurecr.io/generator-service:1.1
+
+# 2) Apuntar la Container App a la imagen nueva (crea una revisión nueva y reinicia):
+az containerapp update -g dns-student-rg -n generator-service \
+  --image dnsstudentacr.azurecr.io/generator-service:1.1
+```
+
+El `update --image` crea una revisión nueva con JVM fresca — no hace falta reiniciar nada más. Verifica con `az containerapp revision list -g dns-student-rg -n generator-service -o table` que la revisión nueva quedó activa.
+
 ## 5. La base de datos: PostgreSQL gratis por 12 meses
 
 Los microservicios guardan su estado en PostgreSQL. En vez de administrar tú el motor, usarás **Azure Database for PostgreSQL Flexible Server**: Azure lo instala, respalda y parcha por ti.
@@ -423,7 +443,7 @@ En el menú del cluster → **Topics** → **Create topic**. Para **cada uno** d
 1. **Topic name**: exactamente como aparece abajo (los servicios los buscan por estos nombres; un typo = el servicio arranca pero no fluyen eventos).
 2. **Partitions**: cambia el default (6) a **3**.
 3. **Create with defaults** — no actives *infinite retention* ni ajustes extra.
-4. Si al crear ofrece "Define a data contract / schema", **sáltalo** (*Skip*): los esquemas Avro los registran los propios servicios al publicar el primer mensaje.
+4. Si al crear ofrece "Define a data contract / schema", **sáltalo** (*Skip*): los esquemas Avro los registran los propios servicios al publicar el primer mensaje. Si lo aceptas, queda registrado el **esquema de ejemplo** de Confluent y después bloqueará el registro del esquema real (`Error registering Avro schema`, documentos atascados en `PENDING` — ver el error *(a)* de la [sección 9.4](#94-errores-conocidos-vividos-en-este-despliegue)).
 
 | # | Topic | Quién publica → quién consume |
 |---|---|---|
@@ -650,6 +670,12 @@ set +a
 echo "$MAIL_FROM"
 echo "${ACS_CONNECTION_STRING:0:30}..."
 ```
+
+Así se ve la carga y verificación en la práctica (WSL) — los `echo` deben devolver tus valores reales, no vacío:
+
+![Carga de .env-cloud en la terminal y verificación con echo](images/azure-deploy/39-load-env-cloud.png)
+
+> Si algún `echo` devuelve vacío o ves errores tipo `command not found` al hacer `source`, revisa la regla de comillas del archivo (valores con `;`, espacios o `#` van entre comillas simples) — una línea mal cerrada corta la carga silenciosamente.
 
 **En PowerShell (Windows):**
 
@@ -1002,9 +1028,64 @@ curl --request POST \
 }'
 ```
 
+La respuesta esperada es **200** con `{"documentStatus":"PENDING","message":"Document created successfully",...}` — el `PENDING` es correcto: la generación y la notificación ocurren de forma asíncrona vía Kafka. El mismo request se puede lanzar desde cualquier cliente REST (aquí en Bruno):
+
+![POST /documents — 200 OK con documentStatus PENDING](images/azure-deploy/40-post-documents-200.png)
+
+**Verifica que los eventos llegan a Kafka:** en la consola de Confluent → topic `generator-request` → pestaña **Messages** verás los eventos entrando en vivo (con su `sagaId` y `customerId`):
+
+![Confluent — mensajes llegando al topic generator-request](images/azure-deploy/41-kafka-messages-arriving.png)
+
+Desde ahí, si los consumidores están despiertos, el documento pasa a `GENERATED` y sale el correo. Si algo se atasca, la [sección 9.4](#94-errores-conocidos-vividos-en-este-despliegue) tiene los errores conocidos con su fix.
+
 > **¿A qué correo llega la notificación?** Al `username` del cliente dueño del documento — en este sistema ese campo funciona como la dirección de correo. Los 20 clientes semilla (`user_1`…`user_20`) **no tienen correos válidos**, así que para una prueba real crea primero tu propio cliente vía `POST /customers` (en `customer-service`) con tu correo real como `username`, y usa ese `customerId` aquí. El remitente será el `donotreply@...azurecomm.net` de ACS — revisa spam la primera vez.
 
 Recuerda el matiz del paso 8: `generator-service` y `notification-service` deben estar **despiertos** para que el flujo avance (o espera su arranque tras encolarse los eventos).
+
+### 9.4 Errores conocidos (vividos en este despliegue)
+
+Errores reales encontrados al desplegar este sistema, con su síntoma, causa y fix. Todos comparten un patrón: **el flujo es asíncrono, así que cada fix puede destapar el siguiente error de la cadena** — no te desanimes si al arreglar uno aparece otro distinto.
+
+**a) `Error registering Avro schema` en generator-service (documentos atascados en `PENDING`)**
+
+- **Síntoma:** `generator-service` consume y genera el PDF, pero en sus logs se repite `Error while sending GeneratorResponseAvroModel message... Error registering Avro schema` cada ~10 s (los reintentos del outbox). El documento nunca sale de `PENDING`.
+- **Causa:** al crear el topic en Confluent se aceptó el asistente **"Create a data contract"**, que registró el **esquema de ejemplo** (`sampleRecord`, campos `my_field1/2/3`) en el subject `generator-response-value`. Con compatibilidad `BACKWARD`, el registry rechaza el esquema real del servicio por incompatible.
+- **Diagnóstico:** consulta qué hay registrado — si el `name` no es el `...AvroModel` esperado, está contaminado:
+  ```bash
+  curl -u "$SCHEMA_REGISTRY_AUTH_USER_INFO" "$SCHEMA_REGISTRY_URL/subjects/generator-response-value/versions/latest"
+  ```
+- **Fix:** borrar el subject para que el servicio registre su esquema real en el siguiente reintento (no hay que reiniciar nada):
+  ```bash
+  curl -u "$SCHEMA_REGISTRY_AUTH_USER_INFO" -X DELETE "$SCHEMA_REGISTRY_URL/subjects/generator-response-value"
+  ```
+- **Prevención:** es exactamente el "sáltalo (*Skip*)" del paso 6.3 — los esquemas los registran los servicios solos.
+
+**b) `NoClassDefFoundError: Could not initialize class org.xerial.snappy.Snappy` (generator y notification)**
+
+- **Síntoma:** el servicio consume bien, pero al **publicar** falla con ese error en cada reintento del outbox. `document-service` publica sin problema (por eso el error confunde: "el producer sí llega, el consumer no").
+- **Causa:** `generator-service` y `notification-service` tenían `compression-type: snappy` en su productor Kafka, y la librería nativa de snappy **no carga en la imagen base Alpine** (musl). `document-service` usa `none`, por eso nunca lo sufre.
+- **Fix inmediato (sin rebuild):** anular la propiedad por variable de entorno — Spring lee `SPRING_APPLICATION_JSON` por encima del yml:
+  ```bash
+  az containerapp update -g dns-student-rg -n generator-service \
+    --set-env-vars SPRING_APPLICATION_JSON='{"kafka-producer-config":{"compression-type":"none"}}'
+  az containerapp update -g dns-student-rg -n notification-service \
+    --set-env-vars SPRING_APPLICATION_JSON='{"kafka-producer-config":{"compression-type":"none"}}'
+  ```
+- **Fix permanente:** el repo ya trae los `application.yml` con `compression-type: ${KAFKA_PRODUCER_COMPRESSION_TYPE:none}`. Reconstruye y despliega la imagen nueva de ambos servicios ([ver "Actualizar una imagen ya desplegada" del paso 4](#actualizar-una-imagen-ya-desplegada-cuando-cambias-código-o-configuración)) y quita el override:
+  ```bash
+  az containerapp update -g dns-student-rg -n generator-service --remove-env-vars SPRING_APPLICATION_JSON
+  az containerapp update -g dns-student-rg -n notification-service --remove-env-vars SPRING_APPLICATION_JSON
+  ```
+
+**c) `relation "customers" does not exist` en document-service (500 en `POST /documents`)**
+
+- Ya documentado en el paso 8: es la vista materializada `"document".customers` borrada por el `DROP SCHEMA customer CASCADE` del `SQL_INIT_MODE=always`. Fix: el script `fix-document-customers-view.sql` (ver la advertencia del paso 8).
+
+**d) "Customer not found" en sagas viejos tras reinicializar la BD**
+
+- **Síntoma:** al procesarse el backlog, algunos documentos fallan con `Customer with id ... was not found`.
+- **Causa:** son documentos creados **antes** de que `SQL_INIT_MODE=always` reemplazara los clientes; sus `customerId` ya no existen.
+- **Fix:** ninguno — es el comportamiento correcto. Ignóralos y prueba con clientes actuales.
 
 ---
 
