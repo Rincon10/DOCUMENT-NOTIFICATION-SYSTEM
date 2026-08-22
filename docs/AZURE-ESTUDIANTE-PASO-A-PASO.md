@@ -769,6 +769,10 @@ az containerapp create \
 
 > Fíjate que `SQL_INIT_MODE=always` va **literal** (no sale de `.env-cloud`, donde queda `never`): es el override deliberado del primer arranque.
 
+Durante la creación verás *"No credential was provided to access Azure Container Registry. Trying to look up credentials..."* seguido de *"Adding registry password as a secret"* — es el CLI configurando solo las credenciales del ACR (por el `--admin-enabled` del paso 3). El éxito es la línea **"Container app created. Access your app at https://customer-service.&lt;dominio-del-environment&gt;.eastus.azurecontainerapps.io/"**:
+
+![az containerapp create customer-service — Container app created con su URL pública](images/azure-deploy/30-containerapp-create-customer.png)
+
 **Explicación bloque por bloque:**
 
 - `--image` / `--registry-server`: de dónde descargar la imagen (tu ACR del paso 4). El CLI configura solo las credenciales del registro porque activaste `--admin-enabled`.
@@ -819,6 +823,8 @@ az containerapp create \
     APP_LOG_LEVEL="$APP_LOG_LEVEL"
 ```
 
+![az containerapp create document-service — creado con su URL pública](images/azure-deploy/32-containerapp-create-document.png)
+
 **`generator-service`** (consumidor de Kafka — puerto 8182, solo red interna):
 
 ```bash
@@ -847,6 +853,8 @@ az containerapp create \
     SCHEMA_REGISTRY_AUTH_USER_INFO=secretref:srauth \
     APP_LOG_LEVEL="$APP_LOG_LEVEL"
 ```
+
+![az containerapp create generator-service — en ejecución](images/azure-deploy/33-containerapp-create-generator.png)
 
 **`notification-service`** (consumidor de Kafka + correo — puerto 8183, solo red interna; es el único con el secreto `acsconn` y las variables de correo del paso 7):
 
@@ -882,6 +890,10 @@ az containerapp create \
     APP_LOG_LEVEL="$APP_LOG_LEVEL"
 ```
 
+Fíjate en la URL del mensaje de éxito: por el ingress `internal`, el FQDN lleva el segmento **`.internal.`** (`https://notification-service.internal.<dominio>.eastus.azurecontainerapps.io`) — solo resuelve **dentro** del environment, no desde tu PC:
+
+![az containerapp create notification-service — creado con URL interna](images/azure-deploy/31-containerapp-create-notification.png)
+
 - `MAIL_PROVIDER` puede omitirse: `azure` es el valor por defecto de la aplicación.
 - `ACS_CONNECTION_STRING` es **obligatoria** con este proveedor: sin ella el servicio no arranca (el error lo dice claramente).
 - `MAIL_RATE_LIMIT_TOKENS`/`MAIL_RATE_LIMIT_REFILL_MS`: rate limiter interno. El default (`5`/`20000` ≈ 15 correos/min) está pensado para proteger cuentas Gmail; con ACS puedes subirlo a tu cuota (ej. `20`/`1000`).
@@ -895,31 +907,104 @@ az containerapp update -g dns-student-rg -n notification-service \
 
 > **Matiz sobre scale-to-zero:** `generator-service` y `notification-service` trabajan consumiendo mensajes de Kafka, no recibiendo HTTP. Si están dormidos (0 réplicas) no procesan mensajes — los mensajes **no se pierden** (quedan en Kafka), pero el flujo queda pausado. Para una demo, despiértalos antes con `--min-replicas 1` y devuélvelos a 0 al terminar (comandos en la sección de escalado).
 
+Al terminar el paso 8, el resource group en el portal (*Home* → `dns-student-rg`) debe verse así — el dominio de email, `dns-comm`/`dns-email`, el environment, la BD (en Central US), el registry, los Container Apps y los workspaces de Log Analytics:
+
+![Portal — todos los recursos creados en dns-student-rg](images/azure-deploy/38-resource-group-resources.png)
+
 ## 9. Verificar que todo funciona
 
-Obtén la URL pública del API principal:
+### 9.1 Health check del API principal
+
+Obtén la URL pública de `document-service`:
 
 ```bash
-az containerapp show -g dns-student-rg -n document-service \
+az containerapp show -g "$RESOURCE_GROUP" -n document-service \
   --query properties.configuration.ingress.fqdn -o tsv
 ```
 
-Prueba el estado de salud (Spring Boot Actuator responde `{"status":"UP"}` cuando el servicio, la BD y Kafka están bien):
+![az containerapp show — el FQDN público de document-service](images/azure-deploy/34-fqdn-document-service.png)
+
+Prueba el estado de salud (Spring Boot Actuator responde `UP` cuando el servicio, la BD y Kafka están bien):
 
 ```bash
 curl https://<fqdn-que-te-dio-el-comando-anterior>/actuator/health
+# → {"status":"UP","groups":["liveness","readiness"]}
 ```
+
+![curl /actuator/health — status UP con los grupos liveness y readiness](images/azure-deploy/36-health-check-up.png)
 
 La primera llamada puede tardar ~30 s (cold start). Health probes opcionales (portal → Container App → *Containers* → *Health probes*): **Readiness** HTTP GET `/actuator/health/readiness`, **Liveness** HTTP GET `/actuator/health/liveness`.
 
-Para ver los logs en vivo mientras pruebas el flujo completo:
+### 9.2 Ver los logs (y el error típico del scale-to-zero)
+
+`az containerapp logs show` tiene dos tipos de log: **`system`** (eventos de la plataforma: arranque de réplicas, descarga de imagen, probes) y **`console`** (el stdout de tu aplicación — los logs de Spring Boot):
 
 ```bash
-az containerapp logs show -g dns-student-rg -n notification-service --follow
+# Eventos de la plataforma (¿la réplica arrancó? ¿descargó la imagen?):
+az containerapp logs show -g "$RESOURCE_GROUP" -n document-service --type system --tail 50
+
+# Logs de la aplicación (stack traces de Spring, actividad de Kafka...):
+az containerapp logs show -g "$RESOURCE_GROUP" -n document-service --type console --tail 50
+
+# En vivo, mientras ejecutas el flujo:
+az containerapp logs show -g "$RESOURCE_GROUP" -n notification-service --type console --follow
 # busca "Email sent successfully to: ... | MessageId: ..."
 ```
 
-Prueba el flujo de negocio igual que en local (crear cliente → crear documento → verificar que llega la notificación por correo), apuntando a las URLs públicas en vez de `localhost`.
+⚠️ **Si te responde `Could not find a replica for this app`, no es un error del despliegue:** con `--min-replicas 0` la app está **dormida** y no hay réplica de la cual leer logs. Despiértala (hazle una petición HTTP si es `external`, o súbela temporalmente con `--min-replicas 1`) y vuelve a pedir los logs. Los logs `--type system` sí muestran el historial reciente aunque esté escalando:
+
+![Could not find a replica — la app estaba dormida; con --type system y --tail sí responde](images/azure-deploy/35-logs-could-not-find-replica.png)
+
+> Los logs `console` son también donde ves los **errores de configuración** al arrancar (variable mal puesta, secreto vacío, credencial de Kafka inválida): si el health check no da `UP`, ahí está la causa.
+
+### 9.3 Probar el flujo de negocio completo
+
+Igual que en local (crear cliente → crear documento → verificar el correo), pero apuntando a las URLs públicas. Ejemplo real de creación de documento contra `document-service`:
+
+```bash
+curl --request POST \
+  --url https://<fqdn-de-document-service>/documents \
+  --header 'Content-Type: application/json' \
+  --data '{
+  "customerId": "<ID-DE-UN-CLIENTE-EXISTENTE>",
+  "labels": [
+    {
+      "itemId": "123e4567-e89b-12d3-a456-426614174001",
+      "amount": 1500.00,
+      "lateInterest": 45.00,
+      "regularInterest": 30.00,
+      "subTotal": 1575.00
+    },
+    {
+      "itemId": "123e4567-e89b-12d3-a456-426614174002",
+      "amount": 850.50,
+      "lateInterest": 25.50,
+      "regularInterest": 17.00,
+      "subTotal": 893.00
+    }
+  ],
+  "documentInformation": {
+    "address": {
+      "postalCode": "10001",
+      "street": "123 Main Street",
+      "city": "New York",
+      "state": "NY",
+      "zipCode": "10001",
+      "country": "USA"
+    },
+    "periodStartDate": "2026-01-01",
+    "periodEndDate": "2026-01-31",
+    "totalLateInterest": 70.50,
+    "totalRegularInterest": 47.00,
+    "totalAmount": 2468.00,
+    "documentType": "PDF"
+  }
+}'
+```
+
+> **¿A qué correo llega la notificación?** Al `username` del cliente dueño del documento — en este sistema ese campo funciona como la dirección de correo. Los 20 clientes semilla (`user_1`…`user_20`) **no tienen correos válidos**, así que para una prueba real crea primero tu propio cliente vía `POST /customers` (en `customer-service`) con tu correo real como `username`, y usa ese `customerId` aquí. El remitente será el `donotreply@...azurecomm.net` de ACS — revisa spam la primera vez.
+
+Recuerda el matiz del paso 8: `generator-service` y `notification-service` deben estar **despiertos** para que el flujo avance (o espera su arranque tras encolarse los eventos).
 
 ---
 
