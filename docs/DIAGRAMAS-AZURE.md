@@ -1,6 +1,6 @@
 # Diagramas del despliegue en Azure
 
-Las cinco vistas de la arquitectura del **Document Notification System** desplegado en **Azure Container Apps** con cuenta de estudiante. Los comandos para construir cada pieza están en [`AZURE-ESTUDIANTE-PASO-A-PASO.md`](AZURE-ESTUDIANTE-PASO-A-PASO.md); las variables de entorno completas en [`DEPLOYMENT.md`](DEPLOYMENT.md).
+Las cinco vistas de la arquitectura del **Document Notification System** desplegado en **Azure Container Apps** con cuenta de estudiante. Los comandos para construir cada pieza están en [`AZURE-ESTUDIANTE-PASO-A-PASO.md`](AZURE-ESTUDIANTE-PASO-A-PASO.md); las variables de entorno completas en [`02-VARIABLES-DEPLOYMENT.md`](02-VARIABLES-DEPLOYMENT.md).
 
 ---
 

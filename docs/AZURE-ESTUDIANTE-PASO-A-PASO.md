@@ -2,7 +2,7 @@
 
 Esta es la **guía única de Azure** del proyecto: cubre el despliegue completo del **Document Notification System** con una cuenta **Azure for Students**, el **envío de correos por Azure Communication Services** (el proveedor por defecto de la aplicación), las **variables de entorno** necesarias y el **escalado** de los servicios (manual y automático). Está escrita asumiendo que es tu primera vez desplegando en la nube: cada paso explica *qué* estás haciendo y *por qué*.
 
-> **Referencia de variables:** todas las variables de entorno del sistema (con sus defaults y descripción) están en [`DEPLOYMENT.md`](DEPLOYMENT.md). Esta guía usa las que aplican a Azure; consulta aquella cuando necesites el detalle completo.
+> **Referencia de variables:** todas las variables de entorno del sistema (con sus defaults y descripción, y las tablas específicas de Azure) están en [`02-VARIABLES-DEPLOYMENT.md`](02-VARIABLES-DEPLOYMENT.md). Esta guía usa las que aplican a Azure; consulta aquella cuando necesites el detalle completo.
 
 ---
 
@@ -650,7 +650,7 @@ az containerapp logs show -g dns-student-rg -n notification-service --follow
 # dominio sin vincular o MAIL_FROM ajeno → error de dominio en el envío
 ```
 
-> **Alternativas al ACS** (ambas soportadas sin recompilar, cambiando `MAIL_PROVIDER=smtp`): **Gmail** para demos pequeñas (App Password, ~500 correos/día, se bloquea con ráfagas) y **Mailpit** para pruebas de carga sin enviar correos reales (ver la [sección de escalado](#pruebas-de-carga-mailpit-en-vez-de-correos-reales)). Las variables SMTP están en [`DEPLOYMENT.md`](DEPLOYMENT.md) y comentadas en la misma sección de correo de `.env-cloud`.
+> **Alternativas al ACS** (ambas soportadas sin recompilar, cambiando `MAIL_PROVIDER=smtp`): **Gmail** para demos pequeñas (App Password, ~500 correos/día, se bloquea con ráfagas) y **Mailpit** para pruebas de carga sin enviar correos reales (ver la [sección de escalado](#pruebas-de-carga-mailpit-en-vez-de-correos-reales)). Las variables SMTP están en [`02-VARIABLES-DEPLOYMENT.md`](02-VARIABLES-DEPLOYMENT.md#correo-solo-notification-service) y comentadas en la misma sección de correo de `.env-cloud`.
 
 ### 7.5 Cargar `.env-cloud` en la terminal y desplegar sin copiar/pegar
 
@@ -1091,54 +1091,13 @@ Errores reales encontrados al desplegar este sistema, con su síntoma, causa y f
 
 ## Variables de entorno para la nube (resumen)
 
-La referencia completa (todas las variables, defaults y descripción) está en [`DEPLOYMENT.md`](DEPLOYMENT.md), y la plantilla [`document-notification-system/.env-cloud`](../document-notification-system/.env-cloud) sirve como **hoja de trabajo**: ve anotando ahí los valores a medida que avanzas por los pasos 3–7 (sin comitearla con credenciales reales).
+Toda la referencia de variables vive ahora en [`02-VARIABLES-DEPLOYMENT.md`](02-VARIABLES-DEPLOYMENT.md):
 
-### Variables de nombres de recursos (solo para los comandos `az`)
+- **[Nombres de recursos](02-VARIABLES-DEPLOYMENT.md#nombres-de-recursos-solo-para-los-comandos-az)** (`RESOURCE_GROUP`, `ACR_NAME`, `CONTAINERAPPS_ENV`, `PG_SERVER_NAME`...) — las que parametrizan los comandos `az` de esta guía.
+- **[Variables de la aplicación en Azure](02-VARIABLES-DEPLOYMENT.md#variables-de-la-aplicación-en-azure)** — lo que SÍ o SÍ debes configurar (BD, Kafka, Schema Registry, correo, operación y escalado), con las reglas transversales (secretos, TLS, `SPRING_PROFILES_ACTIVE` vacío).
+- **[Defaults y descripción completa](02-VARIABLES-DEPLOYMENT.md#variables-de-entorno)** de todas las variables del sistema.
 
-El primer bloque de `.env-cloud` no lo leen los microservicios: son los **nombres que tú les diste a los recursos de Azure** al crearlos. Existen para parametrizar los comandos `az` (como en la [sección 7.5](#75-cargar-env-cloud-en-la-terminal-y-desplegar-sin-copiarpegar)) y para que no tengas que recordar qué nombre usaste en cada paso. Dos de ellas, además, **derivan valores que sí usa la aplicación**:
-
-| Variable | Valor en esta guía | Qué nombra y por qué importa |
-|---|---|---|
-| `RESOURCE_GROUP` | `dns-student-rg` | El grupo de recursos del paso 3.1 — la "carpeta" que agrupa todo. Es el `-g`/`--resource-group` de **todos** los comandos `az`, y lo que borras al final del semestre con `az group delete` |
-| `LOCATION` | `eastus` | La región de los Container Apps y el environment. (La BD puede vivir en otra — en este despliegue quedó en `centralus`, ver paso 5b) |
-| `ACR_NAME` | `dnsstudentacr` | El nombre del **Azure Container Registry** del paso 3.2. Debe ser **único en todo Azure** (solo minúsculas/números) porque forma el DNS del registro: `<ACR_NAME>.azurecr.io`. De él derivan las etiquetas de las imágenes (`docker tag ... <ACR_NAME>.azurecr.io/document-service:1.0`) y los flags `--image` y `--registry-server` del paso 8 |
-| `CONTAINERAPPS_ENV` | `dns-student-env` | El **Container Apps Environment** del paso 8: la red privada compartida donde viven las 4 apps (y donde `generator`/`notification` quedan escondidos con ingress `internal`). Es el valor de `--environment` en cada `az containerapp create` — las 4 apps deben apuntar **al mismo** para poder verse entre sí |
-| `PG_SERVER_NAME` | `dns-student-pg` | El **PostgreSQL Flexible Server** del paso 5. También único globalmente, porque forma el DNS del servidor: `<PG_SERVER_NAME>.postgres.database.azure.com` — y ese DNS es exactamente el valor de `DB_HOST` que sí leen los 4 servicios. Es el `-n` de los comandos de operación de la BD (`stop`/`start`/`update`) |
-| `ACS_RESOURCE_NAME` / `ACS_EMAIL_SERVICE_NAME` | `dns-comm` / `dns-email` | Los recursos de correo del paso 7 (recurso de comunicación y servicio de email). Se usan en los comandos de `az communication` para obtener la connection string y el dominio remitente |
-
-En resumen: `RESOURCE_GROUP`, `LOCATION`, `CONTAINERAPPS_ENV` y los nombres de ACS solo viven en los comandos; `ACR_NAME` y `PG_SERVER_NAME` además determinan valores de la aplicación (el prefijo de las imágenes y `DB_HOST` respectivamente) — si los cambias, cambia también lo que despliegas.
-
-### Variables de la aplicación
-
-Este es el resumen de **lo que SÍ o SÍ debes configurar en Azure**, agrupado por categoría:
-
-| Categoría | Variable | Valor en Azure | Notas |
-|---|---|---|---|
-| **Base de datos** | `DB_HOST` | `<server>.postgres.database.azure.com` | Host del Flexible Server |
-| | `DB_PORT` / `DB_NAME` | `5432` / `postgres` | |
-| | `POSTGRES_USER` / `POSTGRES_PASSWORD` | admin del paso 5 / `secretref:pgpass` | Contraseña **siempre** como secreto |
-| | `DB_EXTRA_PARAMS` | `&sslmode=require` | Azure solo acepta conexiones cifradas |
-| | `SQL_INIT_MODE` | `never` (tras el primer arranque de `customer-service` con `always`) | Con réplicas > 1 **debe** ser `never` |
-| **Kafka** | `KAFKA_BOOTSTRAP_SERVERS` | `pkc-xxxxx...confluent.cloud:9092` | Del paso 6 |
-| | `KAFKA_SECURITY_PROTOCOL` | `SASL_SSL` | Kafka gestionado siempre cifrado |
-| | `KAFKA_SASL_MECHANISM` | `PLAIN` | |
-| | `KAFKA_SASL_JAAS_CONFIG` | `secretref:kafkajaas` | Cadena JAAS con API key/secret del cluster |
-| **Schema Registry** | `SCHEMA_REGISTRY_URL` | `https://psrc-xxxxx...confluent.cloud` | |
-| | `SCHEMA_REGISTRY_AUTH_USER_INFO` | `secretref:srauth` (`key:secret`) | |
-| **Correo** (solo `notification-service`) | `MAIL_PROVIDER` | `azure` (default, puede omitirse) | `smtp` solo para Gmail/Mailpit |
-| | `ACS_CONNECTION_STRING` | `secretref:acsconn` | **Obligatoria** con el proveedor `azure` |
-| | `MAIL_FROM` | `donotreply@<guid>.azurecomm.net` | El dominio verificado de ACS del paso 7 |
-| | `MAIL_RATE_LIMIT_TOKENS` / `MAIL_RATE_LIMIT_REFILL_MS` | ej. `20` / `1000` | Ajústalo a tu cuota de ACS |
-| **Operación** | `APP_LOG_LEVEL` | `INFO` (`WARN` en pruebas de carga) | |
-| | `JPA_SHOW_SQL` | `false` | En `true` imprime cada SQL: lento y ruidoso |
-| **Escalado** | `NOTIFICATION_INSTANCE_ID` | único por instancia | Solo si creas varias *apps* de notification (ver escalado); el outbox lo usa para locking |
-| | `SPRING_DATASOURCE_HIKARI_MAXIMUMPOOLSIZE` | ej. `5` | Solo si escalas réplicas con la BD B1ms (~35 conexiones máx.) |
-
-Reglas transversales (aplican a los 4 servicios):
-
-- **Credenciales siempre como secretos** (`--secrets` + `secretref:`), nunca en texto plano en `--env-vars`.
-- **TLS en todo**: `sslmode=require` a la BD, `SASL_SSL` a Kafka, HTTPS a ACS.
-- `SPRING_PROFILES_ACTIVE` se deja **vacío** en la nube: toda la configuración entra por variables (el perfil `docker` es solo para docker-compose local).
+La plantilla [`document-notification-system/.env-cloud`](../document-notification-system/.env-cloud) sigue siendo la **hoja de trabajo**: ve anotando ahí los valores a medida que avanzas por los pasos 3–7 (sin comitearla con credenciales reales) y cárgala como en la [sección 7.5](#75-cargar-env-cloud-en-la-terminal-y-desplegar-sin-copiarpegar).
 
 ---
 
@@ -1353,7 +1312,7 @@ Si llegas ahí, el camino es una **suscripción pay-as-you-go** (pide tarjeta, c
 
 Todo lo demás de esta guía (comandos, variables, secretos, escalado) aplica igual.
 
-> **Alternativa AKS (Kubernetes):** las mismas imágenes funcionan en un cluster AKS (`az aks create ... --attach-acr` y deployments con las variables de [`DEPLOYMENT.md`](DEPLOYMENT.md)), pero AKS cobra por los nodos (VMs) 24/7 — notablemente más caro que Container Apps para esta escala; con cuenta de estudiante no lo recomiendo.
+> **Alternativa AKS (Kubernetes):** las mismas imágenes funcionan en un cluster AKS (`az aks create ... --attach-acr` y deployments con las variables de [`02-VARIABLES-DEPLOYMENT.md`](02-VARIABLES-DEPLOYMENT.md)), pero AKS cobra por los nodos (VMs) 24/7 — notablemente más caro que Container Apps para esta escala; con cuenta de estudiante no lo recomiendo.
 
 ---
 

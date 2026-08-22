@@ -1,12 +1,23 @@
-# Guía de Despliegue Cloud-Agnostic
+# Variables de Despliegue
 
-El proyecto está preparado para desplegarse en **cualquier nube** (Azure, AWS, GCP u on-premise) siguiendo los principios 12-factor:
+Referencia única de **todas las variables de entorno** del Document Notification System: los defaults locales, las plantillas `.env` del repo, y las tablas específicas del despliegue en Azure. El proyecto está preparado para desplegarse en **cualquier nube** (Azure, AWS, GCP u on-premise) siguiendo los principios 12-factor:
 
 - **Toda la configuración específica del entorno se inyecta por variables de entorno** (con defaults locales, así el desarrollo local no cambia).
 - **Las 4 imágenes Docker son autocontenidas** y no asumen ningún proveedor: JVM consciente del contenedor, usuario no-root, `HEALTHCHECK` integrado y sin perfil de Spring hardcodeado.
 - **Health checks estándar** vía Spring Boot Actuator (`/actuator/health`, `/actuator/health/liveness`, `/actuator/health/readiness`) — los que consume cualquier orquestador (Kubernetes, ECS, Container Apps, Cloud Run).
 - **Kafka gestionado soportado**: SASL/SSL opcional por variables de entorno (Confluent Cloud, AWS MSK, Azure Event Hubs).
 - **CI genérico** en `.github/workflows/docker-publish.yml` que publica a cualquier registry (GHCR por defecto; ACR/ECR/Artifact Registry vía secrets).
+
+## Las plantillas `.env` del repo
+
+Las variables de este documento se materializan en dos plantillas versionadas — son el punto de partida de cualquier despliegue:
+
+| Plantilla | Entorno | Cómo se usa |
+|---|---|---|
+| [`document-notification-system/.env.example`](../document-notification-system/.env.example) | **Local (docker-compose)** | `cp .env.example .env` y ajustar credenciales de correo; docker-compose la lee automáticamente |
+| [`document-notification-system/.env-cloud`](../document-notification-system/.env-cloud) | **Azure (Container Apps)** | Es la **hoja de trabajo** del despliegue: se llena a medida que se avanza por la [guía paso a paso](AZURE-ESTUDIANTE-PASO-A-PASO.md) y se carga en la terminal (`set -a; source .env-cloud; set +a`) para que los comandos `az` la consuman — ver la [sección 7.5 de la guía](AZURE-ESTUDIANTE-PASO-A-PASO.md#75-cargar-env-cloud-en-la-terminal-y-desplegar-sin-copiarpegar) |
+
+⚠️ Ambas plantillas se versionan **con valores vacíos**. Llenas con credenciales reales, **no se comitean**.
 
 ## Variables de entorno
 
@@ -44,6 +55,7 @@ El proyecto está preparado para desplegarse en **cualquier nube** (Azure, AWS, 
 | `KAFKA_SASL_MECHANISM` | *(vacío)* | `PLAIN` (Confluent/Event Hubs) o `AWS_MSK_IAM` |
 | `KAFKA_SASL_JAAS_CONFIG` | *(vacío)* | Cadena JAAS con credenciales |
 | `SCHEMA_REGISTRY_AUTH_USER_INFO` | *(vacío)* | `key:secret` para Schema Registry con auth básica |
+| `KAFKA_PRODUCER_COMPRESSION_TYPE` | `none` | Compresión del productor (`generator` y `notification`). `snappy` requiere binarios nativos que **no cargan en la imagen Alpine** — dejar `none` salvo que se cambie la imagen base |
 
 ### Correo (solo notification-service)
 
@@ -56,6 +68,57 @@ El proyecto está preparado para desplegarse en **cualquier nube** (Azure, AWS, 
 | `ACS_EMAIL_TIMEOUT_SECONDS` | `60` | Espera máxima por la confirmación de envío de ACS |
 | `MAIL_RATE_LIMIT_TOKENS`, `MAIL_RATE_LIMIT_REFILL_MS` | `5` / `20000` | Rate limiter (Token Bucket) — aplica a ambos proveedores |
 | `NOTIFICATION_INSTANCE_ID` | `notification-1` | Único por instancia (en K8s se inyecta el nombre del pod automáticamente) |
+
+## Variables para el despliegue en Azure (guía paso a paso)
+
+Las dos tablas de la [guía Azure paso a paso](AZURE-ESTUDIANTE-PASO-A-PASO.md), consolidadas aquí. Corresponden a los dos bloques de la plantilla `.env-cloud`.
+
+### Nombres de recursos (solo para los comandos `az`)
+
+El primer bloque de `.env-cloud` no lo leen los microservicios: son los **nombres que tú les diste a los recursos de Azure** al crearlos. Existen para parametrizar los comandos `az` y para que no tengas que recordar qué nombre usaste en cada paso. Dos de ellas, además, **derivan valores que sí usa la aplicación**:
+
+| Variable | Valor en la guía | Qué nombra y por qué importa |
+|---|---|---|
+| `RESOURCE_GROUP` | `dns-student-rg` | El grupo de recursos (paso 3.1) — la "carpeta" que agrupa todo. Es el `-g`/`--resource-group` de **todos** los comandos `az`, y lo que borras al final del semestre con `az group delete` |
+| `LOCATION` | `eastus` | La región de los Container Apps y el environment. (La BD puede vivir en otra — en el despliegue real quedó en `centralus`, ver paso 5b de la guía) |
+| `ACR_NAME` | `dnsstudentacr` | El **Azure Container Registry** (paso 3.2). Debe ser **único en todo Azure** (solo minúsculas/números) porque forma el DNS del registro: `<ACR_NAME>.azurecr.io`. De él derivan las etiquetas de las imágenes (`docker tag ... <ACR_NAME>.azurecr.io/document-service:1.0`) y los flags `--image` y `--registry-server` del paso 8 |
+| `CONTAINERAPPS_ENV` | `dns-student-env` | El **Container Apps Environment** (paso 8): la red privada compartida donde viven las 4 apps (y donde `generator`/`notification` quedan escondidos con ingress `internal`). Es el valor de `--environment` en cada `az containerapp create` — las 4 apps deben apuntar **al mismo** para poder verse entre sí |
+| `PG_SERVER_NAME` | `dns-student-pg` | El **PostgreSQL Flexible Server** (paso 5). También único globalmente, porque forma el DNS del servidor: `<PG_SERVER_NAME>.postgres.database.azure.com` — y ese DNS es exactamente el valor de `DB_HOST` que sí leen los 4 servicios. Es el `-n` de los comandos de operación de la BD (`stop`/`start`/`update`) |
+| `ACS_RESOURCE_NAME` / `ACS_EMAIL_SERVICE_NAME` | `dns-comm` / `dns-email` | Los recursos de correo (paso 7: recurso de comunicación y servicio de email). Se usan en los comandos de `az communication` para obtener la connection string y el dominio remitente |
+
+En resumen: `RESOURCE_GROUP`, `LOCATION`, `CONTAINERAPPS_ENV` y los nombres de ACS solo viven en los comandos; `ACR_NAME` y `PG_SERVER_NAME` además determinan valores de la aplicación (el prefijo de las imágenes y `DB_HOST` respectivamente) — si los cambias, cambia también lo que despliegas.
+
+### Variables de la aplicación en Azure
+
+Lo que **SÍ o SÍ debes configurar en Azure**, agrupado por categoría:
+
+| Categoría | Variable | Valor en Azure | Notas |
+|---|---|---|---|
+| **Base de datos** | `DB_HOST` | `<server>.postgres.database.azure.com` | Host del Flexible Server |
+| | `DB_PORT` / `DB_NAME` | `5432` / `postgres` | |
+| | `POSTGRES_USER` / `POSTGRES_PASSWORD` | admin del paso 5 / `secretref:pgpass` | Contraseña **siempre** como secreto |
+| | `DB_EXTRA_PARAMS` | `&sslmode=require` | Azure solo acepta conexiones cifradas |
+| | `SQL_INIT_MODE` | `never` (tras el primer arranque de `customer-service` con `always`) | Con réplicas > 1 **debe** ser `never`. Ojo: cada arranque con `always` exige re-ejecutar `fix-document-customers-view.sql` (ver paso 8 de la guía) |
+| **Kafka** | `KAFKA_BOOTSTRAP_SERVERS` | `pkc-xxxxx...confluent.cloud:9092` | Del paso 6 |
+| | `KAFKA_SECURITY_PROTOCOL` | `SASL_SSL` | Kafka gestionado siempre cifrado |
+| | `KAFKA_SASL_MECHANISM` | `PLAIN` | |
+| | `KAFKA_SASL_JAAS_CONFIG` | `secretref:kafkajaas` | Cadena JAAS con API key/secret del cluster |
+| **Schema Registry** | `SCHEMA_REGISTRY_URL` | `https://psrc-xxxxx...confluent.cloud` | |
+| | `SCHEMA_REGISTRY_AUTH_USER_INFO` | `secretref:srauth` (`key:secret`) | |
+| **Correo** (solo `notification-service`) | `MAIL_PROVIDER` | `azure` (default, puede omitirse) | `smtp` solo para Gmail/Mailpit |
+| | `ACS_CONNECTION_STRING` | `secretref:acsconn` | **Obligatoria** con el proveedor `azure` |
+| | `MAIL_FROM` | `donotreply@<guid>.azurecomm.net` | El dominio verificado de ACS del paso 7 |
+| | `MAIL_RATE_LIMIT_TOKENS` / `MAIL_RATE_LIMIT_REFILL_MS` | ej. `20` / `1000` | Ajústalo a tu cuota de ACS |
+| **Operación** | `APP_LOG_LEVEL` | `INFO` (`WARN` en pruebas de carga) | |
+| | `JPA_SHOW_SQL` | `false` | En `true` imprime cada SQL: lento y ruidoso |
+| **Escalado** | `NOTIFICATION_INSTANCE_ID` | único por instancia | Solo si creas varias *apps* de notification (ver escalado en la guía); el outbox lo usa para locking |
+| | `SPRING_DATASOURCE_HIKARI_MAXIMUMPOOLSIZE` | ej. `5` | Solo si escalas réplicas con la BD B1ms (~35 conexiones máx.) |
+
+Reglas transversales (aplican a los 4 servicios):
+
+- **Credenciales siempre como secretos** (`--secrets` + `secretref:`), nunca en texto plano en `--env-vars`.
+- **TLS en todo**: `sslmode=require` a la BD, `SASL_SSL` a Kafka, HTTPS a ACS.
+- `SPRING_PROFILES_ACTIVE` se deja **vacío** en la nube: toda la configuración entra por variables (el perfil `docker` es solo para docker-compose local).
 
 ## Ejecución local (sin cambios)
 
