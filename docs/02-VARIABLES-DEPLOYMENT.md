@@ -15,7 +15,7 @@ Las variables de este documento se materializan en dos plantillas versionadas �
 | Plantilla | Entorno | Cómo se usa |
 |---|---|---|
 | [`document-notification-system/.env.example`](../document-notification-system/.env.example) | **Local (docker-compose)** | `cp .env.example .env` y ajustar credenciales de correo; docker-compose la lee automáticamente |
-| [`document-notification-system/.env-cloud`](../document-notification-system/.env-cloud) | **Azure (Container Apps)** | Es la **hoja de trabajo** del despliegue: se llena a medida que se avanza por la [guía paso a paso](AZURE-ESTUDIANTE-PASO-A-PASO.md) y se carga en la terminal (`set -a; source .env-cloud; set +a`) para que los comandos `az` la consuman — ver la [sección 7.5 de la guía](AZURE-ESTUDIANTE-PASO-A-PASO.md#75-cargar-env-cloud-en-la-terminal-y-desplegar-sin-copiarpegar) |
+| [`document-notification-system/.env-cloud`](../document-notification-system/.env-cloud) | **Azure (Container Apps)** | Es la **hoja de trabajo** del despliegue: se llena a medida que se avanza por la [guía paso a paso](03-AZURE-ESTUDIANTE-PASO-A-PASO.md) y se carga en la terminal (`set -a; source .env-cloud; set +a`) para que los comandos `az` la consuman — ver la [sección 7.5 de la guía](03-AZURE-ESTUDIANTE-PASO-A-PASO.md#75-cargar-env-cloud-en-la-terminal-y-desplegar-sin-copiarpegar) |
 
 ⚠️ Ambas plantillas se versionan **con valores vacíos**. Llenas con credenciales reales, **no se comitean**.
 
@@ -71,7 +71,7 @@ Las variables de este documento se materializan en dos plantillas versionadas �
 
 ## Variables para el despliegue en Azure (guía paso a paso)
 
-Las dos tablas de la [guía Azure paso a paso](AZURE-ESTUDIANTE-PASO-A-PASO.md), consolidadas aquí. Corresponden a los dos bloques de la plantilla `.env-cloud`.
+Las dos tablas de la [guía Azure paso a paso](03-AZURE-ESTUDIANTE-PASO-A-PASO.md), consolidadas aquí. Corresponden a los dos bloques de la plantilla `.env-cloud`.
 
 ### Nombres de recursos (solo para los comandos `az`)
 

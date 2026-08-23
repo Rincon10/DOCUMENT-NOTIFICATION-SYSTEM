@@ -575,7 +575,7 @@ az containerapp create \
     "MAIL_PASSWORD=${MAIL_PASSWORD:-}"
 ```
 
-> **Email provider:** the app default is Azure Communication Services Email (`MAIL_PROVIDER=azure`), which requires `ACS_CONNECTION_STRING=<connection-string>` (store it as a secret + `secretref:`) and `MAIL_FROM` set to the verified ACS sender address — see `docs/AZURE-ESTUDIANTE-PASO-A-PASO.md` (Paso 7) for the full setup. To use Gmail/SMTP instead, add `MAIL_PROVIDER=smtp` to the env vars above.
+> **Email provider:** the app default is Azure Communication Services Email (`MAIL_PROVIDER=azure`), which requires `ACS_CONNECTION_STRING=<connection-string>` (store it as a secret + `secretref:`) and `MAIL_FROM` set to the verified ACS sender address — see `docs/03-AZURE-ESTUDIANTE-PASO-A-PASO.md` (Paso 7) for the full setup. To use Gmail/SMTP instead, add `MAIL_PROVIDER=smtp` to the env vars above.
 
 ### Step 5 - Configure Scaling Rules
 

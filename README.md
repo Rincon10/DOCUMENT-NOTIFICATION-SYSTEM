@@ -48,9 +48,11 @@ DOCUMENT-NOTIFICATION-SYSTEM/
 │   │   ├── 03-dependency-graph-generator.png
 │   │   ├── 04-dependency-graph-notification.png
 │   │   └── 05-dependency-graph-all.png
-│   ├── AZURE-ESTUDIANTE-PASO-A-PASO.md      # Guía única de despliegue y escalado en Azure
-│   ├── DIAGRAMAS-AZURE.md                   # Diagramas de la arquitectura en la nube
-│   └── 02-VARIABLES-DEPLOYMENT.md           # Referencia de variables de entorno (local y cloud)
+│   ├── 02-VARIABLES-DEPLOYMENT.md           # Referencia de variables de entorno (local y cloud)
+│   ├── 03-AZURE-ESTUDIANTE-PASO-A-PASO.md   # Guía única de despliegue y escalado en Azure
+│   ├── 04-DIAGRAMAS-AZURE.md                # Diagramas de la arquitectura en la nube
+│   ├── BATCHTEST.md                         # Pruebas de carga en ambientes de nube
+│   └── jmeter/create-document.jmx           # Plan de JMeter para POST /documents
 │
 ├── document-notification-system/            # Proyecto principal Maven multi-módulo
 │   ├── document-service/                    # Bounded Context: Gestión de documentos
@@ -249,7 +251,7 @@ El proyecto está guiado por varias prácticas y patrones de arquitectura limpia
 
 ## Arquitectura en la nube (Azure)
 
-El sistema se despliega en **Azure Container Apps** con una cuenta Azure for Students. La guía completa paso a paso (comandos, variables, escalado y costos) está en [`docs/AZURE-ESTUDIANTE-PASO-A-PASO.md`](docs/AZURE-ESTUDIANTE-PASO-A-PASO.md); las variables de entorno en [`docs/02-VARIABLES-DEPLOYMENT.md`](docs/02-VARIABLES-DEPLOYMENT.md); y las cinco vistas completas de la arquitectura en [`docs/DIAGRAMAS-AZURE.md`](docs/DIAGRAMAS-AZURE.md).
+El sistema se despliega en **Azure Container Apps** con una cuenta Azure for Students. La guía completa paso a paso (comandos, variables, escalado y costos) está en [`docs/03-AZURE-ESTUDIANTE-PASO-A-PASO.md`](docs/03-AZURE-ESTUDIANTE-PASO-A-PASO.md); las variables de entorno en [`docs/02-VARIABLES-DEPLOYMENT.md`](docs/02-VARIABLES-DEPLOYMENT.md); y las cinco vistas completas de la arquitectura en [`docs/04-DIAGRAMAS-AZURE.md`](docs/04-DIAGRAMAS-AZURE.md).
 
 ### Vista general del despliegue
 
@@ -336,7 +338,7 @@ flowchart LR
     P2 --> R3
 ```
 
-El detalle de escalado (requisitos previos, límites de la BD, Mailpit para pruebas de carga y costos por sesión) está en la [sección de escalado de la guía](docs/AZURE-ESTUDIANTE-PASO-A-PASO.md#escalado-múltiples-instancias-manual-y-automático).
+El detalle de escalado (requisitos previos, límites de la BD, Mailpit para pruebas de carga y costos por sesión) está en la [sección de escalado de la guía](docs/03-AZURE-ESTUDIANTE-PASO-A-PASO.md#escalado-múltiples-instancias-manual-y-automático).
 
 ## Tecnologías y patterns recomendados
 
@@ -502,7 +504,7 @@ mvn com.github.ferstl:depgraph-maven-plugin:graph
 
 ## Licencia
 
-Este proyecto está licenciado bajo la Licencia MIT - ver el archivo [LICENSE](LICENSE) para detalles.
+Este proyecto está licenciado bajo la Licencia MIT.
 
 ---
 

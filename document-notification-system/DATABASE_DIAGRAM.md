@@ -424,8 +424,10 @@ Customer
 1. **Esquemas separados**: `document` y `customer` están en esquemas distintos
    para mejor aislamiento y escalabilidad
 
-2. **Sin vistas materializadas en init-database.sql**:
-   El script simplificado no incluye MVs. Use `init-schema.sql` si las necesita.
+2. **Vistas materializadas**:
+   Las MVs se crean en `document-service/document-container/src/main/resources/init-schema.sql`
+   (`"document".customers`) y en `customer-service/customer-container/src/main/resources/init-schema.sql`
+   (`customer.document_customer_m_view`).
 
 3. **Cascading deletes**:
    Cuidado al eliminar documentos, cascadea a items y direcciones.
@@ -438,7 +440,7 @@ Customer
 
 ---
 
-**Este diagrama refleja la estructura creada por init-database.sql**
+**Este diagrama refleja la estructura creada por [`document-service/document-container/src/main/resources/init-schema.sql`](document-service/document-container/src/main/resources/init-schema.sql)**
 
 Última actualización: 2026-02-24
 

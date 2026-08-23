@@ -1,6 +1,6 @@
 # Diagramas del despliegue en Azure
 
-Las cinco vistas de la arquitectura del **Document Notification System** desplegado en **Azure Container Apps** con cuenta de estudiante. Los comandos para construir cada pieza están en [`AZURE-ESTUDIANTE-PASO-A-PASO.md`](AZURE-ESTUDIANTE-PASO-A-PASO.md); las variables de entorno completas en [`02-VARIABLES-DEPLOYMENT.md`](02-VARIABLES-DEPLOYMENT.md).
+Las cinco vistas de la arquitectura del **Document Notification System** desplegado en **Azure Container Apps** con cuenta de estudiante. Los comandos para construir cada pieza están en [`03-AZURE-ESTUDIANTE-PASO-A-PASO.md`](03-AZURE-ESTUDIANTE-PASO-A-PASO.md); las variables de entorno completas en [`02-VARIABLES-DEPLOYMENT.md`](02-VARIABLES-DEPLOYMENT.md).
 
 ---
 
@@ -105,7 +105,7 @@ sequenceDiagram
 
 ## 5. Escalado: particiones y réplicas
 
-La regla de oro: **réplicas útiles ≤ particiones del topic**. Con 3 particiones, hasta 3 réplicas por consumidor reparten el trabajo — de forma manual (`--min/max-replicas`) o automática con reglas KEDA (concurrencia HTTP en las APIs, lag de Kafka en los consumidores). Detalle completo en la [sección de escalado de la guía](AZURE-ESTUDIANTE-PASO-A-PASO.md#escalado-múltiples-instancias-manual-y-automático).
+La regla de oro: **réplicas útiles ≤ particiones del topic**. Con 3 particiones, hasta 3 réplicas por consumidor reparten el trabajo — de forma manual (`--min/max-replicas`) o automática con reglas KEDA (concurrencia HTTP en las APIs, lag de Kafka en los consumidores). Detalle completo en la [sección de escalado de la guía](03-AZURE-ESTUDIANTE-PASO-A-PASO.md#escalado-múltiples-instancias-manual-y-automático).
 
 ```mermaid
 flowchart LR

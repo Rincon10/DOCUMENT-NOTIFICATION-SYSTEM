@@ -1,6 +1,6 @@
 # Mailpit — servidor SMTP de pruebas para pruebas masivas (captura todos los
 # correos sin entregarlos; UI web para inspeccionarlos).
-# Guia completa: docs/AZURE-ESTUDIANTE-PASO-A-PASO.md, seccion de escalado (Mailpit).
+# Guia completa: docs/03-AZURE-ESTUDIANTE-PASO-A-PASO.md, seccion de escalado (Mailpit).
 #
 # Uso:
 #   1. Reemplazar <ENVIRONMENT_ID> con el resultado de:
