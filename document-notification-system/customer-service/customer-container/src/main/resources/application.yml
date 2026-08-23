@@ -34,4 +34,7 @@ spring:
     init:
       schema-locations: classpath:init-schema.sql
       data-locations: classpath:init-data.sql # Opcional si también necesitas insertar datos
-      mode: ${SQL_INIT_MODE:always}
+      # Default seguro: la imagen publicada NO ejecuta los scripts de esquema ni de datos.
+      # Para el primer arranque contra una BD vacia, sobreescribir la variable de entorno:
+      #   mode: ${SQL_INIT_MODE:always}
+      mode: ${SQL_INIT_MODE:never}

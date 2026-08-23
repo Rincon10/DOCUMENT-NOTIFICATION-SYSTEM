@@ -387,6 +387,25 @@ Te pedirá la contraseña que inventaste arriba. `sslmode=require` es obligatori
 
 > **Sobre la salida del script:** los `NOTICE: ... does not exist, skipping` son normales (el script hace `DROP ... IF EXISTS` antes de crear). El único error que verás es `extension "uuid-ossp" is not allow-listed for users in Azure Database for PostgreSQL` — **no detiene el script** (schemas, tablas y datos semilla se crean igual y los servicios funcionan). Si quisieras habilitar la extensión, se permite desde los parámetros del servidor: `az postgres flexible-server parameter set -g dns-student-rg --server-name dns-student-pg --name azure.extensions --value uuid-ossp` y reejecutas el script.
 
+**Qué queda creado.** El script deja los 4 schemas (`customer`, `document`, `generator`, `notification`) con sus tablas, índices y outboxes. Dos objetos son los que hacen funcionar `POST /documents`, así que conviene verificarlos explícitamente:
+
+| Objeto | Qué es | Para qué |
+|---|---|---|
+| `customer.customers` | tabla + 20 clientes semilla (`user_1`…`user_20`) | fuente de verdad de clientes, la escribe `customer-service` |
+| `"document".customers` | **vista materializada** sobre `customer.customers` | `document-service` valida contra ella el `customerId` de cada documento |
+
+La vista se mantiene sola: un trigger `AFTER INSERT/UPDATE/DELETE` sobre `customer.customers` ejecuta `REFRESH MATERIALIZED VIEW CONCURRENTLY "document".customers`.
+
+Compruébalo antes de seguir:
+
+```bash
+psql "host=dns-student-pg.postgres.database.azure.com port=5432 dbname=postgres user=dnsadmin sslmode=require" -c '
+SELECT (SELECT COUNT(*) FROM customer.customers)   AS clientes,
+       (SELECT COUNT(*) FROM "document".customers) AS vista_materializada;'
+```
+
+Debe devolver el mismo número en ambas columnas (20 con los datos semilla). Si `vista_materializada` da 0, o la consulta falla con `relation "document.customers" does not exist`, el script no terminó: reejecútalo antes de desplegar, porque `document-service` responderá 500 en cada `POST /documents`.
+
 **Verificación opcional con DBeaver** (o cualquier cliente SQL): conéctate con host `dns-student-pg.postgres.database.azure.com`, puerto `5432`, base `postgres`, usuario `dnsadmin` y tu contraseña (recuerda haber añadido tu IP con la regla de firewall de arriba). Un *Test Connection* exitoso confirma que la BD está lista:
 
 ![DBeaver — Connection Test exitoso contra el Flexible Server](images/azure-deploy/11-dbeaver-connection-test.png)
@@ -764,7 +783,9 @@ En la salida verás *"No Log Analytics workspace provided. Generating a Log Anal
 
 Cada servicio se despliega con `az containerapp create`. El comando es largo porque incluye toda la configuración; primero va el de `customer-service` con la explicación de cada bloque, luego una tabla-resumen de lo que cambia entre servicios, y después **los comandos completos de los otros 3** listos para copiar.
 
-**Importante para el primer arranque:** `customer-service` debe ir primero y con `SQL_INIT_MODE=always` (ejecuta `init-schema.sql` + `init-data.sql`, creando tablas y datos semilla). Después del primer arranque exitoso se cambia a `never` para que no re-ejecute los scripts.
+**Sobre `SQL_INIT_MODE`: va `never` en los 4 servicios, siempre.** El esquema y los datos semilla ya quedaron creados por `init-db.sql` en el paso 5 — incluidas `customer.customers` y la vista `"document".customers` — así que ningún servicio necesita inicializar nada al arrancar.
+
+> ⚠️ **No lo pongas en `always` "por si acaso".** El `init-schema.sql` de `customer-service` empieza con `DROP SCHEMA IF EXISTS customer CASCADE`, y el `CASCADE` se lleva la vista materializada `"document".customers`, que depende de esa tabla. Resultado: `document-service` responde 500 con `relation "customers" does not exist` en cada `POST /documents`, y los clientes semilla se reemplazan, invalidando los `customerId` de cualquier documento anterior. Con `never` ese problema no existe.
 
 ```bash
 az containerapp create \
@@ -783,7 +804,7 @@ az containerapp create \
     DB_HOST="$DB_HOST" DB_PORT="$DB_PORT" DB_NAME="$DB_NAME" \
     "DB_EXTRA_PARAMS=$DB_EXTRA_PARAMS" \
     POSTGRES_USER="$POSTGRES_USER" POSTGRES_PASSWORD=secretref:pgpass \
-    SQL_INIT_MODE=always \
+    SQL_INIT_MODE=never \
     KAFKA_BOOTSTRAP_SERVERS="$KAFKA_BOOTSTRAP_SERVERS" \
     KAFKA_SECURITY_PROTOCOL="$KAFKA_SECURITY_PROTOCOL" \
     KAFKA_SASL_MECHANISM="$KAFKA_SASL_MECHANISM" \
@@ -793,7 +814,7 @@ az containerapp create \
     APP_LOG_LEVEL="$APP_LOG_LEVEL"
 ```
 
-> Fíjate que `SQL_INIT_MODE=always` va **literal** (no sale de `.env-cloud`, donde queda `never`): es el override deliberado del primer arranque.
+> `SQL_INIT_MODE=never` coincide con el valor de `.env-cloud` y con el default de la aplicación, así que no hay override ni paso posterior que recordar.
 
 Durante la creación verás *"No credential was provided to access Azure Container Registry. Trying to look up credentials..."* seguido de *"Adding registry password as a secret"* — es el CLI configurando solo las credenciales del ACR (por el `--admin-enabled` del paso 3). El éxito es la línea **"Container app created. Access your app at https://customer-service.&lt;dominio-del-environment&gt;.eastus.azurecontainerapps.io/"**:
 
@@ -807,13 +828,13 @@ Durante la creación verás *"No credential was provided to access Azure Contain
 - `--ingress external`: le da una **URL pública HTTPS**. Los servicios que no necesitan ser llamados desde internet van con `internal` (solo visibles dentro del environment) — menos superficie de ataque.
 - `--min-replicas 0`: **la clave del ahorro.** Con 0 réplicas mínimas, si nadie llama al servicio en unos minutos, Azure lo apaga y deja de cobrar. Al llegar una petición HTTP lo enciende de nuevo (tarda ~15-30 s, el "cold start" — normal y aceptable para demos).
 - `--secrets` + `secretref:`: las contraseñas se guardan como **secretos** (cifrados, no visibles en el portal) y las variables de entorno solo las *referencian*. Nunca pongas contraseñas directamente en `--env-vars`. Fíjate en el patrón: el secreto recibe el **valor** desde la variable de tu terminal (`pgpass="$POSTGRES_PASSWORD"`, cargada de `.env-cloud`) y la env var del contenedor lleva solo la **referencia** (`POSTGRES_PASSWORD=secretref:pgpass`).
-- `SQL_INIT_MODE=always`: **solo esta primera vez.** Cuando el servicio arranque bien, cámbialo: `az containerapp update -g dns-student-rg -n customer-service --set-env-vars SQL_INIT_MODE=never`.
+- `SQL_INIT_MODE=never`: la app no ejecuta scripts de esquema ni de datos al arrancar. Es también el default de la imagen, así que es seguro incluso si se te olvida pasarlo.
 
-**Los otros 3 servicios** usan el mismo comando cambiando lo de esta tabla (y sin `SQL_INIT_MODE=always`, van directo con `never`):
+**Los otros 3 servicios** usan el mismo comando cambiando lo de esta tabla:
 
 | Servicio | `--target-port` | `--ingress` | Extras |
 |---|---|---|---|
-| `customer-service` | 8184 | `external` | `SQL_INIT_MODE=always` solo la primera vez |
+| `customer-service` | 8184 | `external` | Despliégalo primero: los demás dependen de sus clientes |
 | `document-service` | 8181 | `external` | Es el API principal que llamarás desde Postman/curl |
 | `generator-service` | 8182 | `internal` | — |
 | `notification-service` | 8183 | `internal` | Variables de correo del paso 7: secreto `acsconn` + `ACS_CONNECTION_STRING`, `MAIL_FROM` y rate limiter |
@@ -1079,12 +1100,23 @@ Errores reales encontrados al desplegar este sistema, con su síntoma, causa y f
 
 **c) `relation "customers" does not exist` en document-service (500 en `POST /documents`)**
 
-- Ya documentado en el paso 8: es la vista materializada `"document".customers` borrada por el `DROP SCHEMA customer CASCADE` del `SQL_INIT_MODE=always`. Fix: el script `fix-document-customers-view.sql` (ver la advertencia del paso 8).
+- **Causa:** falta la vista materializada `"document".customers`. O el `init-db.sql` del paso 5 no llegó a crearla, o algún servicio arrancó con `SQL_INIT_MODE=always` y el `DROP SCHEMA customer CASCADE` se la llevó.
+- **Fix:** recrearla. Es idempotente y no toca los datos de `customer.customers`:
+
+  ```bash
+  psql "host=dns-student-pg.postgres.database.azure.com port=5432 dbname=postgres user=dnsadmin sslmode=require" -c '
+  DROP MATERIALIZED VIEW IF EXISTS "document".customers CASCADE;
+  CREATE MATERIALIZED VIEW "document".customers TABLESPACE pg_default AS
+    SELECT c.id, c.username, c.first_name, c.last_name FROM customer.customers c WITH DATA;
+  CREATE UNIQUE INDEX idx_document_customer_m_view_id_unique ON "document".customers (id);'
+  ```
+
+- **Prevención:** mantener `SQL_INIT_MODE=never` en los 4 servicios (paso 8).
 
 **d) "Customer not found" en sagas viejos tras reinicializar la BD**
 
 - **Síntoma:** al procesarse el backlog, algunos documentos fallan con `Customer with id ... was not found`.
-- **Causa:** son documentos creados **antes** de que `SQL_INIT_MODE=always` reemplazara los clientes; sus `customerId` ya no existen.
+- **Causa:** son documentos creados **antes** de que se reinicializara la tabla de clientes (por reejecutar `init-db.sql`, o por un arranque con `SQL_INIT_MODE=always`); sus `customerId` ya no existen.
 - **Fix:** ninguno — es el comportamiento correcto. Ignóralos y prueba con clientes actuales.
 
 ---
@@ -1107,7 +1139,7 @@ La configuración base de esta guía (max 1 réplica, BD B1ms) está pensada par
 
 ### Antes de escalar: 3 requisitos
 
-1. **`SQL_INIT_MODE=never` en TODOS los servicios.** Con `always`, cada réplica nueva re-ejecuta los scripts SQL al arrancar (carreras y datos duplicados):
+1. **`SQL_INIT_MODE=never` en TODOS los servicios.** Ya es el default y lo que despliega el paso 8, pero conviene confirmarlo: con `always`, cada réplica nueva re-ejecuta los scripts al arrancar (carreras, datos duplicados y la vista materializada destruida):
 
    ```bash
    for s in document-service customer-service generator-service notification-service; do
@@ -1323,7 +1355,8 @@ Todo lo demás de esta guía (comandos, variables, secretos, escalado) aplica ig
 - [ ] PostgreSQL exactamente en `Standard_B1ms / Burstable / 32 GB` (lo que cubre la capa gratuita).
 - [ ] Confluent Cloud registrado **directo** (no por Marketplace).
 - [ ] Recurso ACS creado y `notification-service` con `ACS_CONNECTION_STRING` (secreto) y `MAIL_FROM` del dominio verificado.
-- [ ] `SQL_INIT_MODE=never` en todos los servicios después de la primera inicialización.
+- [ ] `init-db.sql` ejecutado (paso 5) y verificado: `customer.customers` y `"document".customers` con el mismo conteo.
+- [ ] `SQL_INIT_MODE=never` en los 4 servicios (nunca `always`).
 - [ ] Contraseñas siempre como secretos (`secretref:`), nunca en texto plano en `--env-vars`.
 - [ ] `min-replicas 0` en todos los servicios cuando no estés haciendo demos.
 - [ ] Base de datos pausada (`flexible-server stop`) entre sesiones.

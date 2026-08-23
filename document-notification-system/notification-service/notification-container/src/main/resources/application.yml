@@ -52,7 +52,10 @@ spring:
   sql:
     init:
       ##schema-locations: classpath:init-schema.sql
-      mode: ${SQL_INIT_MODE:always}
+      # Default seguro: la imagen publicada NO ejecuta los scripts de esquema ni de datos.
+      # Para el primer arranque contra una BD vacia, sobreescribir la variable de entorno:
+      #   mode: ${SQL_INIT_MODE:always}
+      mode: ${SQL_INIT_MODE:never}
   mail:
     host: ${MAIL_HOST:smtp.gmail.com}
     port: ${MAIL_PORT:587}

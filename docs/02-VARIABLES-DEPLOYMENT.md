@@ -40,7 +40,7 @@ Las variables de este documento se materializan en dos plantillas versionadas �
 | `DB_NAME` | `postgres` | Base de datos (cada servicio usa su propio schema: `document`, `generator`, `notification`, `customer`) |
 | `POSTGRES_USER` / `POSTGRES_PASSWORD` | `postgres` / `admin` | Credenciales |
 | `DB_EXTRA_PARAMS` | *(vacío)* | Parámetros JDBC extra, ej. `&sslmode=require` para Postgres gestionado |
-| `SQL_INIT_MODE` | `always` | `never` en la nube (los schemas se crean una sola vez) |
+| `SQL_INIT_MODE` | `never` | Default seguro: la app **no** ejecuta `init-schema.sql` / `init-data.sql` al arrancar. El esquema se crea una sola vez con `infraestructure/docker-compose/init-db.sql` — el contenedor de Postgres lo corre solo en local, y en la nube se ejecuta con `psql` (paso 5 de la guía). **No lo pongas en `always`**: el `DROP SCHEMA customer CASCADE` de ese script destruye la vista materializada `"document".customers` |
 
 ### Kafka / Schema Registry
 
@@ -98,7 +98,7 @@ Lo que **SÍ o SÍ debes configurar en Azure**, agrupado por categoría:
 | | `DB_PORT` / `DB_NAME` | `5432` / `postgres` | |
 | | `POSTGRES_USER` / `POSTGRES_PASSWORD` | admin del paso 5 / `secretref:pgpass` | Contraseña **siempre** como secreto |
 | | `DB_EXTRA_PARAMS` | `&sslmode=require` | Azure solo acepta conexiones cifradas |
-| | `SQL_INIT_MODE` | `never` (tras el primer arranque de `customer-service` con `always`) | Con réplicas > 1 **debe** ser `never`. Ojo: cada arranque con `always` exige re-ejecutar `fix-document-customers-view.sql` (ver paso 8 de la guía) |
+| | `SQL_INIT_MODE` | `never` (siempre) | El esquema y los datos semilla los crea `init-db.sql` con `psql` en el paso 5, incluidas `customer.customers` y la vista `"document".customers`. Nunca `always`: destruye esa vista y con réplicas > 1 además provoca carreras |
 | **Kafka** | `KAFKA_BOOTSTRAP_SERVERS` | `pkc-xxxxx...confluent.cloud:9092` | Del paso 6 |
 | | `KAFKA_SECURITY_PROTOCOL` | `SASL_SSL` | Kafka gestionado siempre cifrado |
 | | `KAFKA_SASL_MECHANISM` | `PLAIN` | |
