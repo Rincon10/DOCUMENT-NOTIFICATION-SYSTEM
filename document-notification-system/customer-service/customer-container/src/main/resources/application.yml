@@ -38,3 +38,27 @@ spring:
       # Para el primer arranque contra una BD vacia, sobreescribir la variable de entorno:
       #   mode: ${SQL_INIT_MODE:always}
       mode: ${SQL_INIT_MODE:never}
+
+kafka-config:
+  bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:localhost:19092, localhost:29092, localhost:39092}
+  schema-registry-url-key: schema.registry.url
+  schema-registry-url: ${SCHEMA_REGISTRY_URL:http://localhost:8081}
+  num-of-partitions: ${KAFKA_NUM_PARTITIONS:3}
+  replication-factor: ${KAFKA_REPLICATION_FACTOR:3}
+  # Optional security for managed Kafka (leave empty for local PLAINTEXT)
+  security-protocol: ${KAFKA_SECURITY_PROTOCOL:}
+  sasl-mechanism: ${KAFKA_SASL_MECHANISM:}
+  sasl-jaas-config: ${KAFKA_SASL_JAAS_CONFIG:}
+  schema-registry-basic-auth-credentials-source: ${SCHEMA_REGISTRY_AUTH_SOURCE:USER_INFO}
+  schema-registry-basic-auth-user-info: ${SCHEMA_REGISTRY_AUTH_USER_INFO:}
+
+kafka-producer-config:
+  key-serializer-class: org.apache.kafka.common.serialization.StringSerializer
+  value-serializer-class: io.confluent.kafka.serializers.KafkaAvroSerializer
+  compression-type: none
+  acks: all
+  batch-size: 16384
+  batch-size-boost-factor: 100
+  linger-ms: 5
+  request-timeout-ms: 60000
+  retry-count: 5

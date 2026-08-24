@@ -1406,31 +1406,123 @@ az containerapp update -g dns-student-rg -n generator-service \
 
 ### Pruebas de carga: Mailpit en vez de correos reales
 
-Para una prueba masiva **no uses el correo real**: usa **Mailpit**, un servidor SMTP falso en un contenedor que acepta cualquier correo, no entrega ninguno, y los muestra en una interfaz web (para contarlos y verificar el flujo de punta a punta). El manifiesto ya está en el repo: [`document-notification-system/azure/mailpit.yaml`](../document-notification-system/azure/mailpit.yaml).
+Para una prueba masiva **no uses el correo real**: la cuota de ACS sobre dominio administrado es de 10 correos/hora (paso 7), así que 10.000 documentos tardarían ~42 días. **Mailpit** es un servidor SMTP falso en un contenedor: acepta cualquier correo, no entrega ninguno, y los muestra en una UI web para contarlos y verificar el flujo de punta a punta. Sin cuota.
+
+#### Dónde encaja Mailpit en el flujo
+
+Mailpit **no cambia nada del sistema salvo el último salto**. Todo el pipeline sigue igual; solo cambia a dónde entrega `notification-service`:
+
+```
+POST /documents → document-service → Kafka (generator-request)
+                → generator-service → Kafka (notification-request)
+                → notification-service ──┬─→ ACS Email  (MAIL_PROVIDER=azure, 10/hora)
+                                         └─→ mailpit:1025  (MAIL_PROVIDER=smtp, sin límite)
+```
+
+El cambio es **solo de variables de entorno**, sin recompilar: el adaptador SMTP ya está en la imagen.
+
+#### 1) Desplegar Mailpit
+
+> ⚠️ El manifiesto [`azure/mailpit.yaml`](../document-notification-system/azure/mailpit.yaml) documenta la configuración, pero `az containerapp create --yaml` lo rechaza con `The JSON value could not be converted to System.Boolean. Path: $ | LineNumber: 0` — es un **bug del CLI**, no del manifiesto (el YAML parsea bien). Despliega con flags:
 
 ```bash
-# 1. Poner el ID del environment en el yaml y desplegar:
-az containerapp env show -g dns-student-rg -n dns-student-env --query id -o tsv
-#    → cópialo en <ENVIRONMENT_ID> de azure/mailpit.yaml
-az containerapp create -g dns-student-rg -n mailpit --yaml document-notification-system/azure/mailpit.yaml
+az containerapp create -g dns-student-rg -n mailpit --environment dns-student-env \
+  --image docker.io/axllent/mailpit:latest \
+  --target-port 8025 --ingress external --transport http \
+  --cpu 0.25 --memory 0.5Gi --min-replicas 1 --max-replicas 1 \
+  --env-vars MP_MAX_MESSAGES=20000
+```
 
-# 2. Apuntar notification-service a Mailpit y liberar el rate limiter:
+#### 2) Abrir el puerto SMTP 1025
+
+Los flags solo configuran **un** puerto (el 8025 de la UI). El 1025 que usa `notification-service` se añade como *additional port mapping*, y eso hoy solo se puede por API:
+
+```bash
+SUB=$(az account show --query id -o tsv)
+ID="/subscriptions/$SUB/resourceGroups/dns-student-rg/providers/Microsoft.App/containerApps/mailpit"
+cat > patch.json <<'JSON'
+{"properties":{"configuration":{"ingress":{"external":true,"targetPort":8025,"transport":"Http",
+"additionalPortMappings":[{"external":false,"targetPort":1025,"exposedPort":1025}]}}}}
+JSON
+az rest --method patch --url "https://management.azure.com${ID}?api-version=2024-03-01" --body @patch.json
+```
+
+El `external: false` del 1025 es deliberado: **SMTP solo debe ser alcanzable dentro del environment**, nunca desde internet. La UI (8025) sí es pública.
+
+Verifica que quedó:
+
+```bash
+az containerapp show -g dns-student-rg -n mailpit \
+  --query "{ui:properties.configuration.ingress.fqdn, smtp:properties.configuration.ingress.additionalPortMappings}" -o json
+```
+
+#### 3) Apuntar `notification-service` a Mailpit
+
+`MAIL_PROVIDER=smtp` es imprescindible: el default de la aplicación es `azure`.
+
+```bash
 az containerapp update -g dns-student-rg -n notification-service \
   --set-env-vars MAIL_PROVIDER=smtp MAIL_HOST=mailpit MAIL_PORT=1025 \
     MAIL_SMTP_AUTH=false MAIL_SMTP_STARTTLS_ENABLE=false MAIL_SMTP_STARTTLS_REQUIRED=false \
     MAIL_RATE_LIMIT_TOKENS=100 MAIL_RATE_LIMIT_REFILL_MS=1000
+```
 
-# 3. UI web para ver los correos capturados:
+#### 4) Comandos útiles para ver los correos
+
+La UI web es pública; sácale el FQDN y ábrela en el navegador:
+
+```bash
 az containerapp show -g dns-student-rg -n mailpit --query properties.configuration.ingress.fqdn -o tsv
+```
 
-# 4. Al terminar: volver a ACS y borrar Mailpit:
+Ahí ves cada correo renderizado, sus adjuntos (el PDF generado), cabeceras y el fuente crudo. Desde terminal, la API vive en el mismo dominio:
+
+```bash
+MP="https://mailpit.<dominio>.eastus.azurecontainerapps.io"
+
+curl -s "$MP/api/v1/info"                  # totales + stats SMTP (aceptados / rechazados / ignorados)
+curl -s "$MP/api/v1/messages?limit=20"     # listado, paginable con &start=
+curl -s "$MP/api/v1/message/<ID>"          # un correo completo con su cuerpo
+curl -s "$MP/api/v1/search?query=texto"    # busqueda
+curl -X DELETE "$MP/api/v1/messages"       # vaciar la bandeja
+```
+
+Resumen legible de los últimos correos:
+
+```bash
+curl -s "$MP/api/v1/messages?limit=5" | python -c "
+import json,sys
+for m in json.load(sys.stdin)['messages']:
+    print('%s -> %s | %s | adjuntos=%d' % (m['Created'][11:19], m['To'][0]['Address'], m['Subject'][:50], m['Attachments']))"
+```
+
+#### 5) Medir la prueba
+
+**Vacía la bandeja justo antes de disparar la carga**, así el conteo final es solo el de la prueba:
+
+```bash
+curl -X DELETE "$MP/api/v1/messages"
+# ... corre JMeter (ver docs/BATCHTEST.md) ...
+curl -s "$MP/api/v1/info"
+```
+
+En la salida, `SMTPAccepted` contra el número de documentos creados te da la **tasa de entrega real del pipeline**. Si creaste 10.000 documentos y `SMTPAccepted` da 10.000 con `SMTPRejected: 0`, el flujo completo (API → Kafka → generator → Kafka → notification → SMTP) funcionó sin pérdidas.
+
+La carga se genera desde **tu PC** contra la URL pública de `document-service`, no desde dentro del environment.
+
+#### 6) Al terminar: volver a ACS y borrar Mailpit
+
+```bash
 az containerapp update -g dns-student-rg -n notification-service \
   --set-env-vars MAIL_PROVIDER=azure MAIL_FROM='donotreply@<guid>.azurecomm.net' \
     MAIL_RATE_LIMIT_TOKENS=10 MAIL_RATE_LIMIT_REFILL_MS=3600000
 az containerapp delete -g dns-student-rg -n mailpit --yes
 ```
 
-Verificación de punta a punta: si creaste 500 documentos y la bandeja de Mailpit muestra 500 correos, el flujo completo (API → Kafka → generator → Kafka → notification → SMTP) funcionó sin pérdidas. La carga se genera con k6 o JMeter contra la URL pública de `document-service`, desde tu PC (no desde el mismo environment).
+#### Dos límites de Mailpit que conviene conocer
+
+- **`MP_MAX_MESSAGES`** es el tope de correos retenidos. El manifiesto trae `10000`, que para una prueba de exactamente 10.000 queda justo en el borde: Mailpit empieza a descartar los más viejos. Por eso arriba se despliega con `20000`.
+- **No hay volumen persistente.** Mailpit guarda todo en `/tmp/mailpit-*.db` dentro del contenedor; si la réplica se reinicia, los correos se pierden. Sirve para medir durante la ventana de prueba, no como archivo histórico.
 
 ### Cuánto crédito consume una sesión de prueba
 

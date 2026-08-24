@@ -366,6 +366,120 @@ az containerapp update -g dns-student-rg -n notification-service --min-replicas 
 Con la carga en marcha, el plan de JMeter y las verificaciones aguas abajo están en
 [`docs/BATCHTEST.md`](docs/BATCHTEST.md).
 
+#### Correo en pruebas de carga: Mailpit
+
+**Cuándo usarlo.** El proveedor por defecto es Azure Communication Services, y sobre un **Azure Managed
+Domain** su cuota es de **5 correos/minuto y 10/hora por suscripción, no ampliable**. Una prueba de 10.000
+documentos tardaría ~42 días en enviar sus correos y entretanto `notification-service` acumularía 429s.
+
+Mailpit es un servidor SMTP de pruebas: **acepta todo, no entrega nada** y expone una UI web para
+inspeccionar lo capturado. Sin cuota.
+
+**No cambia nada del sistema salvo el último salto.** Todo el pipeline sigue igual; solo cambia a dónde
+entrega `notification-service`, y es un cambio de variables de entorno, sin recompilar:
+
+```
+POST /documents → document-service → Kafka (generator-request)
+                → generator-service → Kafka (notification-request)
+                → notification-service ──┬─→ ACS Email     (MAIL_PROVIDER=azure, 10/hora)
+                                         └─→ mailpit:1025  (MAIL_PROVIDER=smtp, sin límite)
+```
+
+Regla práctica:
+
+| Escenario | Proveedor |
+|---|---|
+| Demo con correos reales (pocos) | ACS (`MAIL_PROVIDER=azure`) |
+| Prueba de carga / batch | **Mailpit** (`MAIL_PROVIDER=smtp`) |
+| Desarrollo local | Mailpit o Gmail vía `docker-compose` |
+
+**1) Desplegar Mailpit.**
+
+> ⚠️ El manifiesto [`azure/mailpit.yaml`](document-notification-system/azure/mailpit.yaml) documenta la
+> configuración, pero `az containerapp create --yaml` la rechaza con
+> `The JSON value could not be converted to System.Boolean` — es un bug del CLI, no del manifiesto. Usa
+> los flags:
+
+```bash
+az containerapp create -g dns-student-rg -n mailpit --environment dns-student-env \
+  --image docker.io/axllent/mailpit:latest \
+  --target-port 8025 --ingress external --transport http \
+  --cpu 0.25 --memory 0.5Gi --min-replicas 1 --max-replicas 1 \
+  --env-vars MP_MAX_MESSAGES=20000
+```
+
+**2) Abrir el puerto SMTP 1025.** Los flags solo configuran un puerto (el 8025 de la UI). El 1025 que usa
+`notification-service` se añade como *additional port mapping*, y eso hoy solo se puede por API:
+
+```bash
+SUB=$(az account show --query id -o tsv)
+ID="/subscriptions/$SUB/resourceGroups/dns-student-rg/providers/Microsoft.App/containerApps/mailpit"
+cat > patch.json <<'JSON'
+{"properties":{"configuration":{"ingress":{"external":true,"targetPort":8025,"transport":"Http",
+"additionalPortMappings":[{"external":false,"targetPort":1025,"exposedPort":1025}]}}}}
+JSON
+az rest --method patch --url "https://management.azure.com${ID}?api-version=2024-03-01" --body @patch.json
+```
+
+El `external: false` del puerto 1025 es deliberado: SMTP solo debe ser alcanzable **dentro** del
+environment, nunca desde internet.
+
+**3) Apuntar `notification-service` a Mailpit.** `MAIL_PROVIDER=smtp` es imprescindible — el default de la
+aplicación es `azure`:
+
+```bash
+az containerapp update -g dns-student-rg -n notification-service \
+  --set-env-vars MAIL_PROVIDER=smtp MAIL_HOST=mailpit MAIL_PORT=1025 \
+    MAIL_SMTP_AUTH=false MAIL_SMTP_STARTTLS_ENABLE=false MAIL_SMTP_STARTTLS_REQUIRED=false \
+    MAIL_RATE_LIMIT_TOKENS=100 MAIL_RATE_LIMIT_REFILL_MS=1000
+```
+
+**4) Ver los correos.** La UI web es pública:
+
+```bash
+az containerapp show -g dns-student-rg -n mailpit --query properties.configuration.ingress.fqdn -o tsv
+```
+
+Ahí ves cada correo renderizado, sus adjuntos (el PDF generado), cabeceras y fuente crudo. Desde terminal,
+la API vive en el mismo dominio:
+
+```bash
+MP="https://mailpit.<dominio>.eastus.azurecontainerapps.io"
+curl -s "$MP/api/v1/info"                 # totales y stats SMTP (aceptados/rechazados)
+curl -s "$MP/api/v1/messages?limit=20"    # listado, paginable con &start=
+curl -s "$MP/api/v1/message/<ID>"         # un correo completo
+curl -s "$MP/api/v1/search?query=texto"   # búsqueda
+curl -X DELETE "$MP/api/v1/messages"      # vaciar la bandeja
+```
+
+**5) Medir la prueba.** Vacía la bandeja **justo antes** de disparar JMeter, así el conteo final es solo el
+de la prueba:
+
+```bash
+curl -X DELETE "$MP/api/v1/messages"
+# ... corre la prueba ...
+curl -s "$MP/api/v1/info"    # SMTPAccepted vs SMTPRejected = tasa de entrega del pipeline
+```
+
+**6) Al terminar: volver a ACS y borrar Mailpit.**
+
+```bash
+az containerapp update -g dns-student-rg -n notification-service \
+  --set-env-vars MAIL_PROVIDER=azure MAIL_FROM='donotreply@<guid>.azurecomm.net' \
+    MAIL_RATE_LIMIT_TOKENS=10 MAIL_RATE_LIMIT_REFILL_MS=3600000
+az containerapp delete -g dns-student-rg -n mailpit --yes
+```
+
+**Dos límites que conviene conocer:**
+
+- `MP_MAX_MESSAGES` es el tope de correos retenidos. Con el valor del manifiesto (`10000`) una prueba de
+  10.000 queda justo en el borde y Mailpit empieza a descartar los más viejos; por eso arriba va `20000`.
+- Mailpit guarda todo en `/tmp/mailpit-*.db` **sin volumen persistente**. Si la réplica se reinicia, los
+  correos se pierden. Sirve para medir durante la ventana de prueba, no como archivo.
+
+El paso a paso completo, con la verificación de cada comando, está en la
+[guía de Azure](docs/03-AZURE-ESTUDIANTE-PASO-A-PASO.md#pruebas-de-carga-mailpit-en-vez-de-correos-reales).
+
 #### Apagar todo y volver a la BD barata
 
 ⚠️ **Ejecútalo el mismo día de la prueba.** Fuera del `Standard_B1ms` se cobra ~$115/mes; el
