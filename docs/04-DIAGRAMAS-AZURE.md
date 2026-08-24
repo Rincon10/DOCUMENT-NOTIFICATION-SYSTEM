@@ -124,4 +124,4 @@ flowchart LR
     P2 --> R3
 ```
 
-> ⚠️ **Antes de escalar:** `SQL_INIT_MODE=never` en los 4 servicios y ojo con la BD — el B1ms admite ~35 conexiones y cada réplica abre un pool de 10. Para pruebas, subir a `D2s_v3` unas horas y volver a B1ms el mismo día.
+> ⚠️ **Antes de escalar:** `SQL_INIT_MODE=never` en los 4 servicios y ojo con la BD — el B1ms trae `max_connections = 50` y cada réplica abre un pool de 5, así que con los consumidores en 3 réplicas ya estás en el tope (y un rolling restart lo duplica). Para pruebas, subir a `D2s_v3` unas horas y volver a B1ms el mismo día.

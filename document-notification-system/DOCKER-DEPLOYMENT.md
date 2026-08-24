@@ -783,8 +783,8 @@ az group delete --name "$RESOURCE_GROUP" --yes --no-wait
 | `MAIL_PASSWORD` | (empty) | SMTP authentication password (`smtp` provider only) |
 | `ACS_CONNECTION_STRING` | (empty) | Azure Communication Services connection string (**required** with `azure` provider) |
 | `ACS_EMAIL_TIMEOUT_SECONDS` | `60` | Max wait for ACS send confirmation (`azure` provider only) |
-| `MAIL_RATE_LIMIT_TOKENS` | `5` | Max emails per interval (applies to both providers) |
-| `MAIL_RATE_LIMIT_REFILL_MS` | `20000` | Rate limit refill interval (ms) |
+| `MAIL_RATE_LIMIT_TOKENS` | `10` | Max emails per interval (applies to both providers). App default matches the ACS Azure-Managed-Domain quota: 10 emails/hour (5/min), not raisable |
+| `MAIL_RATE_LIMIT_REFILL_MS` | `3600000` | Rate limit refill interval (ms). `docker-compose` overrides both to `100`/`1000` for local SMTP/Mailpit, where no provider quota applies |
 
 ### Scaling (Docker Compose)
 

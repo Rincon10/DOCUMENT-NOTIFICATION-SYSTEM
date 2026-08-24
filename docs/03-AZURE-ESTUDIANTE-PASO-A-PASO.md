@@ -545,7 +545,20 @@ Y verificado en la consola:
 
 ## 7. El correo: Azure Communication Services Email (el proveedor del sistema)
 
-`notification-service` envía los correos por **Azure Communication Services (ACS) Email**, el proveedor **por defecto** de la aplicación (`MAIL_PROVIDER=azure`). Es un servicio **nativo de Azure** (no Marketplace, así que **sí se paga con el crédito de estudiante**): ~$0.00025 por correo (10.000 correos ≈ $2.50), diseñado para envío en volumen, y va por API HTTPS — no hay SMTP ni contraseñas de Gmail de por medio.
+`notification-service` envía los correos por **Azure Communication Services (ACS) Email**, el proveedor **por defecto** de la aplicación (`MAIL_PROVIDER=azure`). Es un servicio **nativo de Azure** (no Marketplace, así que **sí se paga con el crédito de estudiante**): ~$0.00025 por correo (10.000 correos ≈ $2.50) y va por API HTTPS — no hay SMTP ni contraseñas de Gmail de por medio.
+
+> ⚠️ **La cuota del dominio administrado es diminuta, y esto condiciona todo lo demás.** Esta guía usa un **Azure Managed Domain** (el que Azure crea solo, `<guid>.azurecomm.net`), y esa es la categoría más restringida de ACS:
+>
+> | Dominio | Correos / minuto | Correos / hora | ¿Ampliable? |
+> |---|---|---|---|
+> | **Azure Managed** (esta guía) | **5** | **10** | **No** |
+> | Propio verificado | 30 | 100 | Sí, por ticket de soporte |
+>
+> Microsoft lo dice explícitamente: *"Higher quotas are only available for verified custom domains, not Azure-managed domains."* No depende de tu crédito ni de que la cuenta sea de estudiante — depende del tipo de dominio.
+>
+> Consecuencia práctica: **con dominio administrado no se puede hacer una prueba de carga con correos reales.** 10.000 correos a 10/hora son ~42 días. Para pruebas masivas usa Mailpit (sección de escalado). Si necesitas volumen real, hay que verificar un dominio propio: el procedimiento completo está en [7.6](#76-opcional-dominio-propio-subir-la-cuota-de-10hora-a-100hora).
+>
+> Límites de tamaño, por si aplican: **50 destinatarios** por correo y **10 MB** por request — con Base64 el techo real de adjuntos ronda los 7.5 MB.
 
 ### 7.1 Cómo funciona (los 3 recursos y las 2 credenciales)
 
@@ -653,7 +666,7 @@ Anota los valores en la plantilla [`document-notification-system/.env-cloud`](..
 | `MAIL_PROVIDER` | `azure` (default — puede omitirse) | Selecciona el adaptador `AzureEmailNotificationSender` (API HTTPS de ACS). Con `smtp` se activa el adaptador SMTP clásico (Gmail/Mailpit) sin recompilar |
 | `ACS_CONNECTION_STRING` | secreto `acsconn` (valor del paso 7.3a) | **Obligatoria** con el proveedor `azure`: el servicio valida al arrancar y **falla con un mensaje claro** si falta (`ACS_CONNECTION_STRING is required when MAIL_PROVIDER=azure`) — mejor un arranque fallido que descubrirlo con el primer correo |
 | `MAIL_FROM` | `donotreply@<guid>.azurecomm.net` (paso 7.3b) | El remitente. Debe pertenecer al dominio **vinculado** en 7.2; cualquier otra dirección hace fallar el envío |
-| `MAIL_RATE_LIMIT_TOKENS` / `MAIL_RATE_LIMIT_REFILL_MS` | `20` / `1000` | Rate limiter interno (token bucket): N correos por intervalo. El default (`5`/`20000` ≈ 15/min) protege cuentas Gmail; con ACS puedes subirlo a tu cuota |
+| `MAIL_RATE_LIMIT_TOKENS` / `MAIL_RATE_LIMIT_REFILL_MS` | `10` / `3600000` | Rate limiter interno (token bucket): N correos por intervalo. Estos valores = 10/hora, la cuota del dominio administrado, y son ya el default de la app. **No los subas** con dominio administrado: ACS responde 429. Con [dominio propio verificado](#76-opcional-dominio-propio-subir-la-cuota-de-10hora-a-100hora) puedes ir a `100`/`3600000` |
 | `ACS_EMAIL_TIMEOUT_SECONDS` | `60` (default — puede omitirse) | Cuánto espera el servicio la confirmación de envío de ACS antes de marcar el intento como fallido |
 
 Las variables `MAIL_HOST`, `MAIL_PORT`, `MAIL_USERNAME`, `MAIL_PASSWORD` y `MAIL_SMTP_*` **solo aplican con `MAIL_PROVIDER=smtp`** — con `azure` se ignoran y no hay que configurarlas.
@@ -748,6 +761,115 @@ az containerapp create \
 Para los otros 3 servicios usa el mismo patrón quitando el bloque de correo (`acsconn`, `ACS_CONNECTION_STRING`, `MAIL_FROM`, `MAIL_RATE_LIMIT_*`) y cambiando puerto/ingress según la tabla del paso 8.
 
 > Las variables cargadas viven solo en **esa sesión de terminal** — al cerrarla desaparecen, que es exactamente lo que quieres con credenciales. Recuerda: `.env-cloud` lleno **no se comitea**.
+
+### 7.6 (Opcional) Dominio propio: subir la cuota de 10/hora a 100/hora
+
+Todo lo anterior usa el **Azure Managed Domain**, cuya cuota de **5 correos/minuto y 10/hora no es
+ampliable**. Si necesitas volumen real — una prueba de carga con correos de verdad, o un uso más allá de
+una demo — el único camino es verificar un **dominio propio**. Este paso es opcional: si te sirve Mailpit
+para las pruebas, sáltalo.
+
+| | Azure Managed Domain | Dominio propio verificado |
+|---|---|---|
+| Cuota | 5/min, **10/hora** | 30/min, **100/hora** |
+| ¿Ampliable por soporte? | **No** | **Sí** |
+| Remitente | `donotreply@<guid>.azurecomm.net` (fijo) | `lo-que-quieras@tudominio.com` |
+| User Engagement Tracking | no disponible | disponible |
+| Requisitos | ninguno | dominio propio + acceso al DNS |
+| Tiempo de puesta a punto | inmediato | ~30-60 min (propagación DNS) |
+
+**Requisito previo:** un dominio del que controles el DNS. No sirve el `.azurecomm.net` de Azure ni un
+subdominio de un servicio gratuito donde no puedas crear registros TXT y CNAME.
+
+**1) Crear el recurso de dominio** en modo `CustomerManaged` (contra el mismo `dns-email` del paso 7.2):
+
+```bash
+az communication email domain create -g dns-student-rg --email-service-name dns-email   --name tudominio.com --location global --domain-management CustomerManaged
+```
+
+**2) Leer los registros DNS que Azure te exige.** El recurso los publica en su propia propiedad:
+
+```bash
+az communication email domain show -g dns-student-rg --email-service-name dns-email   --name tudominio.com --query "{records:verificationRecords, states:verificationStates}" -o json
+```
+
+Con el dominio administrado esta propiedad venía vacía (`verificationRecords: {}`) porque Azure lo
+verificaba solo. Aquí trae los valores concretos que debes crear.
+
+**3) Verificar la propiedad del dominio** — un registro TXT. El valor sale del paso anterior (o del
+portal, en *Provision Domains → Configure*):
+
+| Registro | Tipo | Nombre | Valor |
+|---|---|---|---|
+| Propiedad | `TXT` | `tudominio.com` (o `@`) | el que te dé Azure, tipo `ms-domain-verification=...` |
+
+Creado el registro, lanza la verificación:
+
+```bash
+az communication email domain initiate-verification -g dns-student-rg   --email-service-name dns-email --name tudominio.com --verification-type Domain
+```
+
+**4) Autenticación del remitente** — SPF y DKIM. Sin esto los correos salen pero caen en spam:
+
+| Registro | Tipo | Nombre | Valor |
+|---|---|---|---|
+| SPF | `TXT` | `tudominio.com` (o `@`) | `v=spf1 include:spf.protection.outlook.com -all` |
+| DKIM | `CNAME` | `selector1-azurecomm-prod-net._domainkey` | `selector1-azurecomm-prod-net._domainkey.azurecomm.net` |
+| DKIM2 | `CNAME` | `selector2-azurecomm-prod-net._domainkey` | `selector2-azurecomm-prod-net._domainkey.azurecomm.net` |
+
+> ⚠️ **El nombre del registro depende de en qué zona lo crees.** La tabla de arriba asume que lo añades
+> en la zona del propio `tudominio.com`. Si vas a usar un **subdominio** (ej. `mail.tudominio.com`) pero
+> creas los registros en la zona raíz, hay que añadirle el prefijo: `mail` para el SPF y
+> `selector1-azurecomm-prod-net._domainkey.mail` para el DKIM. Equivocarse aquí es el error más común y
+> deja la verificación colgada sin decir por qué.
+
+Lanza cada verificación por separado:
+
+```bash
+for t in SPF DKIM DKIM2; do
+  az communication email domain initiate-verification -g dns-student-rg     --email-service-name dns-email --name tudominio.com --verification-type $t
+done
+```
+
+**5) Esperar la propagación.** Azure documenta **15 a 30 minutos**. Consulta el estado hasta que los
+cinco (`Domain`, `SPF`, `DKIM`, `DKIM2`, `DMARC`) queden en `Verified`:
+
+```bash
+az communication email domain show -g dns-student-rg --email-service-name dns-email   --name tudominio.com --query verificationStates -o json
+```
+
+**6) Vincular el dominio a `dns-comm`**, igual que en el paso 7.2 pero con el nuevo dominio. Es el paso
+que se olvida: sin él la app no puede enviar desde ese remitente.
+
+```bash
+DOMAIN_ID=$(az communication email domain show -g dns-student-rg --email-service-name dns-email   --name tudominio.com --query id -o tsv)
+az communication update -g dns-student-rg -n dns-comm --linked-domains "$DOMAIN_ID"
+```
+
+**7) Actualizar la aplicación.** El `MAIL_FROM` pasa a tu dominio y el rate limiter sube a la cuota nueva
+(100/hora):
+
+```bash
+az containerapp update -g dns-student-rg -n notification-service   --set-env-vars MAIL_FROM='no-reply@tudominio.com'     MAIL_RATE_LIMIT_TOKENS=100 MAIL_RATE_LIMIT_REFILL_MS=3600000
+```
+
+Actualiza también `MAIL_FROM` y `MAIL_RATE_LIMIT_*` en tu `.env-cloud` para que los despliegues futuros
+salgan bien.
+
+**8) (Opcional) Pedir cuota mayor a 100/hora.** Solo disponible para dominios propios verificados. Se
+solicita por [Quota increase for email domains](https://learn.microsoft.com/azure/communication-services/concepts/email/email-quota-increase),
+con dos condiciones que conviene conocer antes de pedirla:
+
+- Tu **tasa de fallo debe estar por debajo del 1%**. Si es más alta, hay que resolverlo primero.
+- La evaluación tarda **hasta 72 horas**.
+
+Microsoft además recomienda **subir el volumen gradualmente durante 2 a 4 semanas** en vez de saltar al
+máximo: los proveedores de destino necesitan tiempo para adaptarse al cambio de IP de tu dominio, y una
+ráfaga inicial quema la reputación del remitente. El servicio soporta 1-2 millones de mensajes/hora en el
+extremo alto, pero se llega ahí por etapas, no de golpe.
+
+> **Para pruebas de rendimiento sigue prefiriendo Mailpit.** Incluso con 100/hora, 10.000 correos son
+> ~100 horas. El dominio propio resuelve el uso real del sistema, no la medición de carga.
 
 ## 8. Crear el entorno y desplegar los 4 microservicios
 
@@ -943,7 +1065,7 @@ Fíjate en la URL del mensaje de éxito: por el ingress `internal`, el FQDN llev
 
 - `MAIL_PROVIDER` puede omitirse: `azure` es el valor por defecto de la aplicación.
 - `ACS_CONNECTION_STRING` es **obligatoria** con este proveedor: sin ella el servicio no arranca (el error lo dice claramente).
-- `MAIL_RATE_LIMIT_TOKENS`/`MAIL_RATE_LIMIT_REFILL_MS`: rate limiter interno. El default (`5`/`20000` ≈ 15 correos/min) está pensado para proteger cuentas Gmail; con ACS puedes subirlo a tu cuota (ej. `20`/`1000`).
+- `MAIL_RATE_LIMIT_TOKENS`/`MAIL_RATE_LIMIT_REFILL_MS`: rate limiter interno (token bucket). El default de la app es `10`/`3600000` = 10 correos/hora, que es exactamente la cuota de ACS sobre dominio administrado. Subirlo solo provoca 429; con [dominio propio verificado](#76-opcional-dominio-propio-subir-la-cuota-de-10hora-a-100hora) la cuota es 100/hora.
 - Si ya desplegaste sin correo y quieres añadirlo después, son **dos comandos** (`update` no gestiona secretos):
 
 ```bash
@@ -1147,7 +1269,28 @@ La configuración base de esta guía (max 1 réplica, BD B1ms) está pensada par
    done
    ```
 
-2. **La BD es el límite silencioso.** El B1ms gratuito tiene ~**35 conexiones máximas** y cada réplica abre un pool de 10 (HikariCP). Con 4 servicios × 1 réplica ya estás al límite. Al escalar, elige: **(a)** subir la BD temporalmente (recomendado para pruebas — `Standard_D2s_v3` ≈ $0.16/hora, ~850 conexiones) o **(b)** reducir los pools (`SPRING_DATASOURCE_HIKARI_MAXIMUMPOOLSIZE=5` en cada servicio, manteniendo `Σ réplicas × pool ≤ 30`):
+2. **La BD es el límite silencioso.** El B1ms trae `max_connections = 50` (default del SKU; rango configurable 25–5000) y los servicios se despliegan con `SPRING_DATASOURCE_HIKARI_MAXIMUMPOOLSIZE=5`. La cuenta que importa es:
+
+   ```
+   Σ (réplicas × pool)  +  ~5 reservadas (superusuario + monitoreo de Azure)  ≤  max_connections
+   ```
+
+   Con 4 servicios × 1 réplica × pool 5 = 20, hay margen. Pero con los consumidores en 3 réplicas la suma sube a 50 — justo en el tope — y **durante un rolling restart la demanda se duplica**, porque la revisión vieja retiene sus conexiones mientras la nueva arranca. Ahí es donde reventará.
+
+   > ⚠️ **Cómo se ve este fallo (y por qué engaña).** El servicio entra en `CrashLoopBackOff` y el log dice `Unable to determine Dialect without JDBC metadata`, que parece un error de configuración de Hibernate. No lo es. Hibernate 6.5 tiene un bug donde `JdbcIsolationDelegate.sqlExceptionHelper()` devuelve null, y el `NullPointerException` resultante **se come la `SQLException` real** — el "too many connections". Si dos revisiones con env vars e imagen idénticas se comportan distinto, sospecha del cupo de conexiones, no del código.
+
+   Al escalar, elige:
+
+   **(a) Subir la BD temporalmente** — recomendado para pruebas de carga. `Standard_D2s_v3` (2 vCPU, 8 GB) ≈ $0.16/hora y sube `max_connections` a ~859. Además el B1ms es 1 vCPU: en una prueba masiva el cuello de botella real es la CPU, no las conexiones.
+
+   **(b) Subir solo `max_connections`** sin cambiar de SKU — más barato, pero **no** resuelve la CPU y la RAM es el techo: cada backend de Postgres cuesta ~9 MB, así que en un B1ms de 2 GB no pases de ~150. Es parámetro estático, **exige reiniciar el servidor**:
+
+   ```bash
+   az postgres flexible-server parameter set -g dns-student-rg --server-name dns-student-pg      --name max_connections --value 200
+   az postgres flexible-server restart -g dns-student-rg -n dns-student-pg
+   ```
+
+   **(c) Reducir los pools** (`SPRING_DATASOURCE_HIKARI_MAXIMUMPOOLSIZE=3`), manteniendo `Σ réplicas × pool ≤ 45`. Sirve para salir del apuro sin gastar, a costa de throughput por réplica.
 
    ```bash
    # (a) Antes de la prueba — subir (reinicia el servidor, ~5 min):
@@ -1274,7 +1417,7 @@ az containerapp show -g dns-student-rg -n mailpit --query properties.configurati
 # 4. Al terminar: volver a ACS y borrar Mailpit:
 az containerapp update -g dns-student-rg -n notification-service \
   --set-env-vars MAIL_PROVIDER=azure MAIL_FROM='donotreply@<guid>.azurecomm.net' \
-    MAIL_RATE_LIMIT_TOKENS=20 MAIL_RATE_LIMIT_REFILL_MS=1000
+    MAIL_RATE_LIMIT_TOKENS=10 MAIL_RATE_LIMIT_REFILL_MS=3600000
 az containerapp delete -g dns-student-rg -n mailpit --yes
 ```
 

@@ -66,7 +66,7 @@ Las variables de este documento se materializan en dos plantillas versionadas �
 | `MAIL_HOST`, `MAIL_PORT`, `MAIL_USERNAME`, `MAIL_PASSWORD`, `MAIL_SMTP_*` | Gmail/587 | Configuración SMTP — solo aplican con `MAIL_PROVIDER=smtp` |
 | `ACS_CONNECTION_STRING` | *(vacío)* | Connection string de Azure Communication Services — **obligatorio** con el proveedor `azure` (falla al arrancar con mensaje claro si falta) |
 | `ACS_EMAIL_TIMEOUT_SECONDS` | `60` | Espera máxima por la confirmación de envío de ACS |
-| `MAIL_RATE_LIMIT_TOKENS`, `MAIL_RATE_LIMIT_REFILL_MS` | `5` / `20000` | Rate limiter (Token Bucket) — aplica a ambos proveedores |
+| `MAIL_RATE_LIMIT_TOKENS`, `MAIL_RATE_LIMIT_REFILL_MS` | `10` / `3600000` | Rate limiter (Token Bucket), aplica a ambos proveedores. El default = 10 correos/hora, la cuota de ACS sobre Azure Managed Domain (5/min y 10/hora, **no ampliables**). `docker-compose` lo relaja a `100`/`1000` para local, donde el proveedor es SMTP y no hay cuota |
 | `NOTIFICATION_INSTANCE_ID` | `notification-1` | Único por instancia (en K8s se inyecta el nombre del pod automáticamente) |
 
 ## Variables para el despliegue en Azure (guía paso a paso)
@@ -108,11 +108,11 @@ Lo que **SÍ o SÍ debes configurar en Azure**, agrupado por categoría:
 | **Correo** (solo `notification-service`) | `MAIL_PROVIDER` | `azure` (default, puede omitirse) | `smtp` solo para Gmail/Mailpit |
 | | `ACS_CONNECTION_STRING` | `secretref:acsconn` | **Obligatoria** con el proveedor `azure` |
 | | `MAIL_FROM` | `donotreply@<guid>.azurecomm.net` | El dominio verificado de ACS del paso 7 |
-| | `MAIL_RATE_LIMIT_TOKENS` / `MAIL_RATE_LIMIT_REFILL_MS` | ej. `20` / `1000` | Ajústalo a tu cuota de ACS |
+| | `MAIL_RATE_LIMIT_TOKENS` / `MAIL_RATE_LIMIT_REFILL_MS` | `10` / `3600000` | = 10/hora, la cuota del Azure Managed Domain. Subirlo provoca 429. Con [dominio propio verificado](03-AZURE-ESTUDIANTE-PASO-A-PASO.md#76-opcional-dominio-propio-subir-la-cuota-de-10hora-a-100hora): `100`/`3600000` |
 | **Operación** | `APP_LOG_LEVEL` | `INFO` (`WARN` en pruebas de carga) | |
 | | `JPA_SHOW_SQL` | `false` | En `true` imprime cada SQL: lento y ruidoso |
 | **Escalado** | `NOTIFICATION_INSTANCE_ID` | único por instancia | Solo si creas varias *apps* de notification (ver escalado en la guía); el outbox lo usa para locking |
-| | `SPRING_DATASOURCE_HIKARI_MAXIMUMPOOLSIZE` | ej. `5` | Solo si escalas réplicas con la BD B1ms (~35 conexiones máx.) |
+| | `SPRING_DATASOURCE_HIKARI_MAXIMUMPOOLSIZE` | `5` | Conexiones por réplica. El B1ms trae `max_connections = 50`, así que `Σ (réplicas × pool) + ~5 reservadas` debe caber ahí. Ojo: un rolling restart duplica la demanda momentáneamente |
 
 Reglas transversales (aplican a los 4 servicios):
 

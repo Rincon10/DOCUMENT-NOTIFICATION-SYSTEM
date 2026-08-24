@@ -338,6 +338,57 @@ flowchart LR
     P2 --> R3
 ```
 
+#### Prueba de rendimiento: subir capacidad
+
+El `Standard_B1ms` de la capa gratuita trae `max_connections = 50` y 1 vCPU. Como cada réplica abre un pool
+de 5 conexiones, con los consumidores en 3 réplicas ya se llega al tope — y un rolling restart **duplica**
+la demanda, porque la revisión vieja retiene sus conexiones mientras la nueva arranca. Por eso la BD se
+sube **antes** de escalar los servicios:
+
+```bash
+# 1. Subir la BD (reinicia el servidor, ~5 min; ~859 conexiones y 2 vCPU)
+az postgres flexible-server update -g dns-student-rg -n dns-student-pg   --sku-name Standard_D2s_v3 --tier GeneralPurpose
+
+# 2. Requisitos previos en los 4 servicios
+for s in document-service customer-service generator-service notification-service; do
+  az containerapp update -g dns-student-rg -n $s     --set-env-vars SQL_INIT_MODE=never APP_LOG_LEVEL=WARN JPA_SHOW_SQL=false
+done
+
+# 3. Escalar. Máximo 3 réplicas en los consumidores: los topics tienen 3 particiones
+#    y las réplicas de más quedan ociosas
+az containerapp update -g dns-student-rg -n document-service     --min-replicas 2 --max-replicas 3
+az containerapp update -g dns-student-rg -n generator-service    --min-replicas 2 --max-replicas 3
+az containerapp update -g dns-student-rg -n notification-service --min-replicas 2 --max-replicas 3
+```
+
+Con la carga en marcha, el plan de JMeter y las verificaciones aguas abajo están en
+[`docs/BATCHTEST.md`](docs/BATCHTEST.md).
+
+#### Apagar todo y volver a la BD barata
+
+⚠️ **Ejecútalo el mismo día de la prueba.** Fuera del `Standard_B1ms` se cobra ~$115/mes; el
+`Standard_D2s_v3` cuesta ~$0.16/hora mientras siga encendido.
+
+```bash
+# 1. Servicios al modo ahorro (scale-to-zero: dejan de cobrar cuando nadie los llama)
+for s in document-service customer-service generator-service notification-service; do
+  az containerapp update -g dns-student-rg -n $s --min-replicas 0 --max-replicas 1
+done
+
+# 2. BD de vuelta al tamaño gratuito
+az postgres flexible-server update -g dns-student-rg -n dns-student-pg   --sku-name Standard_B1ms --tier Burstable
+
+# 3. Pausar la BD hasta la próxima sesión
+az postgres flexible-server stop -g dns-student-rg -n dns-student-pg
+```
+
+Para verificar que no quedó nada encendido:
+
+```bash
+az containerapp list -g dns-student-rg   --query "[].{name:name, min:properties.template.scale.minReplicas, max:properties.template.scale.maxReplicas}" -o table
+az postgres flexible-server show -g dns-student-rg -n dns-student-pg   --query "{sku:sku.name, tier:sku.tier, state:state}" -o table
+```
+
 El detalle de escalado (requisitos previos, límites de la BD, Mailpit para pruebas de carga y costos por sesión) está en la [sección de escalado de la guía](docs/03-AZURE-ESTUDIANTE-PASO-A-PASO.md#escalado-múltiples-instancias-manual-y-automático).
 
 ## Tecnologías y patterns recomendados
@@ -346,7 +397,7 @@ El detalle de escalado (requisitos previos, límites de la BD, Mailpit para prue
 
 | Categoría | Tecnología | Uso |
 |-----------|------------|-----|
-| **Lenguaje** | Java 17+ | Desarrollo de servicios |
+| **Lenguaje** | Java 19 | Desarrollo de servicios |
 | **Framework** | Spring Boot 3.x | Contenedor de aplicación |
 | **Build** | Maven | Gestión de dependencias y build |
 | **Persistencia** | PostgreSQL | Base de datos relacional |
@@ -377,7 +428,7 @@ El detalle de escalado (requisitos previos, límites de la BD, Mailpit para prue
 ## Cómo empezar (resumen)
 
 ### Prerrequisitos
-- Java 17 o superior
+- Java 19 (el `maven-compiler-plugin` usa `<release>19</release>`; con 17 el build falla)
 - Maven 3.8+
 - Docker y Docker Compose (para infraestructura)
 - Git

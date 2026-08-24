@@ -9,7 +9,7 @@ Para levantar y probar el sistema **en local**, usa
 | Documento | [`commands/01-LOCAL-EXECUTION.md`](../document-notification-system/commands/01-LOCAL-EXECUTION.md) | este archivo |
 | Base URL | `http://localhost:8181` | `https://document-service.<dominio>.eastus.azurecontainerapps.io` |
 | Kafka | docker-compose (zookeeper + cluster) | Confluent Cloud |
-| Correo | Mailpit | Azure Communication Services |
+| Correo | Mailpit (sin cuota) | ACS — **5/min y 10/hora**, no ampliable en dominio administrado |
 
 ---
 
@@ -169,6 +169,22 @@ done
 
 ## 5. Qué verificar después de la carga
 
+> ⚠️ **Antes de correr una prueba masiva: cambia el proveedor de correo a Mailpit.**
+> ACS Email sobre un **Azure Managed Domain** admite **5 correos/minuto y 10/hora por suscripción**, y
+> esos límites **no son ampliables** ([Microsoft solo sube cuota a dominios propios verificados](03-AZURE-ESTUDIANTE-PASO-A-PASO.md#76-opcional-dominio-propio-subir-la-cuota-de-10hora-a-100hora)). Con
+> 10.000 documentos, `notification-service` acumularía 429s durante ~42 días. El proveedor SMTP no tiene
+> esa cuota:
+>
+> ```bash
+> az containerapp create -g "$RESOURCE_GROUP" -n mailpit --yaml document-notification-system/azure/mailpit.yaml
+> az containerapp update -g "$RESOURCE_GROUP" -n notification-service >   --set-env-vars MAIL_PROVIDER=smtp MAIL_HOST=mailpit MAIL_PORT=1025 >     MAIL_SMTP_AUTH=false MAIL_SMTP_STARTTLS_ENABLE=false MAIL_SMTP_STARTTLS_REQUIRED=false >     MAIL_RATE_LIMIT_TOKENS=100 MAIL_RATE_LIMIT_REFILL_MS=1000
+> ```
+>
+> Al terminar, volver a ACS con `MAIL_PROVIDER=azure` y `MAIL_RATE_LIMIT_TOKENS=10
+> MAIL_RATE_LIMIT_REFILL_MS=3600000`, y borrar Mailpit. El detalle está en la
+> [sección de escalado de la guía](03-AZURE-ESTUDIANTE-PASO-A-PASO.md#escalado-múltiples-instancias-manual-y-automático).
+
+
 Un 200 solo confirma que el request se aceptó. El flujo completo se valida aguas abajo:
 
 1. **Outbox drenado** — en Postgres, las filas de `"document".generation_outbox` y
@@ -182,7 +198,8 @@ Un 200 solo confirma que el request se aceptó. El flujo completo se valida agua
 2. **Eventos en Kafka** — en la consola de Confluent, los topics `generator-request` y
    `notification-request` deben mostrar los mensajes entrando, cada uno con su `sagaId`.
 
-3. **Correos enviados** — logs de `notification-service`, buscando
+3. **Correos enviados** — si apuntaste a Mailpit, revisa su UI web. Si dejaste ACS (solo válido para
+   una prueba pequeña, dentro de los 10/hora), busca en los logs de `notification-service`
    `Email sent successfully to: ... | MessageId: ...`:
 
    ```bash
