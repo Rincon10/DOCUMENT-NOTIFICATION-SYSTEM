@@ -41,6 +41,18 @@ public class NotificationRequestHelperImpl implements NotificationRequestHelper 
                     notificationRequest.getSagaId());
             return;
         }
+
+        // Segunda guarda de idempotencia: la de arriba solo detecta trabajo COMPLETED. Si una redelivery de
+        // Kafka llega mientras la fila anterior sigue en STARTED, sin este chequeo se enviaria el correo por
+        // segunda vez y se insertaria una fila duplicada que despues no puede pasar a COMPLETED (choca con el
+        // indice unico), dejando al consumidor en un bucle infinito de reintentos.
+        if (documentOutboxHelper.existsDocumentOutboxMessage(UUID.fromString(notificationRequest.getSagaId()),
+                NotificationStatus.NOTIFICATION_SENT)) {
+            log.info("Notification for saga id: {} is already in progress, skipping duplicate delivery.",
+                    notificationRequest.getSagaId());
+            return;
+        }
+
         log.info("Received notification event for document id: {}", notificationRequest.getDocumentId());
 
         ArrayList<String> failureMessages = new ArrayList<>();

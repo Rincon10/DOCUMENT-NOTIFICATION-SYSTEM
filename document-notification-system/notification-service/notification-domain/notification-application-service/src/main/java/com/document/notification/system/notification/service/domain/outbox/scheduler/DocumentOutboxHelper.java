@@ -10,6 +10,7 @@ import com.document.notification.system.notification.service.domain.valueobject.
 import com.document.notification.system.outbox.OutboxStatus;
 import lombok.AllArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -32,11 +33,35 @@ public class DocumentOutboxHelper {
                 SAGA_NAME, sagaId, notificationStatus, OutboxStatus.COMPLETED);
     }
 
+    @Transactional(readOnly = true)
+    public boolean existsDocumentOutboxMessage(UUID sagaId, NotificationStatus notificationStatus) {
+        return documentOutboxRepository.existsByTypeAndSagaIdAndNotificationStatus(SAGA_NAME, sagaId,
+                notificationStatus);
+    }
+
+    /**
+     * Marca la fila del outbox con el estado indicado.
+     *
+     * <p>El indice unico {@code (type, saga_id, notification_status, outbox_status)} impide que existan
+     * dos filas COMPLETED para la misma saga. Si una redelivery de Kafka dejo una fila STARTED duplicada,
+     * al intentar pasarla a COMPLETED choca con la que ya esta COMPLETED y la transaccion falla: el offset
+     * no se commitea, Kafka reentrega, y el servicio entra en un bucle infinito sin procesar nada nuevo.
+     *
+     * <p>Esa colision no es un error: significa que el trabajo <b>ya se hizo</b>. Se descarta la fila
+     * duplicada y se continua, que es lo que rompe el bucle.
+     */
     @Transactional
     public void updateOutboxMessage(DocumentOutboxMessage documentOutboxMessage, OutboxStatus outboxStatus) {
         documentOutboxMessage.setOutboxStatus(outboxStatus);
-        save(documentOutboxMessage);
-        log.info("Document outbox table status is updated as: {}", outboxStatus.name());
+        try {
+            save(documentOutboxMessage);
+            log.info("Document outbox table status is updated as: {}", outboxStatus.name());
+        } catch (DataIntegrityViolationException e) {
+            log.warn("Outbox message id: {} for saga id: {} could not be set to {}: another row already holds "
+                            + "that state. The work was already done, discarding the duplicate row.",
+                    documentOutboxMessage.getId(), documentOutboxMessage.getSagaId(), outboxStatus.name());
+            documentOutboxRepository.deleteById(documentOutboxMessage.getId());
+        }
     }
 
     @Transactional

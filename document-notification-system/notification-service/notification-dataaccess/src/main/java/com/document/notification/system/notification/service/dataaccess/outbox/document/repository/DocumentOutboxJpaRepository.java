@@ -25,5 +25,13 @@ public interface DocumentOutboxJpaRepository extends JpaRepository<DocumentOutbo
                                                                                             NotificationStatus notificationStatus,
                                                                                             OutboxStatus outboxStatus);
 
+    /**
+     * True si ya existe una fila para esa saga y estado de notificacion, sin importar el outbox_status.
+     * Sirve para detectar trabajo YA en curso (STARTED) y no crear un duplicado que despues no podra
+     * pasar a COMPLETED por el indice unico (type, saga_id, notification_status, outbox_status).
+     */
+    boolean existsByTypeAndSagaIdAndNotificationStatus(String type, UUID sagaId,
+                                                      NotificationStatus notificationStatus);
+
     void deleteByTypeAndOutboxStatus(String type, OutboxStatus outboxStatus);
 }
