@@ -347,11 +347,13 @@ sube **antes** de escalar los servicios:
 
 ```bash
 # 1. Subir la BD (reinicia el servidor, ~5 min; ~859 conexiones y 2 vCPU)
-az postgres flexible-server update -g dns-student-rg -n dns-student-pg   --sku-name Standard_D2s_v3 --tier GeneralPurpose
+az postgres flexible-server update -g dns-student-rg -n dns-student-pg \
+  --sku-name Standard_D2s_v3 --tier GeneralPurpose
 
 # 2. Requisitos previos en los 4 servicios
 for s in document-service customer-service generator-service notification-service; do
-  az containerapp update -g dns-student-rg -n $s     --set-env-vars SQL_INIT_MODE=never APP_LOG_LEVEL=WARN JPA_SHOW_SQL=false
+  az containerapp update -g dns-student-rg -n $s \
+    --set-env-vars SQL_INIT_MODE=never APP_LOG_LEVEL=WARN JPA_SHOW_SQL=false
 done
 
 # 3. Escalar. Máximo 3 réplicas en los consumidores: los topics tienen 3 particiones
@@ -376,7 +378,8 @@ for s in document-service customer-service generator-service notification-servic
 done
 
 # 2. BD de vuelta al tamaño gratuito
-az postgres flexible-server update -g dns-student-rg -n dns-student-pg   --sku-name Standard_B1ms --tier Burstable
+az postgres flexible-server update -g dns-student-rg -n dns-student-pg \
+  --sku-name Standard_B1ms --tier Burstable
 
 # 3. Pausar la BD hasta la próxima sesión
 az postgres flexible-server stop -g dns-student-rg -n dns-student-pg
@@ -385,8 +388,10 @@ az postgres flexible-server stop -g dns-student-rg -n dns-student-pg
 Para verificar que no quedó nada encendido:
 
 ```bash
-az containerapp list -g dns-student-rg   --query "[].{name:name, min:properties.template.scale.minReplicas, max:properties.template.scale.maxReplicas}" -o table
-az postgres flexible-server show -g dns-student-rg -n dns-student-pg   --query "{sku:sku.name, tier:sku.tier, state:state}" -o table
+az containerapp list -g dns-student-rg \
+  --query "[].{name:name, min:properties.template.scale.minReplicas, max:properties.template.scale.maxReplicas}" -o table
+az postgres flexible-server show -g dns-student-rg -n dns-student-pg \
+  --query "{sku:sku.name, tier:sku.tier, state:state}" -o table
 ```
 
 El detalle de escalado (requisitos previos, límites de la BD, Mailpit para pruebas de carga y costos por sesión) está en la [sección de escalado de la guía](docs/03-AZURE-ESTUDIANTE-PASO-A-PASO.md#escalado-múltiples-instancias-manual-y-automático).

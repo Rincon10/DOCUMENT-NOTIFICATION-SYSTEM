@@ -784,13 +784,15 @@ subdominio de un servicio gratuito donde no puedas crear registros TXT y CNAME.
 **1) Crear el recurso de dominio** en modo `CustomerManaged` (contra el mismo `dns-email` del paso 7.2):
 
 ```bash
-az communication email domain create -g dns-student-rg --email-service-name dns-email   --name tudominio.com --location global --domain-management CustomerManaged
+az communication email domain create -g dns-student-rg --email-service-name dns-email \
+  --name tudominio.com --location global --domain-management CustomerManaged
 ```
 
 **2) Leer los registros DNS que Azure te exige.** El recurso los publica en su propia propiedad:
 
 ```bash
-az communication email domain show -g dns-student-rg --email-service-name dns-email   --name tudominio.com --query "{records:verificationRecords, states:verificationStates}" -o json
+az communication email domain show -g dns-student-rg --email-service-name dns-email \
+  --name tudominio.com --query "{records:verificationRecords, states:verificationStates}" -o json
 ```
 
 Con el dominio administrado esta propiedad venía vacía (`verificationRecords: {}`) porque Azure lo
@@ -806,7 +808,8 @@ portal, en *Provision Domains → Configure*):
 Creado el registro, lanza la verificación:
 
 ```bash
-az communication email domain initiate-verification -g dns-student-rg   --email-service-name dns-email --name tudominio.com --verification-type Domain
+az communication email domain initiate-verification -g dns-student-rg \
+  --email-service-name dns-email --name tudominio.com --verification-type Domain
 ```
 
 **4) Autenticación del remitente** — SPF y DKIM. Sin esto los correos salen pero caen en spam:
@@ -827,7 +830,8 @@ Lanza cada verificación por separado:
 
 ```bash
 for t in SPF DKIM DKIM2; do
-  az communication email domain initiate-verification -g dns-student-rg     --email-service-name dns-email --name tudominio.com --verification-type $t
+  az communication email domain initiate-verification -g dns-student-rg \
+    --email-service-name dns-email --name tudominio.com --verification-type $t
 done
 ```
 
@@ -835,14 +839,16 @@ done
 cinco (`Domain`, `SPF`, `DKIM`, `DKIM2`, `DMARC`) queden en `Verified`:
 
 ```bash
-az communication email domain show -g dns-student-rg --email-service-name dns-email   --name tudominio.com --query verificationStates -o json
+az communication email domain show -g dns-student-rg --email-service-name dns-email \
+  --name tudominio.com --query verificationStates -o json
 ```
 
 **6) Vincular el dominio a `dns-comm`**, igual que en el paso 7.2 pero con el nuevo dominio. Es el paso
 que se olvida: sin él la app no puede enviar desde ese remitente.
 
 ```bash
-DOMAIN_ID=$(az communication email domain show -g dns-student-rg --email-service-name dns-email   --name tudominio.com --query id -o tsv)
+DOMAIN_ID=$(az communication email domain show -g dns-student-rg --email-service-name dns-email \
+  --name tudominio.com --query id -o tsv)
 az communication update -g dns-student-rg -n dns-comm --linked-domains "$DOMAIN_ID"
 ```
 
@@ -850,7 +856,9 @@ az communication update -g dns-student-rg -n dns-comm --linked-domains "$DOMAIN_
 (100/hora):
 
 ```bash
-az containerapp update -g dns-student-rg -n notification-service   --set-env-vars MAIL_FROM='no-reply@tudominio.com'     MAIL_RATE_LIMIT_TOKENS=100 MAIL_RATE_LIMIT_REFILL_MS=3600000
+az containerapp update -g dns-student-rg -n notification-service \
+  --set-env-vars MAIL_FROM='no-reply@tudominio.com' \
+    MAIL_RATE_LIMIT_TOKENS=100 MAIL_RATE_LIMIT_REFILL_MS=3600000
 ```
 
 Actualiza también `MAIL_FROM` y `MAIL_RATE_LIMIT_*` en tu `.env-cloud` para que los despliegues futuros
@@ -1286,7 +1294,8 @@ La configuración base de esta guía (max 1 réplica, BD B1ms) está pensada par
    **(b) Subir solo `max_connections`** sin cambiar de SKU — más barato, pero **no** resuelve la CPU y la RAM es el techo: cada backend de Postgres cuesta ~9 MB, así que en un B1ms de 2 GB no pases de ~150. Es parámetro estático, **exige reiniciar el servidor**:
 
    ```bash
-   az postgres flexible-server parameter set -g dns-student-rg --server-name dns-student-pg      --name max_connections --value 200
+   az postgres flexible-server parameter set -g dns-student-rg --server-name dns-student-pg \
+     --name max_connections --value 200
    az postgres flexible-server restart -g dns-student-rg -n dns-student-pg
    ```
 
