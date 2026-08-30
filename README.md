@@ -366,6 +366,46 @@ az containerapp update -g dns-student-rg -n notification-service --min-replicas 
 Con la carga en marcha, el plan de JMeter y las verificaciones aguas abajo están en
 [`docs/BATCHTEST.md`](docs/BATCHTEST.md).
 
+#### Escenario aplicado: document 2 · generator 5 · notification 5
+
+Configuración usada en una prueba real, con las variables de
+[`.env-cloud`](document-notification-system/.env-cloud). Manteniendo la BD en `B1ms`, los servicios de
+5 réplicas bajan su pool a **2** para respetar el presupuesto de conexiones
+(`2×3 + 1×3 + 5×2 + 5×2 = 29 ≤ 45`):
+
+```bash
+# document-service: 2 réplicas fijas
+az containerapp update -g dns-student-rg -n document-service \
+  --min-replicas 2 --max-replicas 2 \
+  --set-env-vars APP_LOG_LEVEL=INFO
+
+# generator-service: 5 réplicas fijas, todas corriendo
+# (los topics tienen 3 particiones: solo 3 réplicas consumen, las otras 2 quedan ociosas)
+az containerapp update -g dns-student-rg -n generator-service \
+  --min-replicas 5 --max-replicas 5 \
+  --set-env-vars APP_LOG_LEVEL=INFO SPRING_DATASOURCE_HIKARI_MAXIMUMPOOLSIZE=2
+
+# notification-service: 5 réplicas fijas, correo hacia Mailpit (el default de este escenario:
+# sin cuota, ideal para pruebas de carga — requiere Mailpit desplegado, sección siguiente)
+az containerapp update -g dns-student-rg -n notification-service \
+  --min-replicas 5 --max-replicas 5 \
+  --set-env-vars MAIL_PROVIDER=smtp MAIL_HOST=mailpit MAIL_PORT=1025 \
+    MAIL_SMTP_AUTH=false MAIL_SMTP_STARTTLS_ENABLE=false MAIL_SMTP_STARTTLS_REQUIRED=false \
+    MAIL_RATE_LIMIT_TOKENS=100 MAIL_RATE_LIMIT_REFILL_MS=1000 \
+    APP_LOG_LEVEL=INFO SPRING_DATASOURCE_HIKARI_MAXIMUMPOOLSIZE=2
+
+# Verificar que todas las réplicas levantaron:
+for s in document-service generator-service notification-service; do
+  az containerapp replica list -g dns-student-rg -n $s \
+    --query "[].{name:name, state:properties.runningState}" -o table
+done
+```
+
+> Para enviar correos reales, cambia el proveedor a ACS con los valores de `.env-cloud`
+> (`MAIL_PROVIDER=azure`, cuota 10/hora sobre dominio administrado — comando en el paso 6 de la
+> sección de Mailpit). Al terminar la prueba vuelve al modo ahorro con los comandos de
+> [Apagar todo](#apagar-todo-y-volver-a-la-bd-barata).
+
 #### Correo en pruebas de carga: Mailpit
 
 **Cuándo usarlo.** El proveedor por defecto es Azure Communication Services, y sobre un **Azure Managed

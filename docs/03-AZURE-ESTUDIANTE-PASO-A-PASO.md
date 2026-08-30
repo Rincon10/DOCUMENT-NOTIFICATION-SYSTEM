@@ -1356,6 +1356,94 @@ done
 - `--min-replicas ≥ 1` durante la prueba elimina el cold start (con 0, las primeras peticiones medirían el arranque del contenedor, no el rendimiento).
 - **Escalado vertical** (opcional): si una réplica se satura de CPU, sube el tamaño en vez de solo añadir réplicas: `az containerapp update -g dns-student-rg -n document-service --cpu 1.0 --memory 2.0Gi` (duplica el consumo de capa gratuita por réplica).
 
+#### Escenario aplicado: document 2 · generator 5 · notification 5
+
+Configuración usada en una prueba real, con las variables de [`.env-cloud`](../document-notification-system/.env-cloud). Como la BD sigue en `B1ms`, los servicios de 5 réplicas bajan su pool a **2** para respetar el presupuesto de conexiones: `2×3 (document) + 1×3 (customer) + 5×2 (generator) + 5×2 (notification) = 29 ≤ 45`.
+
+```bash
+# document-service: 2 réplicas fijas
+az containerapp update -g dns-student-rg -n document-service \
+  --min-replicas 2 --max-replicas 2 \
+  --set-env-vars APP_LOG_LEVEL=INFO
+
+# generator-service: 5 réplicas fijas, todas corriendo
+# (los topics tienen 3 particiones: solo 3 réplicas consumen, las otras 2 quedan ociosas)
+az containerapp update -g dns-student-rg -n generator-service \
+  --min-replicas 5 --max-replicas 5 \
+  --set-env-vars APP_LOG_LEVEL=INFO SPRING_DATASOURCE_HIKARI_MAXIMUMPOOLSIZE=2
+
+# notification-service: 5 réplicas fijas, correo hacia Mailpit (el default de este escenario:
+# sin cuota, ideal para pruebas de carga — requiere Mailpit desplegado, sección siguiente)
+az containerapp update -g dns-student-rg -n notification-service \
+  --min-replicas 5 --max-replicas 5 \
+  --set-env-vars MAIL_PROVIDER=smtp MAIL_HOST=mailpit MAIL_PORT=1025 \
+    MAIL_SMTP_AUTH=false MAIL_SMTP_STARTTLS_ENABLE=false MAIL_SMTP_STARTTLS_REQUIRED=false \
+    MAIL_RATE_LIMIT_TOKENS=100 MAIL_RATE_LIMIT_REFILL_MS=1000 \
+    APP_LOG_LEVEL=INFO SPRING_DATASOURCE_HIKARI_MAXIMUMPOOLSIZE=2
+
+# Verificar que todas las réplicas levantaron:
+for s in document-service generator-service notification-service; do
+  az containerapp replica list -g dns-student-rg -n $s \
+    --query "[].{name:name, state:properties.runningState}" -o table
+done
+```
+
+> Para enviar correos reales, cambia el proveedor a ACS con los valores de [`.env-cloud`](../document-notification-system/.env-cloud) (`MAIL_PROVIDER=azure`, cuota 10/hora sobre dominio administrado — el comando de vuelta está en el paso 6 de la sección de Mailpit). Y recuerda revertir al modo ahorro al terminar (`--min-replicas 0 --max-replicas 1`, comando de arriba).
+
+#### Cómo falla al escalar y cómo diagnosticarlo
+
+Los tres modos de fallo vistos en la práctica con este escenario, del más benigno al más grave:
+
+1. **Reinicios transitorios durante el rollout.** Al cambiar réplicas o variables, Container Apps crea una revisión nueva mientras la vieja retiene sus conexiones a la BD — la demanda de conexiones **se duplica** unos minutos y alguna réplica nueva puede reiniciar 1-2 veces hasta que la revisión vieja libera las suyas. Se recupera solo; si el `restartCount` sigue subiendo pasados ~5 min, es el caso 2 o 3.
+
+2. **Conexiones de BD agotadas** (`FATAL: too many connections`, o réplicas en crash loop tras escalar). La cuenta que debe cumplirse en `B1ms`: `Σ (réplicas × pool) ≤ 45`. Se corrige bajando `SPRING_DATASOURCE_HIKARI_MAXIMUMPOOLSIZE` (es lo que hace el escenario de arriba con pool 2), bajando réplicas, o subiendo la BD de tamaño (sección anterior).
+
+3. **Configuración faltante en la imagen** (crash loop permanente, `restartCount` en cientos). Caso real: `customer-service:1.0` se construyó **antes** de que su `application.yml` tuviera las secciones `kafka-config` y `kafka-producer-config`, y moría en cada arranque con `NullPointerException ... getBatchSize() is null` (396 reinicios acumulados). El diagnóstico siempre empieza por los logs:
+
+   ```bash
+   az containerapp logs show -g dns-student-rg -n customer-service --type console --tail 40
+   az containerapp replica list -g dns-student-rg -n customer-service \
+     --query "[].{replica:name, state:properties.runningState, restarts:properties.containers[0].restartCount}" -o table
+   ```
+
+   **Parche sin reconstruir la imagen** — como las clases de configuración son `@ConfigurationProperties`, Spring acepta los valores por variables de entorno (relaxed binding: mayúsculas, sin guiones, `_` entre prefijo y propiedad). Comando ejecutado:
+
+   ```bash
+   az containerapp update -g dns-student-rg -n customer-service --set-env-vars \
+     KAFKACONFIG_BOOTSTRAPSERVERS='pkc-56d1g.eastus.azure.confluent.cloud:9092' \
+     KAFKACONFIG_SCHEMAREGISTRYURLKEY='schema.registry.url' \
+     KAFKACONFIG_SCHEMAREGISTRYURL='https://psrc-zj7wewy.eastus.azure.confluent.cloud' \
+     KAFKACONFIG_NUMOFPARTITIONS=3 KAFKACONFIG_REPLICATIONFACTOR=3 \
+     KAFKACONFIG_SECURITYPROTOCOL=SASL_SSL KAFKACONFIG_SASLMECHANISM=PLAIN \
+     KAFKACONFIG_SASLJAASCONFIG=secretref:kafkajaas \
+     KAFKACONFIG_SCHEMAREGISTRYBASICAUTHCREDENTIALSSOURCE=USER_INFO \
+     KAFKACONFIG_SCHEMAREGISTRYBASICAUTHUSERINFO=secretref:srauth \
+     KAFKAPRODUCERCONFIG_KEYSERIALIZERCLASS='org.apache.kafka.common.serialization.StringSerializer' \
+     KAFKAPRODUCERCONFIG_VALUESERIALIZERCLASS='io.confluent.kafka.serializers.KafkaAvroSerializer' \
+     KAFKAPRODUCERCONFIG_COMPRESSIONTYPE=none KAFKAPRODUCERCONFIG_ACKS=all \
+     KAFKAPRODUCERCONFIG_BATCHSIZE=16384 KAFKAPRODUCERCONFIG_BATCHSIZEBOOSTFACTOR=100 \
+     KAFKAPRODUCERCONFIG_LINGERMS=5 KAFKAPRODUCERCONFIG_REQUESTTIMEOUTMS=60000 \
+     KAFKAPRODUCERCONFIG_RETRYCOUNT=5
+   ```
+
+   **Fix definitivo**: reconstruir y publicar `customer-service:1.1` con el código actual (paso 4 de esta guía) y actualizar la app con `az containerapp update --image dnsstudentacr.azurecr.io/customer-service:1.1`; después se pueden retirar estas variables (`--remove-env-vars`).
+
+#### Escalar a más réplicas
+
+Para ir más allá del escenario 2/5/5, en este orden:
+
+1. **Consumidores (`generator`, `notification`) por encima de 3 réplicas útiles**: primero subir las particiones de los topics en Confluent (nunca se pueden reducir después) — sin eso, las réplicas extra quedan ociosas.
+2. **Presupuesto de BD**: recalcular `Σ (réplicas × pool) ≤ 45` en `B1ms`; si no alcanza, subir la BD (`Standard_D2s_v3`, sección anterior — recordar volver a `B1ms` al terminar) o bajar los pools.
+3. **Fijar las réplicas** (mismo patrón de comandos del escenario):
+
+   ```bash
+   az containerapp update -g dns-student-rg -n <servicio> \
+     --min-replicas <N> --max-replicas <N> \
+     --set-env-vars SPRING_DATASOURCE_HIKARI_MAXIMUMPOOLSIZE=<pool>
+   ```
+
+4. **Verificar** con `az containerapp replica list` que todas queden en `Running` con `restarts` estable en 0.
+
 ### Escalado AUTOMÁTICO: reglas KEDA
 
 Container Apps trae [KEDA](https://keda.sh) integrado: defines una regla y Azure crea/destruye réplicas solo, entre `min-replicas` y `max-replicas`.
