@@ -1314,7 +1314,15 @@ La configuración base de esta guía (max 1 réplica, BD B1ms) está pensada par
 
 ### La regla de oro de los consumidores Kafka
 
-Los topics tienen **3 particiones**, así que **máximo 3 réplicas útiles** por consumidor (`generator-service`, `notification-service`): Kafka reparte las particiones entre las réplicas del mismo consumer group y las réplicas de más quedan ociosas. El patrón outbox con locking optimista ya tolera múltiples instancias — no hay que tocar código.
+El máximo de **réplicas útiles** por consumidor (`generator-service`, `notification-service`) es igual al **número de particiones** del topic: Kafka reparte las particiones entre las réplicas del mismo consumer group y las réplicas de más quedan ociosas. El patrón outbox con locking optimista ya tolera múltiples instancias — no hay que tocar código.
+
+Los topics nacieron con **3 particiones**; el **2026-08-31 se ampliaron a 6** en Confluent para la prueba de 9000 peticiones, así que hoy el tope útil es **6 réplicas** por consumidor. Al ampliar particiones ten presente:
+
+- **Es irreversible** — las particiones nunca se pueden reducir (habría que borrar y recrear el topic).
+- Los consumer groups **rebalancean** al instante (pausa breve; puede re-entregar mensajes sin offset commiteado, que la idempotencia del outbox rechaza con `23505` — ruido esperado).
+- El **orden por clave se rompe en la transición**: el productor enruta por `hash(key) % particiones`, así que mensajes con la misma clave producidos antes y después del cambio pueden caer en particiones distintas.
+- Los mensajes ya encolados **no se redistribuyen** — quedan en las particiones originales.
+- La config de la app queda **desalineada**: los `application.yml` (y el parche de env vars de `customer-service`) declaran `num-of-partitions: 3`. No rompe nada (el `KafkaAdmin` de Spring nunca reduce particiones existentes), pero si un topic se recreara nacería con 3 — conviene alinear a 6.
 
 ```mermaid
 flowchart LR
@@ -1333,7 +1341,7 @@ flowchart LR
     P2 --> R3
 ```
 
-> ¿Necesitas más de 3 consumidores? Primero habría que aumentar las particiones en Confluent (nunca se pueden reducir después). Con este stack (0.5 vCPU, BD B1ms) es casi seguro que el cuello de botella esté en otra parte — agota primero la BD y las réplicas HTTP.
+> ¿Necesitas más de 6 consumidores? Habría que volver a aumentar las particiones en Confluent (recuerda: nunca se pueden reducir después). Con este stack (0.5 vCPU por réplica) es casi seguro que el cuello de botella esté en otra parte — agota primero la BD y las réplicas HTTP.
 
 ### Escalado MANUAL: fijar réplicas
 
@@ -1390,15 +1398,62 @@ done
 
 > Para enviar correos reales, cambia el proveedor a ACS con los valores de [`.env-cloud`](../document-notification-system/.env-cloud) (`MAIL_PROVIDER=azure`, cuota 10/hora sobre dominio administrado — el comando de vuelta está en el paso 6 de la sección de Mailpit). Y recuerda revertir al modo ahorro al terminar (`--min-replicas 0 --max-replicas 1`, comando de arriba).
 
+#### Escenario aplicado (9000 peticiones): document 3 · generator 6 · notification 6
+
+Evolución del escenario anterior, usada el 2026-08-31 para una prueba de 9000 peticiones. Cambios de infraestructura previos: **topics ampliados a 6 particiones** en Confluent (regla de oro de arriba) y **BD subida a `Standard_B4ms`** (4 vCPU, 16 GB) con `max_connections` en su default de SKU (**1718**) — con ese techo, las conexiones dejan de ser el límite y los pools pueden volver a 5:
+
+```bash
+# BD: alinear max_connections al default del SKU (parámetro estático: exige reiniciar)
+az postgres flexible-server parameter set -g dns-student-rg --server-name dns-student-pg \
+  --name max_connections --value 1718
+az postgres flexible-server restart -g dns-student-rg -n dns-student-pg
+
+# document-service: 3 réplicas (entrada HTTP de la prueba)
+az containerapp update -g dns-student-rg -n document-service \
+  --min-replicas 3 --max-replicas 3 \
+  --set-env-vars APP_LOG_LEVEL=WARN SPRING_DATASOURCE_HIKARI_MAXIMUMPOOLSIZE=5 \
+    OUTBOX_SCHEDULER_FIXED_RATE=30000 \
+    KAFKAPRODUCERCONFIG_BATCHSIZEBOOSTFACTOR=1 KAFKAPRODUCERCONFIG_COMPRESSIONTYPE=lz4
+
+# generator y notification: 6 réplicas fijas (= 6 particiones, todas consumen)
+for s in generator-service notification-service; do
+  az containerapp update -g dns-student-rg -n $s \
+    --min-replicas 6 --max-replicas 6 \
+    --set-env-vars APP_LOG_LEVEL=WARN SPRING_DATASOURCE_HIKARI_MAXIMUMPOOLSIZE=5 \
+      OUTBOX_SCHEDULER_FIXED_RATE=30000 \
+      KAFKAPRODUCERCONFIG_BATCHSIZEBOOSTFACTOR=1 KAFKAPRODUCERCONFIG_COMPRESSIONTYPE=lz4
+done
+
+# customer-service también produce a Kafka: mismo tuning de producer
+az containerapp update -g dns-student-rg -n customer-service --set-env-vars \
+  KAFKAPRODUCERCONFIG_BATCHSIZEBOOSTFACTOR=1 KAFKAPRODUCERCONFIG_COMPRESSIONTYPE=lz4
+```
+
+Presupuesto de conexiones: `3×5 (document) + 1×3 (customer) + 6×5 (generator) + 6×5 (notification) = 78 ≤ 1713`. Las tres env vars de tuning existen porque los defaults horneados fallan bajo carga — el porqué está en los modos de fallo 5 y 6 de la sección siguiente.
+
+> ⚠️ Al terminar: además del checklist de réplicas, **devolver la BD a `B1ms`** (fuera de Burstable pequeño se cobra en serio) y, si se bajó de SKU, recordar que `max_connections=1718` no cabe en B1ms — volver a ponerlo en 50 o resetearlo antes de bajar.
+
 #### Cómo falla al escalar y cómo diagnosticarlo
 
-Los tres modos de fallo vistos en la práctica con este escenario, del más benigno al más grave:
+Los cuatro modos de fallo vistos en la práctica con este escenario, del más benigno al más grave:
 
 1. **Reinicios transitorios durante el rollout.** Al cambiar réplicas o variables, Container Apps crea una revisión nueva mientras la vieja retiene sus conexiones a la BD — la demanda de conexiones **se duplica** unos minutos y alguna réplica nueva puede reiniciar 1-2 veces hasta que la revisión vieja libera las suyas. Se recupera solo; si el `restartCount` sigue subiendo pasados ~5 min, es el caso 2 o 3.
 
-2. **Conexiones de BD agotadas** (`FATAL: too many connections`, o réplicas en crash loop tras escalar). La cuenta que debe cumplirse en `B1ms`: `Σ (réplicas × pool) ≤ 45`. Se corrige bajando `SPRING_DATASOURCE_HIKARI_MAXIMUMPOOLSIZE` (es lo que hace el escenario de arriba con pool 2), bajando réplicas, o subiendo la BD de tamaño (sección anterior).
+2. **Conexiones de BD agotadas** (`FATAL: too many connections` / `remaining connection slots are reserved`, y en los servicios `Unable to determine Dialect without JDBC metadata` — Hibernate no logró abrir la conexión). La cuenta que debe cumplirse en `B1ms`: `Σ (réplicas × pool) ≤ 45`. Se corrige bajando `SPRING_DATASOURCE_HIKARI_MAXIMUMPOOLSIZE` (es lo que hace el escenario de arriba con pool 2), bajando réplicas, o subiendo la BD de tamaño (sección anterior).
 
-3. **Configuración faltante en la imagen** (crash loop permanente, `restartCount` en cientos). Caso real: `customer-service:1.0` se construyó **antes** de que su `application.yml` tuviera las secciones `kafka-config` y `kafka-producer-config`, y moría en cada arranque con `NullPointerException ... getBatchSize() is null` (396 reinicios acumulados). El diagnóstico siempre empieza por los logs:
+3. **Revisiones zombis reteniendo conexiones.** Caso real: en modo multi-revisión, las revisiones viejas quedan **activas con sus réplicas** aunque reciban 0% del tráfico — cada una conserva su pool completo contra la BD. Tras varios `az containerapp update` seguidos, una revisión vieja de `notification-service` (5 réplicas) y otra de `customer-service` seguían vivas y la BD llegó a las 50 conexiones, tumbando réplicas nuevas con el error del punto 2. Diagnóstico y arreglo (comandos ejecutados):
+
+   ```bash
+   # Detectar: revisiones activas con réplicas y 0% de tráfico
+   az containerapp revision list -g dns-student-rg -n notification-service \
+     --query "[?properties.active].{revision:name, replicas:properties.replicas, traffic:properties.trafficWeight}" -o table
+
+   # Arreglar: desactivar la revisión vieja (libera sus conexiones al instante)
+   az containerapp revision deactivate -g dns-student-rg -n notification-service \
+     --revision <revision-vieja>
+   ```
+
+4. **Configuración faltante en la imagen** (crash loop permanente, `restartCount` en cientos). Caso real: `customer-service:1.0` se construyó **antes** de que su `application.yml` tuviera las secciones `kafka-config` y `kafka-producer-config`, y moría en cada arranque con `NullPointerException ... getBatchSize() is null` (396 reinicios acumulados). El diagnóstico siempre empieza por los logs:
 
    ```bash
    az containerapp logs show -g dns-student-rg -n customer-service --type console --tail 40
@@ -1428,11 +1483,20 @@ Los tres modos de fallo vistos en la práctica con este escenario, del más beni
 
    **Fix definitivo**: reconstruir y publicar `customer-service:1.1` con el código actual (paso 4 de esta guía) y actualizar la app con `az containerapp update --image dnsstudentacr.azurecr.io/customer-service:1.1`; después se pueden retirar estas variables (`--remove-env-vars`).
 
+5. **Tormenta del producer: `BufferExhaustedException` + duplicados masivos** (caso real de la prueba de 9000). Dos defaults horneados en los `application.yml` se retroalimentan bajo carga:
+
+   - `batch-size-boost-factor: 100` infla el batch del producer a `16384 × 100 = 1.6 MB` **por partición**, contra un `buffer.memory` de 32 MB (default de Kafka, **no configurable** en esta app — `KafkaProducerConfigData` no expone la propiedad). Caben ~20 batches y el buffer se agota: `BufferExhaustedException: Failed to allocate ... within the configured max blocking time 60000 ms`, con cada envío bloqueando 60 s.
+   - El scheduler del outbox (`OUTBOX_SCHEDULER_FIXED_RATE`, default 10 s) relee **todas** las filas `STARTED` en cada tick — sin límite de batch ni marca de "en vuelo" — y las re-encola completas. Si los acks tardan más que el tick (red lenta, buffer lleno), cada mensaje se reenvía varias veces antes de marcarse `COMPLETED`: el buffer se llena de duplicados, los servicios downstream se inundan de `23505` (la idempotencia rechazándolos) y el pipeline avanza a cuentagotas mientras se retroalimenta.
+
+   **Mitigación sin código** (la del escenario 3/6/6): `KAFKAPRODUCERCONFIG_BATCHSIZEBOOSTFACTOR=1`, `KAFKAPRODUCERCONFIG_COMPRESSIONTYPE=lz4` y `OUTBOX_SCHEDULER_FIXED_RATE=30000`. **Fix real (código)**: límite de batch por tick en los `OutboxScheduler` y un estado intermedio (`PROCESSING`) para no reenviar lo pendiente de ack; idealmente exponer `buffer.memory` en `KafkaProducerConfigData`.
+
+6. **Timeouts de conexión a brokers específicos de Confluent** (`Disconnecting from node N due to socket connection setup timeout`, y al superar los 120 s `TimeoutException: Expiring N record(s) for <topic>-<partición>`). Los brokers están sanos (un `Test-NetConnection bN-pkc-....confluent.cloud -Port 9092` desde fuera responde) — el problema es el camino de salida del entorno de Container Apps: throttling de intentos de conexión de Confluent o presión SNAT, típicamente tras varios rolling restarts seguidos (cada uno reconecta *todos* los clientes Kafka de golpe). Como el particionado es por clave, los mensajes de las particiones cuyo líder está en el broker inalcanzable quedan atascados (el outbox los reintenta; no se pierden). Mitigación: dejar de generar rollouts en cadena, esperar a que el backoff se enfríe y, si persiste, `az containerapp revision restart` del servicio afectado para forzar conexiones TCP nuevas.
+
 #### Escalar a más réplicas
 
-Para ir más allá del escenario 2/5/5, en este orden:
+Para ir más allá del escenario 3/6/6, en este orden:
 
-1. **Consumidores (`generator`, `notification`) por encima de 3 réplicas útiles**: primero subir las particiones de los topics en Confluent (nunca se pueden reducir después) — sin eso, las réplicas extra quedan ociosas.
+1. **Consumidores (`generator`, `notification`) por encima de las réplicas útiles** (= particiones actuales, hoy **6**): primero subir las particiones de los topics en Confluent (nunca se pueden reducir después) — sin eso, las réplicas extra quedan ociosas.
 2. **Presupuesto de BD**: recalcular `Σ (réplicas × pool) ≤ 45` en `B1ms`; si no alcanza, subir la BD (`Standard_D2s_v3`, sección anterior — recordar volver a `B1ms` al terminar) o bajar los pools.
 3. **Fijar las réplicas** (mismo patrón de comandos del escenario):
 

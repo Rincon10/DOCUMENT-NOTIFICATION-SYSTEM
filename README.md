@@ -406,6 +406,22 @@ done
 > sección de Mailpit). Al terminar la prueba vuelve al modo ahorro con los comandos de
 > [Apagar todo](#apagar-todo-y-volver-a-la-bd-barata).
 
+**Cómo falla al escalar.** Los cuatro modos de fallo vistos en la práctica, con su síntoma:
+
+| Modo de fallo | Síntoma | Arreglo |
+|---|---|---|
+| Rollout transitorio | 1-2 reinicios que se estabilizan en ~5 min | Ninguno — se recupera solo |
+| Conexiones BD agotadas | `remaining connection slots are reserved` / `Unable to determine Dialect without JDBC metadata` | Bajar `SPRING_DATASOURCE_HIKARI_MAXIMUMPOOLSIZE`, bajar réplicas o subir la BD (`Σ réplicas × pool ≤ 45` en B1ms) |
+| Revisiones zombis | Revisiones viejas activas con réplicas y 0% de tráfico reteniendo su pool contra la BD | `az containerapp revision deactivate --revision <vieja>` |
+| Config faltante en la imagen | Crash loop permanente (`restartCount` en cientos), NPE en beans de configuración | Parche por env vars (relaxed binding) o reconstruir la imagen |
+
+El diagnóstico siempre empieza igual: `az containerapp replica list` (estados y reinicios) y
+`az containerapp logs show --type console` (la excepción real). Para **escalar a más réplicas** que
+el escenario 2/5/5: consumidores >3 requieren más particiones en Confluent primero; recalcular el
+presupuesto de conexiones o subir la BD; y verificar con `replica list` que todo quede en `Running`
+con reinicios estables. Los comandos completos de cada caso están en la
+[guía de Azure](docs/03-AZURE-ESTUDIANTE-PASO-A-PASO.md#cómo-falla-al-escalar-y-cómo-diagnosticarlo).
+
 #### Correo en pruebas de carga: Mailpit
 
 **Cuándo usarlo.** El proveedor por defecto es Azure Communication Services, y sobre un **Azure Managed
