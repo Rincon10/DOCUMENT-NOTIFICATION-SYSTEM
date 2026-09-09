@@ -356,7 +356,7 @@ az postgres flexible-server create \
   --name dns-student-pg \
   --location centralus \
   --admin-user dnsadmin \
-  --admin-password '<INVENTA-UNA-CONTRASEÑA-FUERTE>' \
+  --admin-password '<CONTRASEÑA>' \   # el mismo valor que pondrás en POSTGRES_PASSWORD de .env-cloud
   --sku-name Standard_B1ms --tier Burstable \
   --storage-size 32 \
   --version 15 \
@@ -686,7 +686,7 @@ az containerapp logs show -g dns-student-rg -n notification-service --follow
 
 ### 7.5 Cargar `.env-cloud` en la terminal y desplegar sin copiar/pegar
 
-Con la plantilla llena, en vez de pegar cada valor a mano dentro del `az containerapp create` del paso 8, puedes **cargar el archivo como variables de entorno de tu terminal** y que los comandos las referencien. Así el comando largo queda genérico y reutilizable, y las credenciales viven en un solo sitio.
+Con la plantilla llena, en vez de pegar las credenciales a mano dentro del `az containerapp create` del paso 8, puedes **cargar el archivo como variables de entorno de tu terminal** y que los comandos las referencien. Los valores no sensibles (nombres de recursos, hosts, URLs, remitente) van escritos tal cual en los comandos de esta guía; los 4 secretos (`POSTGRES_PASSWORD`, `KAFKA_SASL_JAAS_CONFIG`, `SCHEMA_REGISTRY_AUTH_USER_INFO`, `ACS_CONNECTION_STRING`) se leen de la variable cargada, así que las credenciales viven en un solo sitio.
 
 > **Regla de formato al llenar la plantilla:** los valores que contienen `;`, espacios o `#` — la connection string de ACS y la cadena JAAS de Kafka — deben ir **entre comillas simples** en el archivo, ej. `ACS_CONNECTION_STRING='endpoint=https://...;accesskey=...'`. Sin comillas, el `;` rompe la carga en Bash.
 
@@ -724,15 +724,15 @@ $env:MAIL_FROM
 $env:ACS_CONNECTION_STRING.Substring(0,30) + "..."
 ```
 
-**Y el despliegue de `notification-service` del paso 8 queda así** (Bash — cada valor sale de la variable cargada; fíjate que el secreto entra por `--secrets` con el *valor* y la env var solo lleva la *referencia* `secretref:`):
+**Y el despliegue de `notification-service` del paso 8 queda así** (Bash — los valores son los de `.env-cloud`; fíjate que cada secreto entra por `--secrets` con el *valor* de la variable cargada y la env var solo lleva la *referencia* `secretref:`):
 
 ```bash
 az containerapp create \
-  --resource-group "$RESOURCE_GROUP" \
+  --resource-group dns-student-rg \
   --name notification-service \
-  --environment "$CONTAINERAPPS_ENV" \
-  --image "$ACR_NAME.azurecr.io/notification-service:1.0" \
-  --registry-server "$ACR_NAME.azurecr.io" \
+  --environment dns-student-env \
+  --image dnsstudentacr.azurecr.io/notification-service:1.0 \
+  --registry-server dnsstudentacr.azurecr.io \
   --cpu 0.5 --memory 1.0Gi \
   --target-port 8183 --ingress internal \
   --min-replicas 0 --max-replicas 1 \
@@ -741,21 +741,21 @@ az containerapp create \
             srauth="$SCHEMA_REGISTRY_AUTH_USER_INFO" \
             acsconn="$ACS_CONNECTION_STRING" \
   --env-vars \
-    DB_HOST="$DB_HOST" DB_PORT="$DB_PORT" DB_NAME="$DB_NAME" \
-    "DB_EXTRA_PARAMS=$DB_EXTRA_PARAMS" \
-    POSTGRES_USER="$POSTGRES_USER" POSTGRES_PASSWORD=secretref:pgpass \
+    DB_HOST=dns-student-pg.postgres.database.azure.com DB_PORT=5432 DB_NAME=postgres \
+    'DB_EXTRA_PARAMS=&sslmode=require' \
+    POSTGRES_USER=dnsadmin POSTGRES_PASSWORD=secretref:pgpass \
     SQL_INIT_MODE=never \
-    KAFKA_BOOTSTRAP_SERVERS="$KAFKA_BOOTSTRAP_SERVERS" \
-    KAFKA_SECURITY_PROTOCOL="$KAFKA_SECURITY_PROTOCOL" \
-    KAFKA_SASL_MECHANISM="$KAFKA_SASL_MECHANISM" \
+    KAFKA_BOOTSTRAP_SERVERS=pkc-56d1g.eastus.azure.confluent.cloud:9092 \
+    KAFKA_SECURITY_PROTOCOL=SASL_SSL \
+    KAFKA_SASL_MECHANISM=PLAIN \
     KAFKA_SASL_JAAS_CONFIG=secretref:kafkajaas \
-    SCHEMA_REGISTRY_URL="$SCHEMA_REGISTRY_URL" \
+    SCHEMA_REGISTRY_URL=https://psrc-zj7wewy.eastus.azure.confluent.cloud \
     SCHEMA_REGISTRY_AUTH_USER_INFO=secretref:srauth \
     ACS_CONNECTION_STRING=secretref:acsconn \
-    MAIL_FROM="$MAIL_FROM" \
-    MAIL_RATE_LIMIT_TOKENS="$MAIL_RATE_LIMIT_TOKENS" \
-    MAIL_RATE_LIMIT_REFILL_MS="$MAIL_RATE_LIMIT_REFILL_MS" \
-    APP_LOG_LEVEL="$APP_LOG_LEVEL"
+    MAIL_FROM=donotreply@9d0daf71-78e9-4ee0-b251-5e2929db499e.azurecomm.net \
+    MAIL_RATE_LIMIT_TOKENS=20 \
+    MAIL_RATE_LIMIT_REFILL_MS=1000 \
+    APP_LOG_LEVEL=INFO
 ```
 
 Para los otros 3 servicios usa el mismo patrón quitando el bloque de correo (`acsconn`, `ACS_CONNECTION_STRING`, `MAIL_FROM`, `MAIL_RATE_LIMIT_*`) y cambiando puerto/ingress según la tabla del paso 8.
@@ -897,14 +897,12 @@ az provider show -n Microsoft.OperationalInsights --query registrationState -o t
 
 ![az provider register Microsoft.OperationalInsights — Registering y luego Registered](images/azure-deploy/27-provider-operationalinsights.png)
 
-> 📋 **Todos los comandos de este paso usan las variables de `.env-cloud`.** Antes de ejecutarlos, llena la plantilla y cárgala en tu terminal como se explica en la [sección 7.5](#75-cargar-env-cloud-en-la-terminal-y-desplegar-sin-copiarpegar) (`set -a; source .env-cloud; set +a` en Bash). Están escritos en sintaxis **Bash** (Git Bash / WSL); si prefieres PowerShell, carga el archivo con el snippet de la 7.5 y sustituye cada `$VARIABLE` por `$env:VARIABLE` y las continuaciones `\` por `` ` ``.
+> 📋 **Los comandos de este paso llevan escritos los valores de `.env-cloud`** (resource group, ACR, host de la BD, bootstrap de Confluent, Schema Registry, remitente de ACS). Lo único que se lee de tu terminal son los **4 secretos** (`$POSTGRES_PASSWORD`, `$KAFKA_SASL_JAAS_CONFIG`, `$SCHEMA_REGISTRY_AUTH_USER_INFO`, `$ACS_CONNECTION_STRING`): antes de ejecutarlos carga la plantilla como se explica en la [sección 7.5](#75-cargar-env-cloud-en-la-terminal-y-desplegar-sin-copiarpegar) (`set -a; source .env-cloud; set +a` en Bash). Si tus recursos tienen otros nombres, cámbialos en el comando y en `.env-cloud` a la vez. Están escritos en sintaxis **Bash** (Git Bash / WSL); si prefieres PowerShell, carga el archivo con el snippet de la 7.5 y sustituye cada `$VARIABLE` por `$env:VARIABLE` y las continuaciones `\` por `` ` ``.
 
 Ahora sí, el **environment** (la red privada compartida donde vivirán las 4 apps — gratis, solo pagas por los contenedores):
 
 ```bash
-# Con los valores de esta guía equivale a:
-#   az containerapp env create -g dns-student-rg -n dns-student-env --location eastus
-az containerapp env create --resource-group "$RESOURCE_GROUP" --name "$CONTAINERAPPS_ENV" --location "$LOCATION"
+az containerapp env create --resource-group dns-student-rg --name dns-student-env --location eastus
 ```
 
 En la salida verás *"No Log Analytics workspace provided. Generating a Log Analytics workspace..."* (normal: al no pasarle uno, lo crea por ti) y al final el mensaje de éxito **"Container Apps environment created"**:
@@ -919,11 +917,11 @@ Cada servicio se despliega con `az containerapp create`. El comando es largo por
 
 ```bash
 az containerapp create \
-  --resource-group "$RESOURCE_GROUP" \
+  --resource-group dns-student-rg \
   --name customer-service \
-  --environment "$CONTAINERAPPS_ENV" \
-  --image "$ACR_NAME.azurecr.io/customer-service:1.0" \
-  --registry-server "$ACR_NAME.azurecr.io" \
+  --environment dns-student-env \
+  --image dnsstudentacr.azurecr.io/customer-service:1.0 \
+  --registry-server dnsstudentacr.azurecr.io \
   --cpu 0.5 --memory 1.0Gi \
   --target-port 8184 --ingress external \
   --min-replicas 0 --max-replicas 1 \
@@ -931,17 +929,17 @@ az containerapp create \
             kafkajaas="$KAFKA_SASL_JAAS_CONFIG" \
             srauth="$SCHEMA_REGISTRY_AUTH_USER_INFO" \
   --env-vars \
-    DB_HOST="$DB_HOST" DB_PORT="$DB_PORT" DB_NAME="$DB_NAME" \
-    "DB_EXTRA_PARAMS=$DB_EXTRA_PARAMS" \
-    POSTGRES_USER="$POSTGRES_USER" POSTGRES_PASSWORD=secretref:pgpass \
+    DB_HOST=dns-student-pg.postgres.database.azure.com DB_PORT=5432 DB_NAME=postgres \
+    'DB_EXTRA_PARAMS=&sslmode=require' \
+    POSTGRES_USER=dnsadmin POSTGRES_PASSWORD=secretref:pgpass \
     SQL_INIT_MODE=never \
-    KAFKA_BOOTSTRAP_SERVERS="$KAFKA_BOOTSTRAP_SERVERS" \
-    KAFKA_SECURITY_PROTOCOL="$KAFKA_SECURITY_PROTOCOL" \
-    KAFKA_SASL_MECHANISM="$KAFKA_SASL_MECHANISM" \
+    KAFKA_BOOTSTRAP_SERVERS=pkc-56d1g.eastus.azure.confluent.cloud:9092 \
+    KAFKA_SECURITY_PROTOCOL=SASL_SSL \
+    KAFKA_SASL_MECHANISM=PLAIN \
     KAFKA_SASL_JAAS_CONFIG=secretref:kafkajaas \
-    SCHEMA_REGISTRY_URL="$SCHEMA_REGISTRY_URL" \
+    SCHEMA_REGISTRY_URL=https://psrc-zj7wewy.eastus.azure.confluent.cloud \
     SCHEMA_REGISTRY_AUTH_USER_INFO=secretref:srauth \
-    APP_LOG_LEVEL="$APP_LOG_LEVEL"
+    APP_LOG_LEVEL=INFO
 ```
 
 > `SQL_INIT_MODE=never` coincide con el valor de `.env-cloud` y con el default de la aplicación, así que no hay override ni paso posterior que recordar.
@@ -969,17 +967,17 @@ Durante la creación verás *"No credential was provided to access Azure Contain
 | `generator-service` | 8182 | `internal` | — |
 | `notification-service` | 8183 | `internal` | Variables de correo del paso 7: secreto `acsconn` + `ACS_CONNECTION_STRING`, `MAIL_FROM` y rate limiter |
 
-Y aquí están los **comandos completos de los 3 restantes** — con `.env-cloud` cargado en la terminal se ejecutan **tal cual, sin editar nada**:
+Y aquí están los **comandos completos de los 3 restantes** — con los secretos de `.env-cloud` cargados en la terminal se ejecutan **tal cual, sin editar nada**:
 
 **`document-service`** (el API principal — puerto 8181, con URL pública):
 
 ```bash
 az containerapp create \
-  --resource-group "$RESOURCE_GROUP" \
+  --resource-group dns-student-rg \
   --name document-service \
-  --environment "$CONTAINERAPPS_ENV" \
-  --image "$ACR_NAME.azurecr.io/document-service:1.0" \
-  --registry-server "$ACR_NAME.azurecr.io" \
+  --environment dns-student-env \
+  --image dnsstudentacr.azurecr.io/document-service:1.0 \
+  --registry-server dnsstudentacr.azurecr.io \
   --cpu 0.5 --memory 1.0Gi \
   --target-port 8181 --ingress external \
   --min-replicas 0 --max-replicas 1 \
@@ -987,17 +985,17 @@ az containerapp create \
             kafkajaas="$KAFKA_SASL_JAAS_CONFIG" \
             srauth="$SCHEMA_REGISTRY_AUTH_USER_INFO" \
   --env-vars \
-    DB_HOST="$DB_HOST" DB_PORT="$DB_PORT" DB_NAME="$DB_NAME" \
-    "DB_EXTRA_PARAMS=$DB_EXTRA_PARAMS" \
-    POSTGRES_USER="$POSTGRES_USER" POSTGRES_PASSWORD=secretref:pgpass \
-    SQL_INIT_MODE="$SQL_INIT_MODE" \
-    KAFKA_BOOTSTRAP_SERVERS="$KAFKA_BOOTSTRAP_SERVERS" \
-    KAFKA_SECURITY_PROTOCOL="$KAFKA_SECURITY_PROTOCOL" \
-    KAFKA_SASL_MECHANISM="$KAFKA_SASL_MECHANISM" \
+    DB_HOST=dns-student-pg.postgres.database.azure.com DB_PORT=5432 DB_NAME=postgres \
+    'DB_EXTRA_PARAMS=&sslmode=require' \
+    POSTGRES_USER=dnsadmin POSTGRES_PASSWORD=secretref:pgpass \
+    SQL_INIT_MODE=never \
+    KAFKA_BOOTSTRAP_SERVERS=pkc-56d1g.eastus.azure.confluent.cloud:9092 \
+    KAFKA_SECURITY_PROTOCOL=SASL_SSL \
+    KAFKA_SASL_MECHANISM=PLAIN \
     KAFKA_SASL_JAAS_CONFIG=secretref:kafkajaas \
-    SCHEMA_REGISTRY_URL="$SCHEMA_REGISTRY_URL" \
+    SCHEMA_REGISTRY_URL=https://psrc-zj7wewy.eastus.azure.confluent.cloud \
     SCHEMA_REGISTRY_AUTH_USER_INFO=secretref:srauth \
-    APP_LOG_LEVEL="$APP_LOG_LEVEL"
+    APP_LOG_LEVEL=INFO
 ```
 
 ![az containerapp create document-service — creado con su URL pública](images/azure-deploy/32-containerapp-create-document.png)
@@ -1006,11 +1004,11 @@ az containerapp create \
 
 ```bash
 az containerapp create \
-  --resource-group "$RESOURCE_GROUP" \
+  --resource-group dns-student-rg \
   --name generator-service \
-  --environment "$CONTAINERAPPS_ENV" \
-  --image "$ACR_NAME.azurecr.io/generator-service:1.0" \
-  --registry-server "$ACR_NAME.azurecr.io" \
+  --environment dns-student-env \
+  --image dnsstudentacr.azurecr.io/generator-service:1.0 \
+  --registry-server dnsstudentacr.azurecr.io \
   --cpu 0.5 --memory 1.0Gi \
   --target-port 8182 --ingress internal \
   --min-replicas 0 --max-replicas 1 \
@@ -1018,17 +1016,17 @@ az containerapp create \
             kafkajaas="$KAFKA_SASL_JAAS_CONFIG" \
             srauth="$SCHEMA_REGISTRY_AUTH_USER_INFO" \
   --env-vars \
-    DB_HOST="$DB_HOST" DB_PORT="$DB_PORT" DB_NAME="$DB_NAME" \
-    "DB_EXTRA_PARAMS=$DB_EXTRA_PARAMS" \
-    POSTGRES_USER="$POSTGRES_USER" POSTGRES_PASSWORD=secretref:pgpass \
-    SQL_INIT_MODE="$SQL_INIT_MODE" \
-    KAFKA_BOOTSTRAP_SERVERS="$KAFKA_BOOTSTRAP_SERVERS" \
-    KAFKA_SECURITY_PROTOCOL="$KAFKA_SECURITY_PROTOCOL" \
-    KAFKA_SASL_MECHANISM="$KAFKA_SASL_MECHANISM" \
+    DB_HOST=dns-student-pg.postgres.database.azure.com DB_PORT=5432 DB_NAME=postgres \
+    'DB_EXTRA_PARAMS=&sslmode=require' \
+    POSTGRES_USER=dnsadmin POSTGRES_PASSWORD=secretref:pgpass \
+    SQL_INIT_MODE=never \
+    KAFKA_BOOTSTRAP_SERVERS=pkc-56d1g.eastus.azure.confluent.cloud:9092 \
+    KAFKA_SECURITY_PROTOCOL=SASL_SSL \
+    KAFKA_SASL_MECHANISM=PLAIN \
     KAFKA_SASL_JAAS_CONFIG=secretref:kafkajaas \
-    SCHEMA_REGISTRY_URL="$SCHEMA_REGISTRY_URL" \
+    SCHEMA_REGISTRY_URL=https://psrc-zj7wewy.eastus.azure.confluent.cloud \
     SCHEMA_REGISTRY_AUTH_USER_INFO=secretref:srauth \
-    APP_LOG_LEVEL="$APP_LOG_LEVEL"
+    APP_LOG_LEVEL=INFO
 ```
 
 ![az containerapp create generator-service — en ejecución](images/azure-deploy/33-containerapp-create-generator.png)
@@ -1037,11 +1035,11 @@ az containerapp create \
 
 ```bash
 az containerapp create \
-  --resource-group "$RESOURCE_GROUP" \
+  --resource-group dns-student-rg \
   --name notification-service \
-  --environment "$CONTAINERAPPS_ENV" \
-  --image "$ACR_NAME.azurecr.io/notification-service:1.0" \
-  --registry-server "$ACR_NAME.azurecr.io" \
+  --environment dns-student-env \
+  --image dnsstudentacr.azurecr.io/notification-service:1.0 \
+  --registry-server dnsstudentacr.azurecr.io \
   --cpu 0.5 --memory 1.0Gi \
   --target-port 8183 --ingress internal \
   --min-replicas 0 --max-replicas 1 \
@@ -1050,21 +1048,21 @@ az containerapp create \
             srauth="$SCHEMA_REGISTRY_AUTH_USER_INFO" \
             acsconn="$ACS_CONNECTION_STRING" \
   --env-vars \
-    DB_HOST="$DB_HOST" DB_PORT="$DB_PORT" DB_NAME="$DB_NAME" \
-    "DB_EXTRA_PARAMS=$DB_EXTRA_PARAMS" \
-    POSTGRES_USER="$POSTGRES_USER" POSTGRES_PASSWORD=secretref:pgpass \
-    SQL_INIT_MODE="$SQL_INIT_MODE" \
-    KAFKA_BOOTSTRAP_SERVERS="$KAFKA_BOOTSTRAP_SERVERS" \
-    KAFKA_SECURITY_PROTOCOL="$KAFKA_SECURITY_PROTOCOL" \
-    KAFKA_SASL_MECHANISM="$KAFKA_SASL_MECHANISM" \
+    DB_HOST=dns-student-pg.postgres.database.azure.com DB_PORT=5432 DB_NAME=postgres \
+    'DB_EXTRA_PARAMS=&sslmode=require' \
+    POSTGRES_USER=dnsadmin POSTGRES_PASSWORD=secretref:pgpass \
+    SQL_INIT_MODE=never \
+    KAFKA_BOOTSTRAP_SERVERS=pkc-56d1g.eastus.azure.confluent.cloud:9092 \
+    KAFKA_SECURITY_PROTOCOL=SASL_SSL \
+    KAFKA_SASL_MECHANISM=PLAIN \
     KAFKA_SASL_JAAS_CONFIG=secretref:kafkajaas \
-    SCHEMA_REGISTRY_URL="$SCHEMA_REGISTRY_URL" \
+    SCHEMA_REGISTRY_URL=https://psrc-zj7wewy.eastus.azure.confluent.cloud \
     SCHEMA_REGISTRY_AUTH_USER_INFO=secretref:srauth \
     ACS_CONNECTION_STRING=secretref:acsconn \
-    MAIL_FROM="$MAIL_FROM" \
-    MAIL_RATE_LIMIT_TOKENS="$MAIL_RATE_LIMIT_TOKENS" \
-    MAIL_RATE_LIMIT_REFILL_MS="$MAIL_RATE_LIMIT_REFILL_MS" \
-    APP_LOG_LEVEL="$APP_LOG_LEVEL"
+    MAIL_FROM=donotreply@9d0daf71-78e9-4ee0-b251-5e2929db499e.azurecomm.net \
+    MAIL_RATE_LIMIT_TOKENS=20 \
+    MAIL_RATE_LIMIT_REFILL_MS=1000 \
+    APP_LOG_LEVEL=INFO
 ```
 
 Fíjate en la URL del mensaje de éxito: por el ingress `internal`, el FQDN lleva el segmento **`.internal.`** (`https://notification-service.internal.<dominio>.eastus.azurecontainerapps.io`) — solo resuelve **dentro** del environment, no desde tu PC:
@@ -1077,9 +1075,9 @@ Fíjate en la URL del mensaje de éxito: por el ingress `internal`, el FQDN llev
 - Si ya desplegaste sin correo y quieres añadirlo después, son **dos comandos** (`update` no gestiona secretos):
 
 ```bash
-az containerapp secret set -g dns-student-rg -n notification-service --secrets acsconn='<CONNECTION-STRING>'
+az containerapp secret set -g dns-student-rg -n notification-service --secrets acsconn="$ACS_CONNECTION_STRING"
 az containerapp update -g dns-student-rg -n notification-service \
-  --set-env-vars ACS_CONNECTION_STRING=secretref:acsconn MAIL_FROM='donotreply@<guid>.azurecomm.net'
+  --set-env-vars ACS_CONNECTION_STRING=secretref:acsconn MAIL_FROM=donotreply@9d0daf71-78e9-4ee0-b251-5e2929db499e.azurecomm.net
 ```
 
 > **Matiz sobre scale-to-zero:** `generator-service` y `notification-service` trabajan consumiendo mensajes de Kafka, no recibiendo HTTP. Si están dormidos (0 réplicas) no procesan mensajes — los mensajes **no se pierden** (quedan en Kafka), pero el flujo queda pausado. Para una demo, despiértalos antes con `--min-replicas 1` y devuélvelos a 0 al terminar (comandos en la sección de escalado).
@@ -1095,7 +1093,7 @@ Al terminar el paso 8, el resource group en el portal (*Home* → `dns-student-r
 Obtén la URL pública de `document-service`:
 
 ```bash
-az containerapp show -g "$RESOURCE_GROUP" -n document-service \
+az containerapp show -g dns-student-rg -n document-service \
   --query properties.configuration.ingress.fqdn -o tsv
 ```
 
@@ -1118,13 +1116,13 @@ La primera llamada puede tardar ~30 s (cold start). Health probes opcionales (po
 
 ```bash
 # Eventos de la plataforma (¿la réplica arrancó? ¿descargó la imagen?):
-az containerapp logs show -g "$RESOURCE_GROUP" -n document-service --type system --tail 50
+az containerapp logs show -g dns-student-rg -n document-service --type system --tail 50
 
 # Logs de la aplicación (stack traces de Spring, actividad de Kafka...):
-az containerapp logs show -g "$RESOURCE_GROUP" -n document-service --type console --tail 50
+az containerapp logs show -g dns-student-rg -n document-service --type console --tail 50
 
 # En vivo, mientras ejecutas el flujo:
-az containerapp logs show -g "$RESOURCE_GROUP" -n notification-service --type console --follow
+az containerapp logs show -g dns-student-rg -n notification-service --type console --follow
 # busca "Email sent successfully to: ... | MessageId: ..."
 ```
 
@@ -1203,11 +1201,11 @@ Errores reales encontrados al desplegar este sistema, con su síntoma, causa y f
 - **Causa:** al crear el topic en Confluent se aceptó el asistente **"Create a data contract"**, que registró el **esquema de ejemplo** (`sampleRecord`, campos `my_field1/2/3`) en el subject `generator-response-value`. Con compatibilidad `BACKWARD`, el registry rechaza el esquema real del servicio por incompatible.
 - **Diagnóstico:** consulta qué hay registrado — si el `name` no es el `...AvroModel` esperado, está contaminado:
   ```bash
-  curl -u "$SCHEMA_REGISTRY_AUTH_USER_INFO" "$SCHEMA_REGISTRY_URL/subjects/generator-response-value/versions/latest"
+  curl -u "$SCHEMA_REGISTRY_AUTH_USER_INFO" "https://psrc-zj7wewy.eastus.azure.confluent.cloud/subjects/generator-response-value/versions/latest"
   ```
 - **Fix:** borrar el subject para que el servicio registre su esquema real en el siguiente reintento (no hay que reiniciar nada):
   ```bash
-  curl -u "$SCHEMA_REGISTRY_AUTH_USER_INFO" -X DELETE "$SCHEMA_REGISTRY_URL/subjects/generator-response-value"
+  curl -u "$SCHEMA_REGISTRY_AUTH_USER_INFO" -X DELETE "https://psrc-zj7wewy.eastus.azure.confluent.cloud/subjects/generator-response-value"
   ```
 - **Prevención:** es exactamente el "sáltalo (*Skip*)" del paso 6.3 — los esquemas los registran los servicios solos.
 
@@ -1543,7 +1541,7 @@ az containerapp update -g dns-student-rg -n generator-service \
   --scale-rule-name kafka-lag \
   --scale-rule-type kafka \
   --scale-rule-metadata \
-      bootstrapServers='pkc-xxxxx.eastus.azure.confluent.cloud:9092' \
+      bootstrapServers='pkc-56d1g.eastus.azure.confluent.cloud:9092' \
       consumerGroup='generator-topic-consumer' \
       topic='generator-request' \
       lagThreshold='100' \
@@ -1666,8 +1664,8 @@ La carga se genera desde **tu PC** contra la URL pública de `document-service`,
 
 ```bash
 az containerapp update -g dns-student-rg -n notification-service \
-  --set-env-vars MAIL_PROVIDER=azure MAIL_FROM='donotreply@<guid>.azurecomm.net' \
-    MAIL_RATE_LIMIT_TOKENS=10 MAIL_RATE_LIMIT_REFILL_MS=3600000
+  --set-env-vars MAIL_PROVIDER=azure MAIL_FROM=donotreply@9d0daf71-78e9-4ee0-b251-5e2929db499e.azurecomm.net \
+    MAIL_RATE_LIMIT_TOKENS=20 MAIL_RATE_LIMIT_REFILL_MS=1000
 az containerapp delete -g dns-student-rg -n mailpit --yes
 ```
 
