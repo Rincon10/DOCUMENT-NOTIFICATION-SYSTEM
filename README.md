@@ -364,7 +364,8 @@ az containerapp update -g dns-student-rg -n notification-service --min-replicas 
 ```
 
 Con la carga en marcha, el plan de JMeter y las verificaciones aguas abajo están en
-[`docs/BATCHTEST.md`](docs/BATCHTEST.md).
+[`docs/BATCHTEST.md`](docs/BATCHTEST.md); la configuración por escalones (500 → 9000) está en
+[Escalera de carga con JMeter](#escalera-de-carga-con-jmeter-500--9000).
 
 #### Escenario aplicado: document 2 · generator 5 · notification 5
 
@@ -535,6 +536,79 @@ az containerapp delete -g dns-student-rg -n mailpit --yes
 
 El paso a paso completo, con la verificación de cada comando, está en la
 [guía de Azure](docs/03-AZURE-ESTUDIANTE-PASO-A-PASO.md#pruebas-de-carga-mailpit-en-vez-de-correos-reales).
+
+#### Escalera de carga con JMeter: 500 → 9000
+
+Configuración recomendada para el plan [`docs/jmeter/create-document.jmx`](docs/jmeter/create-document.jmx)
+sobre el escenario **document 3 · generator 6 · notification 6** (BD en `Standard_B4ms`). Con 3 réplicas de
+`document-service` a 0.5 vCPU y pool Hikari de 5, el API atiende cómodo unas 15-20 peticiones en vuelo:
+más hilos no suben el throughput, solo hacen cola y generan timeouts. Por eso la escalera crece sobre
+todo en `loops` y mantiene la concurrencia acotada (`total = threads × loops`).
+
+| Total | `threads` | `rampUp` (s) | `loops` | Duración estimada | Qué mide |
+|---|---|---|---|---|---|
+| 500 | 10 | 20 | 50 | 1-2 min | Calentamiento y línea base de latencia |
+| 1000 | 20 | 30 | 50 | 2-3 min | Primer nivel de concurrencia real |
+| 2000 | 20 | 40 | 100 | 4-6 min | Estabilidad sostenida con la misma concurrencia |
+| 5000 | 25 | 60 | 200 | 10-15 min | Presión sobre el pipeline Kafka y el outbox |
+| 9000 | 30 | 90 | 300 | 20-30 min | Corrida objetivo |
+
+La duración real depende de la latencia que midas en el primer escalón: con p95 de 500 ms y 20 hilos el
+sistema rinde ~40 peticiones/s.
+
+**Parámetros fijos en todos los escalones:**
+
+- `thinkTime=0` — la pausa aleatoria de hasta 100 ms que ya trae el plan basta para desincronizar hilos.
+- `connectTimeout=10000` y `responseTimeout=60000` — bajar el de respuesta cuenta como error peticiones
+  que el backend sí procesó.
+- Mismo `customerId` semilla (`550e8400-e29b-41d4-a716-446655440001`).
+- Heap de JMeter para 9000 muestras: `export HEAP="-Xms1g -Xmx2g"` antes de lanzar.
+
+**Dos reglas entre escalones:** (1) esperar a que Mailpit alcance el total del escalón — si no, el
+siguiente arranca con backlog en el outbox y en Kafka y mide dos cargas mezcladas; (2) vaciar la bandeja
+para que el conteo del siguiente sea limpio. Este script aplica la escalera completa con ambas reglas:
+
+```bash
+BASE_URL="https://document-service.<dominio>.azurecontainerapps.io"
+MP="https://mailpit.<dominio>.azurecontainerapps.io"
+CUSTOMER_ID=550e8400-e29b-41d4-a716-446655440001
+export HEAP="-Xms1g -Xmx2g"
+
+# total:threads:rampUp:loops
+for step in 500:10:20:50 1000:20:30:50 2000:20:40:100 5000:25:60:200 9000:30:90:300; do
+  IFS=: read total threads ramp loops <<< "$step"
+  echo "=== Escalón $total ($threads x $loops, rampUp $ramp s) ==="
+  curl -s -X DELETE "$MP/api/v1/messages" > /dev/null
+  rm -rf "target/jmeter/$total"
+  jmeter -n -t docs/jmeter/create-document.jmx \
+    -JbaseUrl="$BASE_URL" -JcustomerId="$CUSTOMER_ID" \
+    -Jthreads=$threads -JrampUp=$ramp -Jloops=$loops \
+    -l "target/jmeter/$total/results.jtl" -e -o "target/jmeter/$total/report"
+
+  # Esperar a que el pipeline drene: correos en Mailpit == total (máx 20 min)
+  for i in $(seq 1 80); do
+    got=$(curl -s "$MP/api/v1/info" | python -c 'import json,sys; print(json.load(sys.stdin)["Messages"])')
+    echo "  correos: $got / $total"
+    [ "$got" -ge "$total" ] && break
+    sleep 15
+  done
+  curl -s "$MP/api/v1/info" | python -c 'import json,sys; d=json.load(sys.stdin); print("  ", d["RuntimeStats"])'
+done
+```
+
+**Criterio para pasar al siguiente escalón** (reporte en `target/jmeter/<total>/report/index.html` y
+salida del script):
+
+- Error rate < 1 % y ningún timeout.
+- p95 que no haya crecido más del doble respecto al escalón anterior. Si se dispara, en el siguiente
+  escalón no subas `threads`, solo `loops`.
+- `SMTPAccepted` igual al total y `SMTPRejected` en 0. Si Mailpit se queda corto pasados 20 min, hay
+  filas atascadas en el outbox: revisar los logs de `generator-service` y `notification-service` antes de
+  seguir.
+
+Si a 25 hilos el p95 ya se degrada, para 9000 usa `threads=25 loops=360` en vez de `30 × 300`. Si todo va
+holgado, el techo razonable con estas réplicas es 40 hilos; más allá conviene subir `document-service` a
+1 vCPU o a más réplicas, no más hilos.
 
 #### Apagar todo y volver a la BD barata
 
