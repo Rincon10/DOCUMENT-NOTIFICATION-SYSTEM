@@ -52,7 +52,10 @@ DOCUMENT-NOTIFICATION-SYSTEM/
 │   ├── 03-AZURE-ESTUDIANTE-PASO-A-PASO.md   # Guía única de despliegue y escalado en Azure
 │   ├── 04-DIAGRAMAS-AZURE.md                # Diagramas de la arquitectura en la nube
 │   ├── BATCHTEST.md                         # Pruebas de carga en ambientes de nube
-│   └── jmeter/create-document.jmx           # Plan de JMeter para POST /documents
+│   ├── jmeter/create-document.jmx           # Plan de JMeter para POST /documents
+│   └── pruebas/                             # Resultados reales de la escalera de carga (500 / 9000 / 20000)
+│       ├── 0N-<total>-Summary-.png          # Captura del Summary Report de JMeter (y Mailpit)
+│       └── 0N-<total>-request.csv           # Muestras crudas exportadas por JMeter (una fila por petición)
 │
 ├── document-notification-system/            # Proyecto principal Maven multi-módulo
 │   ├── document-service/                    # Bounded Context: Gestión de documentos
@@ -364,8 +367,9 @@ az containerapp update -g dns-student-rg -n notification-service --min-replicas 
 ```
 
 Con la carga en marcha, el plan de JMeter y las verificaciones aguas abajo están en
-[`docs/BATCHTEST.md`](docs/BATCHTEST.md); la configuración por escalones (500 → 9000) está en
-[Escalera de carga con JMeter](#escalera-de-carga-con-jmeter-500--9000).
+[`docs/BATCHTEST.md`](docs/BATCHTEST.md); la configuración por escalones (500 → 20000) está en
+[Escalera de carga con JMeter](#escalera-de-carga-con-jmeter-500--20000) y los resultados medidos en
+[Resultados obtenidos](#resultados-obtenidos-9-de-septiembre-de-2026).
 
 #### Escenario aplicado: document 2 · generator 5 · notification 5
 
@@ -537,7 +541,7 @@ az containerapp delete -g dns-student-rg -n mailpit --yes
 El paso a paso completo, con la verificación de cada comando, está en la
 [guía de Azure](docs/03-AZURE-ESTUDIANTE-PASO-A-PASO.md#pruebas-de-carga-mailpit-en-vez-de-correos-reales).
 
-#### Escalera de carga con JMeter: 500 → 9000
+#### Escalera de carga con JMeter: 500 → 20000
 
 Configuración recomendada para el plan [`docs/jmeter/create-document.jmx`](docs/jmeter/create-document.jmx)
 sobre el escenario **document 3 · generator 6 · notification 6** (BD en `Standard_B4ms`). Con 3 réplicas de
@@ -552,9 +556,12 @@ todo en `loops` y mantiene la concurrencia acotada (`total = threads × loops`).
 | 2000 | 20 | 40 | 100 | 4-6 min | Estabilidad sostenida con la misma concurrencia |
 | 5000 | 25 | 60 | 200 | 10-15 min | Presión sobre el pipeline Kafka y el outbox |
 | 9000 | 30 | 90 | 300 | 20-30 min | Corrida objetivo |
+| 20000 | 40 | 120 | 500 | 45-60 min | Techo con 3 réplicas de `document-service`; exige `MP_MAX_MESSAGES` ≥ 30000 y espera de drenaje de 60 min |
 
 La duración real depende de la latencia que midas en el primer escalón: con p95 de 500 ms y 20 hilos el
-sistema rinde ~40 peticiones/s.
+sistema rinde ~40 peticiones/s. En la [corrida real](#resultados-obtenidos-9-de-septiembre-de-2026) las
+duraciones fueron mucho menores que estas estimaciones (9000 en 2,5 min y 20000 en 3,5 min), así que
+tómalas como cota superior.
 
 **Parámetros fijos en todos los escalones:**
 
@@ -609,6 +616,86 @@ salida del script):
 Si a 25 hilos el p95 ya se degrada, para 9000 usa `threads=25 loops=360` en vez de `30 × 300`. Si todo va
 holgado, el techo razonable con estas réplicas es 40 hilos; más allá conviene subir `document-service` a
 1 vCPU o a más réplicas, no más hilos.
+
+#### Resultados obtenidos (9 de septiembre de 2026)
+
+Corrida real sobre el escenario **document 3 · generator 6 · notification 6**, BD en `Standard_B4ms`,
+correo hacia Mailpit. Los archivos están en [`docs/pruebas/`](docs/pruebas/): una captura del Summary
+Report por escalón y el CSV crudo de JMeter con una fila por petición, listo para abrir en Excel (ver
+[cómo exportar](#exportar-resultados-de-jmeter)). Los percentiles de la tabla se calcularon sobre esos CSV.
+
+| Escalón | `threads` | Duración | Throughput | Promedio | Mediana | p90 | p95 | p99 | Máx | Errores | Correos en Mailpit |
+|---|---|---|---|---|---|---|---|---|---|---|---|
+| 500 | 10 | 30 s | 16,9 req/s | 200 ms | 134 ms | 362 ms | 437 ms | 669 ms | 1.715 ms | 0 % | — |
+| 9000 | 30 | 2 min 27 s | 61 req/s | 161 ms | 124 ms | 250 ms | 331 ms | 595 ms | 1.652 ms | 0 % | **9.049** |
+| 20000 | 40 | 3 min 24 s | 97 req/s | 143 ms | 113 ms | 185 ms | 312 ms | 664 ms | 2.252 ms | 0 % | **22.278** |
+
+| 500 | 9000 | 20000 |
+|---|---|---|
+| ![500](docs/pruebas/01-500-Summary-.png) | ![9000](docs/pruebas/02-9000-Summary-.png) | ![20000](docs/pruebas/03-20000-Summary-.png) |
+
+**Lecturas:**
+
+- **El API no es el cuello de botella.** Las 29.500 peticiones respondieron `200` sin un solo error ni
+  timeout, y la latencia **bajó** al subir la concurrencia (p95 de 437 → 331 → 312 ms) porque los
+  contenedores ya estaban calientes. Con 40 hilos el throughput llegó a 97 req/s, así que el techo de
+  "15-20 peticiones en vuelo" estimado arriba es conservador para 3 réplicas: las duraciones reales fueron
+  entre 6 y 8 veces menores que las estimadas en la tabla de la escalera.
+- **El pipeline aguas abajo sí duplica.** Mailpit recibió **49 correos de más** en el escalón de 9000
+  (0,5 %) y **2.278 de más** en el de 20000 (11,4 %). El exceso crece con la carga porque nace de la
+  contención: el scheduler del outbox reenvía las filas `STARTED` cuyo ack de Kafka no llegó antes del
+  siguiente tick, el scheduler de `generator-service` no usa `SKIP LOCKED` y cada réplica republica las
+  mismas filas, el chequeo de idempotencia republica la respuesta en vez de solo saltarla, y el reintento
+  SMTP tras un timeout de 5 s vuelve a entregar un correo que Mailpit ya había aceptado. Los índices
+  únicos evitan filas duplicadas en BD, pero no efectos secundarios que ocurren antes del `INSERT`
+  (generar el contenido, publicar a Kafka, enviar el correo). El detalle y el orden de corrección están en
+  la [guía de Azure, sección de diagnóstico](docs/03-AZURE-ESTUDIANTE-PASO-A-PASO.md).
+- **Criterio de aceptación para la próxima corrida**: `SMTPAccepted == total`. Mientras Mailpit reciba
+  más correos que peticiones, el sistema es "al menos una vez" en el envío y el conteo de la bandeja no
+  sirve como medida de éxito.
+
+> Las tres corridas se lanzaron desde la GUI de JMeter (se ve en las capturas). Para los números de latencia
+> es válido porque el cliente no saturó, pero para 20000 o más conviene el modo CLI (`jmeter -n`) que se
+> describe arriba: la GUI consume memoria por cada muestra y puede distorsionar el máximo.
+
+#### Exportar resultados de JMeter
+
+El archivo que JMeter escribe con `-l` (`.jtl`) **ya es CSV** aunque la extensión diga otra cosa; los de
+`docs/pruebas/*-request.csv` son exactamente eso. Tres formas de sacar los datos a Excel u otro formato:
+
+1. **Crudo, una fila por petición.** Abrir el `.jtl`/`.csv` desde Excel con *Datos → Desde texto/CSV*. El
+   `timeStamp` es epoch en milisegundos; en Excel: `=A2/86400000 + DATE(1970,1,1)` con formato de fecha.
+   Para que salga listo desde el inicio (extensión `.csv`, punto y coma, fecha legible):
+
+   ```bash
+   jmeter -n -t docs/jmeter/create-document.jmx \
+     -Jjmeter.save.saveservice.output_format=csv \
+     -Jjmeter.save.saveservice.default_delimiter=";" \
+     -Jjmeter.save.saveservice.timestamp_format="yyyy-MM-dd HH:mm:ss" \
+     -l target/jmeter/results.csv -e -o target/jmeter/report
+   ```
+
+2. **Tabla resumen (percentiles, throughput, errores).** En la GUI, cargar el `.jtl` en un *Aggregate Report*
+   (botón *Browse*) y pulsar **Save Table Data**. Sin GUI, con el plugin *Command-Line Graph Plotting Tool*:
+
+   ```bash
+   JMeterPluginsCMD --generate-csv target/jmeter/aggregate.csv \
+     --input-jtl target/jmeter/results.jtl --plugin-type AggregateReport
+   ```
+
+3. **Desde el reporte HTML que ya generas.** `target/jmeter/report/statistics.json` trae la misma tabla del
+   dashboard. A CSV en una línea de PowerShell, útil para consolidar un archivo por escalón:
+
+   ```powershell
+   $s = Get-Content target/jmeter/report/statistics.json | ConvertFrom-Json
+   $s.PSObject.Properties.Value |
+     Select-Object transaction, sampleCount, errorCount, errorPct, meanResTime, pct1ResTime, pct2ResTime, pct3ResTime, throughput |
+     Export-Csv target/jmeter/statistics.csv -NoTypeInformation
+   ```
+
+JMeter no genera `.xlsx` directo: la ruta es CSV → Excel, o `pandas.read_csv(...).to_excel(...)`. Para ver
+métricas en vivo, agregar un *Backend Listener* hacia InfluxDB/Grafana. Evitar `output_format=xml` en
+corridas grandes: solo sirve si se necesita request/response completos y multiplica el tamaño del archivo.
 
 #### Apagar todo y volver a la BD barata
 
