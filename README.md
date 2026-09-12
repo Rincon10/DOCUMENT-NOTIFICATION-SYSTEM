@@ -205,6 +205,9 @@ El grafo de dependencias ilustra la estructura interna del servicio:
 
 ### Responsabilidades principales
 - Envío de notificaciones por múltiples canales
+- Envío **exactamente una vez por saga**: reserva la fila de outbox en `NOTIFICATION_PENDING` antes de
+  enviar (claim-then-send) para que redeliveries, rebalances y réplicas concurrentes no dupliquen el correo.
+  Ver [Mecanismos contra la duplicidad](#mecanismos-contra-la-duplicidad)
 - Gestión de preferencias de notificación de usuarios
 - Plantillas de notificaciones personalizables
 - Tracking de estado de entrega y reintentos
@@ -736,9 +739,17 @@ Report por escalón y el CSV crudo de JMeter con una fila por petición, listo p
   únicos evitan filas duplicadas en BD, pero no efectos secundarios que ocurren antes del `INSERT`
   (generar el contenido, publicar a Kafka, enviar el correo). El detalle y el orden de corrección están en
   la [guía de Azure, sección de diagnóstico](docs/03-AZURE-ESTUDIANTE-PASO-A-PASO.md).
+- **Corrección aplicada al envío de correo** (rama `feature/fix-duplicity`): notification-service ahora
+  reserva la saga en `document_outbox` con estado `NOTIFICATION_PENDING` **antes** de enviar, usando el índice
+  único como claim, y envía fuera de la transacción. Dos entregas del mismo `sagaId` ya no pueden producir
+  dos correos: la segunda pierde el `INSERT` y se descarta. El detalle está en
+  [Mecanismos contra la duplicidad](#mecanismos-contra-la-duplicidad). Siguen pendientes los reenvíos del
+  scheduler del productor, el `SKIP LOCKED` del generator-service y el reintento SMTP tras timeout, que
+  generan tráfico duplicado pero ya no correos duplicados.
 - **Criterio de aceptación para la próxima corrida**: `SMTPAccepted == total`. Mientras Mailpit reciba
   más correos que peticiones, el sistema es "al menos una vez" en el envío y el conteo de la bandeja no
-  sirve como medida de éxito.
+  sirve como medida de éxito. Con el claim-then-send ese debería ser el resultado; si no lo es, buscar
+  primero filas `NOTIFICATION_PENDING` antiguas en `notification.document_outbox`.
 
 > Las tres corridas se lanzaron desde la GUI de JMeter (se ve en las capturas). Para los números de latencia
 > es válido porque el cliente no saturó, pero para 20000 o más conviene el modo CLI (`jmeter -n`) que se
