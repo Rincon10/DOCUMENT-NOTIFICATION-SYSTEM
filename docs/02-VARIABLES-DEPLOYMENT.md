@@ -40,7 +40,7 @@ Las variables de este documento se materializan en dos plantillas versionadas �
 | `DB_NAME` | `postgres` | Base de datos (cada servicio usa su propio schema: `document`, `generator`, `notification`, `customer`) |
 | `POSTGRES_USER` / `POSTGRES_PASSWORD` | `postgres` / `admin` | Credenciales |
 | `DB_EXTRA_PARAMS` | *(vacío)* | Parámetros JDBC extra, ej. `&sslmode=require` para Postgres gestionado |
-| `SQL_INIT_MODE` | `always` | `never` en la nube (los schemas se crean una sola vez) |
+| `SQL_INIT_MODE` | `never` | Default seguro: la app **no** ejecuta `init-schema.sql` / `init-data.sql` al arrancar. El esquema se crea una sola vez con `infraestructure/docker-compose/init-db.sql` — el contenedor de Postgres lo corre solo en local, y en la nube se ejecuta con `psql` (paso 5 de la guía). **No lo pongas en `always`**: el `DROP SCHEMA customer CASCADE` de ese script destruye la vista materializada `"document".customers` |
 
 ### Kafka / Schema Registry
 
@@ -66,7 +66,7 @@ Las variables de este documento se materializan en dos plantillas versionadas �
 | `MAIL_HOST`, `MAIL_PORT`, `MAIL_USERNAME`, `MAIL_PASSWORD`, `MAIL_SMTP_*` | Gmail/587 | Configuración SMTP — solo aplican con `MAIL_PROVIDER=smtp` |
 | `ACS_CONNECTION_STRING` | *(vacío)* | Connection string de Azure Communication Services — **obligatorio** con el proveedor `azure` (falla al arrancar con mensaje claro si falta) |
 | `ACS_EMAIL_TIMEOUT_SECONDS` | `60` | Espera máxima por la confirmación de envío de ACS |
-| `MAIL_RATE_LIMIT_TOKENS`, `MAIL_RATE_LIMIT_REFILL_MS` | `5` / `20000` | Rate limiter (Token Bucket) — aplica a ambos proveedores |
+| `MAIL_RATE_LIMIT_TOKENS`, `MAIL_RATE_LIMIT_REFILL_MS` | `10` / `3600000` | Rate limiter (Token Bucket), aplica a ambos proveedores. El default = 10 correos/hora, la cuota de ACS sobre Azure Managed Domain (5/min y 10/hora, **no ampliables**). `docker-compose` lo relaja a `100`/`1000` para local, donde el proveedor es SMTP y no hay cuota |
 | `NOTIFICATION_INSTANCE_ID` | `notification-1` | Único por instancia (en K8s se inyecta el nombre del pod automáticamente) |
 
 ## Variables para el despliegue en Azure (guía paso a paso)
@@ -98,7 +98,7 @@ Lo que **SÍ o SÍ debes configurar en Azure**, agrupado por categoría:
 | | `DB_PORT` / `DB_NAME` | `5432` / `postgres` | |
 | | `POSTGRES_USER` / `POSTGRES_PASSWORD` | admin del paso 5 / `secretref:pgpass` | Contraseña **siempre** como secreto |
 | | `DB_EXTRA_PARAMS` | `&sslmode=require` | Azure solo acepta conexiones cifradas |
-| | `SQL_INIT_MODE` | `never` (tras el primer arranque de `customer-service` con `always`) | Con réplicas > 1 **debe** ser `never`. Ojo: cada arranque con `always` exige re-ejecutar `fix-document-customers-view.sql` (ver paso 8 de la guía) |
+| | `SQL_INIT_MODE` | `never` (siempre) | El esquema y los datos semilla los crea `init-db.sql` con `psql` en el paso 5, incluidas `customer.customers` y la vista `"document".customers`. Nunca `always`: destruye esa vista y con réplicas > 1 además provoca carreras |
 | **Kafka** | `KAFKA_BOOTSTRAP_SERVERS` | `pkc-xxxxx...confluent.cloud:9092` | Del paso 6 |
 | | `KAFKA_SECURITY_PROTOCOL` | `SASL_SSL` | Kafka gestionado siempre cifrado |
 | | `KAFKA_SASL_MECHANISM` | `PLAIN` | |
@@ -108,11 +108,11 @@ Lo que **SÍ o SÍ debes configurar en Azure**, agrupado por categoría:
 | **Correo** (solo `notification-service`) | `MAIL_PROVIDER` | `azure` (default, puede omitirse) | `smtp` solo para Gmail/Mailpit |
 | | `ACS_CONNECTION_STRING` | `secretref:acsconn` | **Obligatoria** con el proveedor `azure` |
 | | `MAIL_FROM` | `donotreply@<guid>.azurecomm.net` | El dominio verificado de ACS del paso 7 |
-| | `MAIL_RATE_LIMIT_TOKENS` / `MAIL_RATE_LIMIT_REFILL_MS` | ej. `20` / `1000` | Ajústalo a tu cuota de ACS |
+| | `MAIL_RATE_LIMIT_TOKENS` / `MAIL_RATE_LIMIT_REFILL_MS` | `10` / `3600000` | = 10/hora, la cuota del Azure Managed Domain. Subirlo provoca 429. Con [dominio propio verificado](03-AZURE-ESTUDIANTE-PASO-A-PASO.md#76-opcional-dominio-propio-subir-la-cuota-de-10hora-a-100hora): `100`/`3600000` |
 | **Operación** | `APP_LOG_LEVEL` | `INFO` (`WARN` en pruebas de carga) | |
 | | `JPA_SHOW_SQL` | `false` | En `true` imprime cada SQL: lento y ruidoso |
 | **Escalado** | `NOTIFICATION_INSTANCE_ID` | único por instancia | Solo si creas varias *apps* de notification (ver escalado en la guía); el outbox lo usa para locking |
-| | `SPRING_DATASOURCE_HIKARI_MAXIMUMPOOLSIZE` | ej. `5` | Solo si escalas réplicas con la BD B1ms (~35 conexiones máx.) |
+| | `SPRING_DATASOURCE_HIKARI_MAXIMUMPOOLSIZE` | `5` | Conexiones por réplica. El B1ms trae `max_connections = 50`, así que `Σ (réplicas × pool) + ~5 reservadas` debe caber ahí. Ojo: un rolling restart duplica la demanda momentáneamente |
 
 Reglas transversales (aplican a los 4 servicios):
 

@@ -356,7 +356,7 @@ az postgres flexible-server create \
   --name dns-student-pg \
   --location centralus \
   --admin-user dnsadmin \
-  --admin-password '<INVENTA-UNA-CONTRASEÑA-FUERTE>' \
+  --admin-password '<CONTRASEÑA>' \   # el mismo valor que pondrás en POSTGRES_PASSWORD de .env-cloud
   --sku-name Standard_B1ms --tier Burstable \
   --storage-size 32 \
   --version 15 \
@@ -386,6 +386,25 @@ Te pedirá la contraseña que inventaste arriba. `sslmode=require` es obligatori
 ![psql ejecutando init-db.sql contra el Flexible Server](images/azure-deploy/10-psql-init-db.png)
 
 > **Sobre la salida del script:** los `NOTICE: ... does not exist, skipping` son normales (el script hace `DROP ... IF EXISTS` antes de crear). El único error que verás es `extension "uuid-ossp" is not allow-listed for users in Azure Database for PostgreSQL` — **no detiene el script** (schemas, tablas y datos semilla se crean igual y los servicios funcionan). Si quisieras habilitar la extensión, se permite desde los parámetros del servidor: `az postgres flexible-server parameter set -g dns-student-rg --server-name dns-student-pg --name azure.extensions --value uuid-ossp` y reejecutas el script.
+
+**Qué queda creado.** El script deja los 4 schemas (`customer`, `document`, `generator`, `notification`) con sus tablas, índices y outboxes. Dos objetos son los que hacen funcionar `POST /documents`, así que conviene verificarlos explícitamente:
+
+| Objeto | Qué es | Para qué |
+|---|---|---|
+| `customer.customers` | tabla + 20 clientes semilla (`user_1`…`user_20`) | fuente de verdad de clientes, la escribe `customer-service` |
+| `"document".customers` | **vista materializada** sobre `customer.customers` | `document-service` valida contra ella el `customerId` de cada documento |
+
+La vista se mantiene sola: un trigger `AFTER INSERT/UPDATE/DELETE` sobre `customer.customers` ejecuta `REFRESH MATERIALIZED VIEW CONCURRENTLY "document".customers`.
+
+Compruébalo antes de seguir:
+
+```bash
+psql "host=dns-student-pg.postgres.database.azure.com port=5432 dbname=postgres user=dnsadmin sslmode=require" -c '
+SELECT (SELECT COUNT(*) FROM customer.customers)   AS clientes,
+       (SELECT COUNT(*) FROM "document".customers) AS vista_materializada;'
+```
+
+Debe devolver el mismo número en ambas columnas (20 con los datos semilla). Si `vista_materializada` da 0, o la consulta falla con `relation "document.customers" does not exist`, el script no terminó: reejecútalo antes de desplegar, porque `document-service` responderá 500 en cada `POST /documents`.
 
 **Verificación opcional con DBeaver** (o cualquier cliente SQL): conéctate con host `dns-student-pg.postgres.database.azure.com`, puerto `5432`, base `postgres`, usuario `dnsadmin` y tu contraseña (recuerda haber añadido tu IP con la regla de firewall de arriba). Un *Test Connection* exitoso confirma que la BD está lista:
 
@@ -526,7 +545,20 @@ Y verificado en la consola:
 
 ## 7. El correo: Azure Communication Services Email (el proveedor del sistema)
 
-`notification-service` envía los correos por **Azure Communication Services (ACS) Email**, el proveedor **por defecto** de la aplicación (`MAIL_PROVIDER=azure`). Es un servicio **nativo de Azure** (no Marketplace, así que **sí se paga con el crédito de estudiante**): ~$0.00025 por correo (10.000 correos ≈ $2.50), diseñado para envío en volumen, y va por API HTTPS — no hay SMTP ni contraseñas de Gmail de por medio.
+`notification-service` envía los correos por **Azure Communication Services (ACS) Email**, el proveedor **por defecto** de la aplicación (`MAIL_PROVIDER=azure`). Es un servicio **nativo de Azure** (no Marketplace, así que **sí se paga con el crédito de estudiante**): ~$0.00025 por correo (10.000 correos ≈ $2.50) y va por API HTTPS — no hay SMTP ni contraseñas de Gmail de por medio.
+
+> ⚠️ **La cuota del dominio administrado es diminuta, y esto condiciona todo lo demás.** Esta guía usa un **Azure Managed Domain** (el que Azure crea solo, `<guid>.azurecomm.net`), y esa es la categoría más restringida de ACS:
+>
+> | Dominio | Correos / minuto | Correos / hora | ¿Ampliable? |
+> |---|---|---|---|
+> | **Azure Managed** (esta guía) | **5** | **10** | **No** |
+> | Propio verificado | 30 | 100 | Sí, por ticket de soporte |
+>
+> Microsoft lo dice explícitamente: *"Higher quotas are only available for verified custom domains, not Azure-managed domains."* No depende de tu crédito ni de que la cuenta sea de estudiante — depende del tipo de dominio.
+>
+> Consecuencia práctica: **con dominio administrado no se puede hacer una prueba de carga con correos reales.** 10.000 correos a 10/hora son ~42 días. Para pruebas masivas usa Mailpit (sección de escalado). Si necesitas volumen real, hay que verificar un dominio propio: el procedimiento completo está en [7.6](#76-opcional-dominio-propio-subir-la-cuota-de-10hora-a-100hora).
+>
+> Límites de tamaño, por si aplican: **50 destinatarios** por correo y **10 MB** por request — con Base64 el techo real de adjuntos ronda los 7.5 MB.
 
 ### 7.1 Cómo funciona (los 3 recursos y las 2 credenciales)
 
@@ -634,7 +666,7 @@ Anota los valores en la plantilla [`document-notification-system/.env-cloud`](..
 | `MAIL_PROVIDER` | `azure` (default — puede omitirse) | Selecciona el adaptador `AzureEmailNotificationSender` (API HTTPS de ACS). Con `smtp` se activa el adaptador SMTP clásico (Gmail/Mailpit) sin recompilar |
 | `ACS_CONNECTION_STRING` | secreto `acsconn` (valor del paso 7.3a) | **Obligatoria** con el proveedor `azure`: el servicio valida al arrancar y **falla con un mensaje claro** si falta (`ACS_CONNECTION_STRING is required when MAIL_PROVIDER=azure`) — mejor un arranque fallido que descubrirlo con el primer correo |
 | `MAIL_FROM` | `donotreply@<guid>.azurecomm.net` (paso 7.3b) | El remitente. Debe pertenecer al dominio **vinculado** en 7.2; cualquier otra dirección hace fallar el envío |
-| `MAIL_RATE_LIMIT_TOKENS` / `MAIL_RATE_LIMIT_REFILL_MS` | `20` / `1000` | Rate limiter interno (token bucket): N correos por intervalo. El default (`5`/`20000` ≈ 15/min) protege cuentas Gmail; con ACS puedes subirlo a tu cuota |
+| `MAIL_RATE_LIMIT_TOKENS` / `MAIL_RATE_LIMIT_REFILL_MS` | `10` / `3600000` | Rate limiter interno (token bucket): N correos por intervalo. Estos valores = 10/hora, la cuota del dominio administrado, y son ya el default de la app. **No los subas** con dominio administrado: ACS responde 429. Con [dominio propio verificado](#76-opcional-dominio-propio-subir-la-cuota-de-10hora-a-100hora) puedes ir a `100`/`3600000` |
 | `ACS_EMAIL_TIMEOUT_SECONDS` | `60` (default — puede omitirse) | Cuánto espera el servicio la confirmación de envío de ACS antes de marcar el intento como fallido |
 
 Las variables `MAIL_HOST`, `MAIL_PORT`, `MAIL_USERNAME`, `MAIL_PASSWORD` y `MAIL_SMTP_*` **solo aplican con `MAIL_PROVIDER=smtp`** — con `azure` se ignoran y no hay que configurarlas.
@@ -654,7 +686,7 @@ az containerapp logs show -g dns-student-rg -n notification-service --follow
 
 ### 7.5 Cargar `.env-cloud` en la terminal y desplegar sin copiar/pegar
 
-Con la plantilla llena, en vez de pegar cada valor a mano dentro del `az containerapp create` del paso 8, puedes **cargar el archivo como variables de entorno de tu terminal** y que los comandos las referencien. Así el comando largo queda genérico y reutilizable, y las credenciales viven en un solo sitio.
+Con la plantilla llena, en vez de pegar las credenciales a mano dentro del `az containerapp create` del paso 8, puedes **cargar el archivo como variables de entorno de tu terminal** y que los comandos las referencien. Los valores no sensibles (nombres de recursos, hosts, URLs, remitente) van escritos tal cual en los comandos de esta guía; los 4 secretos (`POSTGRES_PASSWORD`, `KAFKA_SASL_JAAS_CONFIG`, `SCHEMA_REGISTRY_AUTH_USER_INFO`, `ACS_CONNECTION_STRING`) se leen de la variable cargada, así que las credenciales viven en un solo sitio.
 
 > **Regla de formato al llenar la plantilla:** los valores que contienen `;`, espacios o `#` — la connection string de ACS y la cadena JAAS de Kafka — deben ir **entre comillas simples** en el archivo, ej. `ACS_CONNECTION_STRING='endpoint=https://...;accesskey=...'`. Sin comillas, el `;` rompe la carga en Bash.
 
@@ -692,15 +724,15 @@ $env:MAIL_FROM
 $env:ACS_CONNECTION_STRING.Substring(0,30) + "..."
 ```
 
-**Y el despliegue de `notification-service` del paso 8 queda así** (Bash — cada valor sale de la variable cargada; fíjate que el secreto entra por `--secrets` con el *valor* y la env var solo lleva la *referencia* `secretref:`):
+**Y el despliegue de `notification-service` del paso 8 queda así** (Bash — los valores son los de `.env-cloud`; fíjate que cada secreto entra por `--secrets` con el *valor* de la variable cargada y la env var solo lleva la *referencia* `secretref:`):
 
 ```bash
 az containerapp create \
-  --resource-group "$RESOURCE_GROUP" \
+  --resource-group dns-student-rg \
   --name notification-service \
-  --environment "$CONTAINERAPPS_ENV" \
-  --image "$ACR_NAME.azurecr.io/notification-service:1.0" \
-  --registry-server "$ACR_NAME.azurecr.io" \
+  --environment dns-student-env \
+  --image dnsstudentacr.azurecr.io/notification-service:1.0 \
+  --registry-server dnsstudentacr.azurecr.io \
   --cpu 0.5 --memory 1.0Gi \
   --target-port 8183 --ingress internal \
   --min-replicas 0 --max-replicas 1 \
@@ -709,26 +741,143 @@ az containerapp create \
             srauth="$SCHEMA_REGISTRY_AUTH_USER_INFO" \
             acsconn="$ACS_CONNECTION_STRING" \
   --env-vars \
-    DB_HOST="$DB_HOST" DB_PORT="$DB_PORT" DB_NAME="$DB_NAME" \
-    "DB_EXTRA_PARAMS=$DB_EXTRA_PARAMS" \
-    POSTGRES_USER="$POSTGRES_USER" POSTGRES_PASSWORD=secretref:pgpass \
+    DB_HOST=dns-student-pg.postgres.database.azure.com DB_PORT=5432 DB_NAME=postgres \
+    'DB_EXTRA_PARAMS=&sslmode=require' \
+    POSTGRES_USER=dnsadmin POSTGRES_PASSWORD=secretref:pgpass \
     SQL_INIT_MODE=never \
-    KAFKA_BOOTSTRAP_SERVERS="$KAFKA_BOOTSTRAP_SERVERS" \
-    KAFKA_SECURITY_PROTOCOL="$KAFKA_SECURITY_PROTOCOL" \
-    KAFKA_SASL_MECHANISM="$KAFKA_SASL_MECHANISM" \
+    KAFKA_BOOTSTRAP_SERVERS=pkc-56d1g.eastus.azure.confluent.cloud:9092 \
+    KAFKA_SECURITY_PROTOCOL=SASL_SSL \
+    KAFKA_SASL_MECHANISM=PLAIN \
     KAFKA_SASL_JAAS_CONFIG=secretref:kafkajaas \
-    SCHEMA_REGISTRY_URL="$SCHEMA_REGISTRY_URL" \
+    SCHEMA_REGISTRY_URL=https://psrc-zj7wewy.eastus.azure.confluent.cloud \
     SCHEMA_REGISTRY_AUTH_USER_INFO=secretref:srauth \
     ACS_CONNECTION_STRING=secretref:acsconn \
-    MAIL_FROM="$MAIL_FROM" \
-    MAIL_RATE_LIMIT_TOKENS="$MAIL_RATE_LIMIT_TOKENS" \
-    MAIL_RATE_LIMIT_REFILL_MS="$MAIL_RATE_LIMIT_REFILL_MS" \
-    APP_LOG_LEVEL="$APP_LOG_LEVEL"
+    MAIL_FROM=donotreply@9d0daf71-78e9-4ee0-b251-5e2929db499e.azurecomm.net \
+    MAIL_RATE_LIMIT_TOKENS=20 \
+    MAIL_RATE_LIMIT_REFILL_MS=1000 \
+    APP_LOG_LEVEL=INFO
 ```
 
 Para los otros 3 servicios usa el mismo patrón quitando el bloque de correo (`acsconn`, `ACS_CONNECTION_STRING`, `MAIL_FROM`, `MAIL_RATE_LIMIT_*`) y cambiando puerto/ingress según la tabla del paso 8.
 
 > Las variables cargadas viven solo en **esa sesión de terminal** — al cerrarla desaparecen, que es exactamente lo que quieres con credenciales. Recuerda: `.env-cloud` lleno **no se comitea**.
+
+### 7.6 (Opcional) Dominio propio: subir la cuota de 10/hora a 100/hora
+
+Todo lo anterior usa el **Azure Managed Domain**, cuya cuota de **5 correos/minuto y 10/hora no es
+ampliable**. Si necesitas volumen real — una prueba de carga con correos de verdad, o un uso más allá de
+una demo — el único camino es verificar un **dominio propio**. Este paso es opcional: si te sirve Mailpit
+para las pruebas, sáltalo.
+
+| | Azure Managed Domain | Dominio propio verificado |
+|---|---|---|
+| Cuota | 5/min, **10/hora** | 30/min, **100/hora** |
+| ¿Ampliable por soporte? | **No** | **Sí** |
+| Remitente | `donotreply@<guid>.azurecomm.net` (fijo) | `lo-que-quieras@tudominio.com` |
+| User Engagement Tracking | no disponible | disponible |
+| Requisitos | ninguno | dominio propio + acceso al DNS |
+| Tiempo de puesta a punto | inmediato | ~30-60 min (propagación DNS) |
+
+**Requisito previo:** un dominio del que controles el DNS. No sirve el `.azurecomm.net` de Azure ni un
+subdominio de un servicio gratuito donde no puedas crear registros TXT y CNAME.
+
+**1) Crear el recurso de dominio** en modo `CustomerManaged` (contra el mismo `dns-email` del paso 7.2):
+
+```bash
+az communication email domain create -g dns-student-rg --email-service-name dns-email \
+  --name tudominio.com --location global --domain-management CustomerManaged
+```
+
+**2) Leer los registros DNS que Azure te exige.** El recurso los publica en su propia propiedad:
+
+```bash
+az communication email domain show -g dns-student-rg --email-service-name dns-email \
+  --name tudominio.com --query "{records:verificationRecords, states:verificationStates}" -o json
+```
+
+Con el dominio administrado esta propiedad venía vacía (`verificationRecords: {}`) porque Azure lo
+verificaba solo. Aquí trae los valores concretos que debes crear.
+
+**3) Verificar la propiedad del dominio** — un registro TXT. El valor sale del paso anterior (o del
+portal, en *Provision Domains → Configure*):
+
+| Registro | Tipo | Nombre | Valor |
+|---|---|---|---|
+| Propiedad | `TXT` | `tudominio.com` (o `@`) | el que te dé Azure, tipo `ms-domain-verification=...` |
+
+Creado el registro, lanza la verificación:
+
+```bash
+az communication email domain initiate-verification -g dns-student-rg \
+  --email-service-name dns-email --name tudominio.com --verification-type Domain
+```
+
+**4) Autenticación del remitente** — SPF y DKIM. Sin esto los correos salen pero caen en spam:
+
+| Registro | Tipo | Nombre | Valor |
+|---|---|---|---|
+| SPF | `TXT` | `tudominio.com` (o `@`) | `v=spf1 include:spf.protection.outlook.com -all` |
+| DKIM | `CNAME` | `selector1-azurecomm-prod-net._domainkey` | `selector1-azurecomm-prod-net._domainkey.azurecomm.net` |
+| DKIM2 | `CNAME` | `selector2-azurecomm-prod-net._domainkey` | `selector2-azurecomm-prod-net._domainkey.azurecomm.net` |
+
+> ⚠️ **El nombre del registro depende de en qué zona lo crees.** La tabla de arriba asume que lo añades
+> en la zona del propio `tudominio.com`. Si vas a usar un **subdominio** (ej. `mail.tudominio.com`) pero
+> creas los registros en la zona raíz, hay que añadirle el prefijo: `mail` para el SPF y
+> `selector1-azurecomm-prod-net._domainkey.mail` para el DKIM. Equivocarse aquí es el error más común y
+> deja la verificación colgada sin decir por qué.
+
+Lanza cada verificación por separado:
+
+```bash
+for t in SPF DKIM DKIM2; do
+  az communication email domain initiate-verification -g dns-student-rg \
+    --email-service-name dns-email --name tudominio.com --verification-type $t
+done
+```
+
+**5) Esperar la propagación.** Azure documenta **15 a 30 minutos**. Consulta el estado hasta que los
+cinco (`Domain`, `SPF`, `DKIM`, `DKIM2`, `DMARC`) queden en `Verified`:
+
+```bash
+az communication email domain show -g dns-student-rg --email-service-name dns-email \
+  --name tudominio.com --query verificationStates -o json
+```
+
+**6) Vincular el dominio a `dns-comm`**, igual que en el paso 7.2 pero con el nuevo dominio. Es el paso
+que se olvida: sin él la app no puede enviar desde ese remitente.
+
+```bash
+DOMAIN_ID=$(az communication email domain show -g dns-student-rg --email-service-name dns-email \
+  --name tudominio.com --query id -o tsv)
+az communication update -g dns-student-rg -n dns-comm --linked-domains "$DOMAIN_ID"
+```
+
+**7) Actualizar la aplicación.** El `MAIL_FROM` pasa a tu dominio y el rate limiter sube a la cuota nueva
+(100/hora):
+
+```bash
+az containerapp update -g dns-student-rg -n notification-service \
+  --set-env-vars MAIL_FROM='no-reply@tudominio.com' \
+    MAIL_RATE_LIMIT_TOKENS=100 MAIL_RATE_LIMIT_REFILL_MS=3600000
+```
+
+Actualiza también `MAIL_FROM` y `MAIL_RATE_LIMIT_*` en tu `.env-cloud` para que los despliegues futuros
+salgan bien.
+
+**8) (Opcional) Pedir cuota mayor a 100/hora.** Solo disponible para dominios propios verificados. Se
+solicita por [Quota increase for email domains](https://learn.microsoft.com/azure/communication-services/concepts/email/email-quota-increase),
+con dos condiciones que conviene conocer antes de pedirla:
+
+- Tu **tasa de fallo debe estar por debajo del 1%**. Si es más alta, hay que resolverlo primero.
+- La evaluación tarda **hasta 72 horas**.
+
+Microsoft además recomienda **subir el volumen gradualmente durante 2 a 4 semanas** en vez de saltar al
+máximo: los proveedores de destino necesitan tiempo para adaptarse al cambio de IP de tu dominio, y una
+ráfaga inicial quema la reputación del remitente. El servicio soporta 1-2 millones de mensajes/hora en el
+extremo alto, pero se llega ahí por etapas, no de golpe.
+
+> **Para pruebas de rendimiento sigue prefiriendo Mailpit.** Incluso con 100/hora, 10.000 correos son
+> ~100 horas. El dominio propio resuelve el uso real del sistema, no la medición de carga.
 
 ## 8. Crear el entorno y desplegar los 4 microservicios
 
@@ -748,14 +897,12 @@ az provider show -n Microsoft.OperationalInsights --query registrationState -o t
 
 ![az provider register Microsoft.OperationalInsights — Registering y luego Registered](images/azure-deploy/27-provider-operationalinsights.png)
 
-> 📋 **Todos los comandos de este paso usan las variables de `.env-cloud`.** Antes de ejecutarlos, llena la plantilla y cárgala en tu terminal como se explica en la [sección 7.5](#75-cargar-env-cloud-en-la-terminal-y-desplegar-sin-copiarpegar) (`set -a; source .env-cloud; set +a` en Bash). Están escritos en sintaxis **Bash** (Git Bash / WSL); si prefieres PowerShell, carga el archivo con el snippet de la 7.5 y sustituye cada `$VARIABLE` por `$env:VARIABLE` y las continuaciones `\` por `` ` ``.
+> 📋 **Los comandos de este paso llevan escritos los valores de `.env-cloud`** (resource group, ACR, host de la BD, bootstrap de Confluent, Schema Registry, remitente de ACS). Lo único que se lee de tu terminal son los **4 secretos** (`$POSTGRES_PASSWORD`, `$KAFKA_SASL_JAAS_CONFIG`, `$SCHEMA_REGISTRY_AUTH_USER_INFO`, `$ACS_CONNECTION_STRING`): antes de ejecutarlos carga la plantilla como se explica en la [sección 7.5](#75-cargar-env-cloud-en-la-terminal-y-desplegar-sin-copiarpegar) (`set -a; source .env-cloud; set +a` en Bash). Si tus recursos tienen otros nombres, cámbialos en el comando y en `.env-cloud` a la vez. Están escritos en sintaxis **Bash** (Git Bash / WSL); si prefieres PowerShell, carga el archivo con el snippet de la 7.5 y sustituye cada `$VARIABLE` por `$env:VARIABLE` y las continuaciones `\` por `` ` ``.
 
 Ahora sí, el **environment** (la red privada compartida donde vivirán las 4 apps — gratis, solo pagas por los contenedores):
 
 ```bash
-# Con los valores de esta guía equivale a:
-#   az containerapp env create -g dns-student-rg -n dns-student-env --location eastus
-az containerapp env create --resource-group "$RESOURCE_GROUP" --name "$CONTAINERAPPS_ENV" --location "$LOCATION"
+az containerapp env create --resource-group dns-student-rg --name dns-student-env --location eastus
 ```
 
 En la salida verás *"No Log Analytics workspace provided. Generating a Log Analytics workspace..."* (normal: al no pasarle uno, lo crea por ti) y al final el mensaje de éxito **"Container Apps environment created"**:
@@ -764,15 +911,17 @@ En la salida verás *"No Log Analytics workspace provided. Generating a Log Anal
 
 Cada servicio se despliega con `az containerapp create`. El comando es largo porque incluye toda la configuración; primero va el de `customer-service` con la explicación de cada bloque, luego una tabla-resumen de lo que cambia entre servicios, y después **los comandos completos de los otros 3** listos para copiar.
 
-**Importante para el primer arranque:** `customer-service` debe ir primero y con `SQL_INIT_MODE=always` (ejecuta `init-schema.sql` + `init-data.sql`, creando tablas y datos semilla). Después del primer arranque exitoso se cambia a `never` para que no re-ejecute los scripts.
+**Sobre `SQL_INIT_MODE`: va `never` en los 4 servicios, siempre.** El esquema y los datos semilla ya quedaron creados por `init-db.sql` en el paso 5 — incluidas `customer.customers` y la vista `"document".customers` — así que ningún servicio necesita inicializar nada al arrancar.
+
+> ⚠️ **No lo pongas en `always` "por si acaso".** El `init-schema.sql` de `customer-service` empieza con `DROP SCHEMA IF EXISTS customer CASCADE`, y el `CASCADE` se lleva la vista materializada `"document".customers`, que depende de esa tabla. Resultado: `document-service` responde 500 con `relation "customers" does not exist` en cada `POST /documents`, y los clientes semilla se reemplazan, invalidando los `customerId` de cualquier documento anterior. Con `never` ese problema no existe.
 
 ```bash
 az containerapp create \
-  --resource-group "$RESOURCE_GROUP" \
+  --resource-group dns-student-rg \
   --name customer-service \
-  --environment "$CONTAINERAPPS_ENV" \
-  --image "$ACR_NAME.azurecr.io/customer-service:1.0" \
-  --registry-server "$ACR_NAME.azurecr.io" \
+  --environment dns-student-env \
+  --image dnsstudentacr.azurecr.io/customer-service:1.0 \
+  --registry-server dnsstudentacr.azurecr.io \
   --cpu 0.5 --memory 1.0Gi \
   --target-port 8184 --ingress external \
   --min-replicas 0 --max-replicas 1 \
@@ -780,20 +929,20 @@ az containerapp create \
             kafkajaas="$KAFKA_SASL_JAAS_CONFIG" \
             srauth="$SCHEMA_REGISTRY_AUTH_USER_INFO" \
   --env-vars \
-    DB_HOST="$DB_HOST" DB_PORT="$DB_PORT" DB_NAME="$DB_NAME" \
-    "DB_EXTRA_PARAMS=$DB_EXTRA_PARAMS" \
-    POSTGRES_USER="$POSTGRES_USER" POSTGRES_PASSWORD=secretref:pgpass \
-    SQL_INIT_MODE=always \
-    KAFKA_BOOTSTRAP_SERVERS="$KAFKA_BOOTSTRAP_SERVERS" \
-    KAFKA_SECURITY_PROTOCOL="$KAFKA_SECURITY_PROTOCOL" \
-    KAFKA_SASL_MECHANISM="$KAFKA_SASL_MECHANISM" \
+    DB_HOST=dns-student-pg.postgres.database.azure.com DB_PORT=5432 DB_NAME=postgres \
+    'DB_EXTRA_PARAMS=&sslmode=require' \
+    POSTGRES_USER=dnsadmin POSTGRES_PASSWORD=secretref:pgpass \
+    SQL_INIT_MODE=never \
+    KAFKA_BOOTSTRAP_SERVERS=pkc-56d1g.eastus.azure.confluent.cloud:9092 \
+    KAFKA_SECURITY_PROTOCOL=SASL_SSL \
+    KAFKA_SASL_MECHANISM=PLAIN \
     KAFKA_SASL_JAAS_CONFIG=secretref:kafkajaas \
-    SCHEMA_REGISTRY_URL="$SCHEMA_REGISTRY_URL" \
+    SCHEMA_REGISTRY_URL=https://psrc-zj7wewy.eastus.azure.confluent.cloud \
     SCHEMA_REGISTRY_AUTH_USER_INFO=secretref:srauth \
-    APP_LOG_LEVEL="$APP_LOG_LEVEL"
+    APP_LOG_LEVEL=INFO
 ```
 
-> Fíjate que `SQL_INIT_MODE=always` va **literal** (no sale de `.env-cloud`, donde queda `never`): es el override deliberado del primer arranque.
+> `SQL_INIT_MODE=never` coincide con el valor de `.env-cloud` y con el default de la aplicación, así que no hay override ni paso posterior que recordar.
 
 Durante la creación verás *"No credential was provided to access Azure Container Registry. Trying to look up credentials..."* seguido de *"Adding registry password as a secret"* — es el CLI configurando solo las credenciales del ACR (por el `--admin-enabled` del paso 3). El éxito es la línea **"Container app created. Access your app at https://customer-service.&lt;dominio-del-environment&gt;.eastus.azurecontainerapps.io/"**:
 
@@ -807,28 +956,28 @@ Durante la creación verás *"No credential was provided to access Azure Contain
 - `--ingress external`: le da una **URL pública HTTPS**. Los servicios que no necesitan ser llamados desde internet van con `internal` (solo visibles dentro del environment) — menos superficie de ataque.
 - `--min-replicas 0`: **la clave del ahorro.** Con 0 réplicas mínimas, si nadie llama al servicio en unos minutos, Azure lo apaga y deja de cobrar. Al llegar una petición HTTP lo enciende de nuevo (tarda ~15-30 s, el "cold start" — normal y aceptable para demos).
 - `--secrets` + `secretref:`: las contraseñas se guardan como **secretos** (cifrados, no visibles en el portal) y las variables de entorno solo las *referencian*. Nunca pongas contraseñas directamente en `--env-vars`. Fíjate en el patrón: el secreto recibe el **valor** desde la variable de tu terminal (`pgpass="$POSTGRES_PASSWORD"`, cargada de `.env-cloud`) y la env var del contenedor lleva solo la **referencia** (`POSTGRES_PASSWORD=secretref:pgpass`).
-- `SQL_INIT_MODE=always`: **solo esta primera vez.** Cuando el servicio arranque bien, cámbialo: `az containerapp update -g dns-student-rg -n customer-service --set-env-vars SQL_INIT_MODE=never`.
+- `SQL_INIT_MODE=never`: la app no ejecuta scripts de esquema ni de datos al arrancar. Es también el default de la imagen, así que es seguro incluso si se te olvida pasarlo.
 
-**Los otros 3 servicios** usan el mismo comando cambiando lo de esta tabla (y sin `SQL_INIT_MODE=always`, van directo con `never`):
+**Los otros 3 servicios** usan el mismo comando cambiando lo de esta tabla:
 
 | Servicio | `--target-port` | `--ingress` | Extras |
 |---|---|---|---|
-| `customer-service` | 8184 | `external` | `SQL_INIT_MODE=always` solo la primera vez |
+| `customer-service` | 8184 | `external` | Despliégalo primero: los demás dependen de sus clientes |
 | `document-service` | 8181 | `external` | Es el API principal que llamarás desde Postman/curl |
 | `generator-service` | 8182 | `internal` | — |
 | `notification-service` | 8183 | `internal` | Variables de correo del paso 7: secreto `acsconn` + `ACS_CONNECTION_STRING`, `MAIL_FROM` y rate limiter |
 
-Y aquí están los **comandos completos de los 3 restantes** — con `.env-cloud` cargado en la terminal se ejecutan **tal cual, sin editar nada**:
+Y aquí están los **comandos completos de los 3 restantes** — con los secretos de `.env-cloud` cargados en la terminal se ejecutan **tal cual, sin editar nada**:
 
 **`document-service`** (el API principal — puerto 8181, con URL pública):
 
 ```bash
 az containerapp create \
-  --resource-group "$RESOURCE_GROUP" \
+  --resource-group dns-student-rg \
   --name document-service \
-  --environment "$CONTAINERAPPS_ENV" \
-  --image "$ACR_NAME.azurecr.io/document-service:1.0" \
-  --registry-server "$ACR_NAME.azurecr.io" \
+  --environment dns-student-env \
+  --image dnsstudentacr.azurecr.io/document-service:1.0 \
+  --registry-server dnsstudentacr.azurecr.io \
   --cpu 0.5 --memory 1.0Gi \
   --target-port 8181 --ingress external \
   --min-replicas 0 --max-replicas 1 \
@@ -836,17 +985,17 @@ az containerapp create \
             kafkajaas="$KAFKA_SASL_JAAS_CONFIG" \
             srauth="$SCHEMA_REGISTRY_AUTH_USER_INFO" \
   --env-vars \
-    DB_HOST="$DB_HOST" DB_PORT="$DB_PORT" DB_NAME="$DB_NAME" \
-    "DB_EXTRA_PARAMS=$DB_EXTRA_PARAMS" \
-    POSTGRES_USER="$POSTGRES_USER" POSTGRES_PASSWORD=secretref:pgpass \
-    SQL_INIT_MODE="$SQL_INIT_MODE" \
-    KAFKA_BOOTSTRAP_SERVERS="$KAFKA_BOOTSTRAP_SERVERS" \
-    KAFKA_SECURITY_PROTOCOL="$KAFKA_SECURITY_PROTOCOL" \
-    KAFKA_SASL_MECHANISM="$KAFKA_SASL_MECHANISM" \
+    DB_HOST=dns-student-pg.postgres.database.azure.com DB_PORT=5432 DB_NAME=postgres \
+    'DB_EXTRA_PARAMS=&sslmode=require' \
+    POSTGRES_USER=dnsadmin POSTGRES_PASSWORD=secretref:pgpass \
+    SQL_INIT_MODE=never \
+    KAFKA_BOOTSTRAP_SERVERS=pkc-56d1g.eastus.azure.confluent.cloud:9092 \
+    KAFKA_SECURITY_PROTOCOL=SASL_SSL \
+    KAFKA_SASL_MECHANISM=PLAIN \
     KAFKA_SASL_JAAS_CONFIG=secretref:kafkajaas \
-    SCHEMA_REGISTRY_URL="$SCHEMA_REGISTRY_URL" \
+    SCHEMA_REGISTRY_URL=https://psrc-zj7wewy.eastus.azure.confluent.cloud \
     SCHEMA_REGISTRY_AUTH_USER_INFO=secretref:srauth \
-    APP_LOG_LEVEL="$APP_LOG_LEVEL"
+    APP_LOG_LEVEL=INFO
 ```
 
 ![az containerapp create document-service — creado con su URL pública](images/azure-deploy/32-containerapp-create-document.png)
@@ -855,11 +1004,11 @@ az containerapp create \
 
 ```bash
 az containerapp create \
-  --resource-group "$RESOURCE_GROUP" \
+  --resource-group dns-student-rg \
   --name generator-service \
-  --environment "$CONTAINERAPPS_ENV" \
-  --image "$ACR_NAME.azurecr.io/generator-service:1.0" \
-  --registry-server "$ACR_NAME.azurecr.io" \
+  --environment dns-student-env \
+  --image dnsstudentacr.azurecr.io/generator-service:1.0 \
+  --registry-server dnsstudentacr.azurecr.io \
   --cpu 0.5 --memory 1.0Gi \
   --target-port 8182 --ingress internal \
   --min-replicas 0 --max-replicas 1 \
@@ -867,17 +1016,17 @@ az containerapp create \
             kafkajaas="$KAFKA_SASL_JAAS_CONFIG" \
             srauth="$SCHEMA_REGISTRY_AUTH_USER_INFO" \
   --env-vars \
-    DB_HOST="$DB_HOST" DB_PORT="$DB_PORT" DB_NAME="$DB_NAME" \
-    "DB_EXTRA_PARAMS=$DB_EXTRA_PARAMS" \
-    POSTGRES_USER="$POSTGRES_USER" POSTGRES_PASSWORD=secretref:pgpass \
-    SQL_INIT_MODE="$SQL_INIT_MODE" \
-    KAFKA_BOOTSTRAP_SERVERS="$KAFKA_BOOTSTRAP_SERVERS" \
-    KAFKA_SECURITY_PROTOCOL="$KAFKA_SECURITY_PROTOCOL" \
-    KAFKA_SASL_MECHANISM="$KAFKA_SASL_MECHANISM" \
+    DB_HOST=dns-student-pg.postgres.database.azure.com DB_PORT=5432 DB_NAME=postgres \
+    'DB_EXTRA_PARAMS=&sslmode=require' \
+    POSTGRES_USER=dnsadmin POSTGRES_PASSWORD=secretref:pgpass \
+    SQL_INIT_MODE=never \
+    KAFKA_BOOTSTRAP_SERVERS=pkc-56d1g.eastus.azure.confluent.cloud:9092 \
+    KAFKA_SECURITY_PROTOCOL=SASL_SSL \
+    KAFKA_SASL_MECHANISM=PLAIN \
     KAFKA_SASL_JAAS_CONFIG=secretref:kafkajaas \
-    SCHEMA_REGISTRY_URL="$SCHEMA_REGISTRY_URL" \
+    SCHEMA_REGISTRY_URL=https://psrc-zj7wewy.eastus.azure.confluent.cloud \
     SCHEMA_REGISTRY_AUTH_USER_INFO=secretref:srauth \
-    APP_LOG_LEVEL="$APP_LOG_LEVEL"
+    APP_LOG_LEVEL=INFO
 ```
 
 ![az containerapp create generator-service — en ejecución](images/azure-deploy/33-containerapp-create-generator.png)
@@ -886,11 +1035,11 @@ az containerapp create \
 
 ```bash
 az containerapp create \
-  --resource-group "$RESOURCE_GROUP" \
+  --resource-group dns-student-rg \
   --name notification-service \
-  --environment "$CONTAINERAPPS_ENV" \
-  --image "$ACR_NAME.azurecr.io/notification-service:1.0" \
-  --registry-server "$ACR_NAME.azurecr.io" \
+  --environment dns-student-env \
+  --image dnsstudentacr.azurecr.io/notification-service:1.0 \
+  --registry-server dnsstudentacr.azurecr.io \
   --cpu 0.5 --memory 1.0Gi \
   --target-port 8183 --ingress internal \
   --min-replicas 0 --max-replicas 1 \
@@ -899,21 +1048,21 @@ az containerapp create \
             srauth="$SCHEMA_REGISTRY_AUTH_USER_INFO" \
             acsconn="$ACS_CONNECTION_STRING" \
   --env-vars \
-    DB_HOST="$DB_HOST" DB_PORT="$DB_PORT" DB_NAME="$DB_NAME" \
-    "DB_EXTRA_PARAMS=$DB_EXTRA_PARAMS" \
-    POSTGRES_USER="$POSTGRES_USER" POSTGRES_PASSWORD=secretref:pgpass \
-    SQL_INIT_MODE="$SQL_INIT_MODE" \
-    KAFKA_BOOTSTRAP_SERVERS="$KAFKA_BOOTSTRAP_SERVERS" \
-    KAFKA_SECURITY_PROTOCOL="$KAFKA_SECURITY_PROTOCOL" \
-    KAFKA_SASL_MECHANISM="$KAFKA_SASL_MECHANISM" \
+    DB_HOST=dns-student-pg.postgres.database.azure.com DB_PORT=5432 DB_NAME=postgres \
+    'DB_EXTRA_PARAMS=&sslmode=require' \
+    POSTGRES_USER=dnsadmin POSTGRES_PASSWORD=secretref:pgpass \
+    SQL_INIT_MODE=never \
+    KAFKA_BOOTSTRAP_SERVERS=pkc-56d1g.eastus.azure.confluent.cloud:9092 \
+    KAFKA_SECURITY_PROTOCOL=SASL_SSL \
+    KAFKA_SASL_MECHANISM=PLAIN \
     KAFKA_SASL_JAAS_CONFIG=secretref:kafkajaas \
-    SCHEMA_REGISTRY_URL="$SCHEMA_REGISTRY_URL" \
+    SCHEMA_REGISTRY_URL=https://psrc-zj7wewy.eastus.azure.confluent.cloud \
     SCHEMA_REGISTRY_AUTH_USER_INFO=secretref:srauth \
     ACS_CONNECTION_STRING=secretref:acsconn \
-    MAIL_FROM="$MAIL_FROM" \
-    MAIL_RATE_LIMIT_TOKENS="$MAIL_RATE_LIMIT_TOKENS" \
-    MAIL_RATE_LIMIT_REFILL_MS="$MAIL_RATE_LIMIT_REFILL_MS" \
-    APP_LOG_LEVEL="$APP_LOG_LEVEL"
+    MAIL_FROM=donotreply@9d0daf71-78e9-4ee0-b251-5e2929db499e.azurecomm.net \
+    MAIL_RATE_LIMIT_TOKENS=20 \
+    MAIL_RATE_LIMIT_REFILL_MS=1000 \
+    APP_LOG_LEVEL=INFO
 ```
 
 Fíjate en la URL del mensaje de éxito: por el ingress `internal`, el FQDN lleva el segmento **`.internal.`** (`https://notification-service.internal.<dominio>.eastus.azurecontainerapps.io`) — solo resuelve **dentro** del environment, no desde tu PC:
@@ -922,13 +1071,13 @@ Fíjate en la URL del mensaje de éxito: por el ingress `internal`, el FQDN llev
 
 - `MAIL_PROVIDER` puede omitirse: `azure` es el valor por defecto de la aplicación.
 - `ACS_CONNECTION_STRING` es **obligatoria** con este proveedor: sin ella el servicio no arranca (el error lo dice claramente).
-- `MAIL_RATE_LIMIT_TOKENS`/`MAIL_RATE_LIMIT_REFILL_MS`: rate limiter interno. El default (`5`/`20000` ≈ 15 correos/min) está pensado para proteger cuentas Gmail; con ACS puedes subirlo a tu cuota (ej. `20`/`1000`).
+- `MAIL_RATE_LIMIT_TOKENS`/`MAIL_RATE_LIMIT_REFILL_MS`: rate limiter interno (token bucket). El default de la app es `10`/`3600000` = 10 correos/hora, que es exactamente la cuota de ACS sobre dominio administrado. Subirlo solo provoca 429; con [dominio propio verificado](#76-opcional-dominio-propio-subir-la-cuota-de-10hora-a-100hora) la cuota es 100/hora.
 - Si ya desplegaste sin correo y quieres añadirlo después, son **dos comandos** (`update` no gestiona secretos):
 
 ```bash
-az containerapp secret set -g dns-student-rg -n notification-service --secrets acsconn='<CONNECTION-STRING>'
+az containerapp secret set -g dns-student-rg -n notification-service --secrets acsconn="$ACS_CONNECTION_STRING"
 az containerapp update -g dns-student-rg -n notification-service \
-  --set-env-vars ACS_CONNECTION_STRING=secretref:acsconn MAIL_FROM='donotreply@<guid>.azurecomm.net'
+  --set-env-vars ACS_CONNECTION_STRING=secretref:acsconn MAIL_FROM=donotreply@9d0daf71-78e9-4ee0-b251-5e2929db499e.azurecomm.net
 ```
 
 > **Matiz sobre scale-to-zero:** `generator-service` y `notification-service` trabajan consumiendo mensajes de Kafka, no recibiendo HTTP. Si están dormidos (0 réplicas) no procesan mensajes — los mensajes **no se pierden** (quedan en Kafka), pero el flujo queda pausado. Para una demo, despiértalos antes con `--min-replicas 1` y devuélvelos a 0 al terminar (comandos en la sección de escalado).
@@ -944,7 +1093,7 @@ Al terminar el paso 8, el resource group en el portal (*Home* → `dns-student-r
 Obtén la URL pública de `document-service`:
 
 ```bash
-az containerapp show -g "$RESOURCE_GROUP" -n document-service \
+az containerapp show -g dns-student-rg -n document-service \
   --query properties.configuration.ingress.fqdn -o tsv
 ```
 
@@ -967,13 +1116,13 @@ La primera llamada puede tardar ~30 s (cold start). Health probes opcionales (po
 
 ```bash
 # Eventos de la plataforma (¿la réplica arrancó? ¿descargó la imagen?):
-az containerapp logs show -g "$RESOURCE_GROUP" -n document-service --type system --tail 50
+az containerapp logs show -g dns-student-rg -n document-service --type system --tail 50
 
 # Logs de la aplicación (stack traces de Spring, actividad de Kafka...):
-az containerapp logs show -g "$RESOURCE_GROUP" -n document-service --type console --tail 50
+az containerapp logs show -g dns-student-rg -n document-service --type console --tail 50
 
 # En vivo, mientras ejecutas el flujo:
-az containerapp logs show -g "$RESOURCE_GROUP" -n notification-service --type console --follow
+az containerapp logs show -g dns-student-rg -n notification-service --type console --follow
 # busca "Email sent successfully to: ... | MessageId: ..."
 ```
 
@@ -1052,11 +1201,11 @@ Errores reales encontrados al desplegar este sistema, con su síntoma, causa y f
 - **Causa:** al crear el topic en Confluent se aceptó el asistente **"Create a data contract"**, que registró el **esquema de ejemplo** (`sampleRecord`, campos `my_field1/2/3`) en el subject `generator-response-value`. Con compatibilidad `BACKWARD`, el registry rechaza el esquema real del servicio por incompatible.
 - **Diagnóstico:** consulta qué hay registrado — si el `name` no es el `...AvroModel` esperado, está contaminado:
   ```bash
-  curl -u "$SCHEMA_REGISTRY_AUTH_USER_INFO" "$SCHEMA_REGISTRY_URL/subjects/generator-response-value/versions/latest"
+  curl -u "$SCHEMA_REGISTRY_AUTH_USER_INFO" "https://psrc-zj7wewy.eastus.azure.confluent.cloud/subjects/generator-response-value/versions/latest"
   ```
 - **Fix:** borrar el subject para que el servicio registre su esquema real en el siguiente reintento (no hay que reiniciar nada):
   ```bash
-  curl -u "$SCHEMA_REGISTRY_AUTH_USER_INFO" -X DELETE "$SCHEMA_REGISTRY_URL/subjects/generator-response-value"
+  curl -u "$SCHEMA_REGISTRY_AUTH_USER_INFO" -X DELETE "https://psrc-zj7wewy.eastus.azure.confluent.cloud/subjects/generator-response-value"
   ```
 - **Prevención:** es exactamente el "sáltalo (*Skip*)" del paso 6.3 — los esquemas los registran los servicios solos.
 
@@ -1079,12 +1228,23 @@ Errores reales encontrados al desplegar este sistema, con su síntoma, causa y f
 
 **c) `relation "customers" does not exist` en document-service (500 en `POST /documents`)**
 
-- Ya documentado en el paso 8: es la vista materializada `"document".customers` borrada por el `DROP SCHEMA customer CASCADE` del `SQL_INIT_MODE=always`. Fix: el script `fix-document-customers-view.sql` (ver la advertencia del paso 8).
+- **Causa:** falta la vista materializada `"document".customers`. O el `init-db.sql` del paso 5 no llegó a crearla, o algún servicio arrancó con `SQL_INIT_MODE=always` y el `DROP SCHEMA customer CASCADE` se la llevó.
+- **Fix:** recrearla. Es idempotente y no toca los datos de `customer.customers`:
+
+  ```bash
+  psql "host=dns-student-pg.postgres.database.azure.com port=5432 dbname=postgres user=dnsadmin sslmode=require" -c '
+  DROP MATERIALIZED VIEW IF EXISTS "document".customers CASCADE;
+  CREATE MATERIALIZED VIEW "document".customers TABLESPACE pg_default AS
+    SELECT c.id, c.username, c.first_name, c.last_name FROM customer.customers c WITH DATA;
+  CREATE UNIQUE INDEX idx_document_customer_m_view_id_unique ON "document".customers (id);'
+  ```
+
+- **Prevención:** mantener `SQL_INIT_MODE=never` en los 4 servicios (paso 8).
 
 **d) "Customer not found" en sagas viejos tras reinicializar la BD**
 
 - **Síntoma:** al procesarse el backlog, algunos documentos fallan con `Customer with id ... was not found`.
-- **Causa:** son documentos creados **antes** de que `SQL_INIT_MODE=always` reemplazara los clientes; sus `customerId` ya no existen.
+- **Causa:** son documentos creados **antes** de que se reinicializara la tabla de clientes (por reejecutar `init-db.sql`, o por un arranque con `SQL_INIT_MODE=always`); sus `customerId` ya no existen.
 - **Fix:** ninguno — es el comportamiento correcto. Ignóralos y prueba con clientes actuales.
 
 ---
@@ -1107,7 +1267,7 @@ La configuración base de esta guía (max 1 réplica, BD B1ms) está pensada par
 
 ### Antes de escalar: 3 requisitos
 
-1. **`SQL_INIT_MODE=never` en TODOS los servicios.** Con `always`, cada réplica nueva re-ejecuta los scripts SQL al arrancar (carreras y datos duplicados):
+1. **`SQL_INIT_MODE=never` en TODOS los servicios.** Ya es el default y lo que despliega el paso 8, pero conviene confirmarlo: con `always`, cada réplica nueva re-ejecuta los scripts al arrancar (carreras, datos duplicados y la vista materializada destruida):
 
    ```bash
    for s in document-service customer-service generator-service notification-service; do
@@ -1115,7 +1275,29 @@ La configuración base de esta guía (max 1 réplica, BD B1ms) está pensada par
    done
    ```
 
-2. **La BD es el límite silencioso.** El B1ms gratuito tiene ~**35 conexiones máximas** y cada réplica abre un pool de 10 (HikariCP). Con 4 servicios × 1 réplica ya estás al límite. Al escalar, elige: **(a)** subir la BD temporalmente (recomendado para pruebas — `Standard_D2s_v3` ≈ $0.16/hora, ~850 conexiones) o **(b)** reducir los pools (`SPRING_DATASOURCE_HIKARI_MAXIMUMPOOLSIZE=5` en cada servicio, manteniendo `Σ réplicas × pool ≤ 30`):
+2. **La BD es el límite silencioso.** El B1ms trae `max_connections = 50` (default del SKU; rango configurable 25–5000) y los servicios se despliegan con `SPRING_DATASOURCE_HIKARI_MAXIMUMPOOLSIZE=5`. La cuenta que importa es:
+
+   ```
+   Σ (réplicas × pool)  +  ~5 reservadas (superusuario + monitoreo de Azure)  ≤  max_connections
+   ```
+
+   Con 4 servicios × 1 réplica × pool 5 = 20, hay margen. Pero con los consumidores en 3 réplicas la suma sube a 50 — justo en el tope — y **durante un rolling restart la demanda se duplica**, porque la revisión vieja retiene sus conexiones mientras la nueva arranca. Ahí es donde reventará.
+
+   > ⚠️ **Cómo se ve este fallo (y por qué engaña).** El servicio entra en `CrashLoopBackOff` y el log dice `Unable to determine Dialect without JDBC metadata`, que parece un error de configuración de Hibernate. No lo es. Hibernate 6.5 tiene un bug donde `JdbcIsolationDelegate.sqlExceptionHelper()` devuelve null, y el `NullPointerException` resultante **se come la `SQLException` real** — el "too many connections". Si dos revisiones con env vars e imagen idénticas se comportan distinto, sospecha del cupo de conexiones, no del código.
+
+   Al escalar, elige:
+
+   **(a) Subir la BD temporalmente** — recomendado para pruebas de carga. `Standard_D2s_v3` (2 vCPU, 8 GB) ≈ $0.16/hora y sube `max_connections` a ~859. Además el B1ms es 1 vCPU: en una prueba masiva el cuello de botella real es la CPU, no las conexiones.
+
+   **(b) Subir solo `max_connections`** sin cambiar de SKU — más barato, pero **no** resuelve la CPU y la RAM es el techo: cada backend de Postgres cuesta ~9 MB, así que en un B1ms de 2 GB no pases de ~150. Es parámetro estático, **exige reiniciar el servidor**:
+
+   ```bash
+   az postgres flexible-server parameter set -g dns-student-rg --server-name dns-student-pg \
+     --name max_connections --value 200
+   az postgres flexible-server restart -g dns-student-rg -n dns-student-pg
+   ```
+
+   **(c) Reducir los pools** (`SPRING_DATASOURCE_HIKARI_MAXIMUMPOOLSIZE=3`), manteniendo `Σ réplicas × pool ≤ 45`. Sirve para salir del apuro sin gastar, a costa de throughput por réplica.
 
    ```bash
    # (a) Antes de la prueba — subir (reinicia el servidor, ~5 min):
@@ -1130,7 +1312,15 @@ La configuración base de esta guía (max 1 réplica, BD B1ms) está pensada par
 
 ### La regla de oro de los consumidores Kafka
 
-Los topics tienen **3 particiones**, así que **máximo 3 réplicas útiles** por consumidor (`generator-service`, `notification-service`): Kafka reparte las particiones entre las réplicas del mismo consumer group y las réplicas de más quedan ociosas. El patrón outbox con locking optimista ya tolera múltiples instancias — no hay que tocar código.
+El máximo de **réplicas útiles** por consumidor (`generator-service`, `notification-service`) es igual al **número de particiones** del topic: Kafka reparte las particiones entre las réplicas del mismo consumer group y las réplicas de más quedan ociosas. El patrón outbox con locking optimista ya tolera múltiples instancias — no hay que tocar código.
+
+Los topics nacieron con **3 particiones**; el **2026-08-31 se ampliaron a 6** en Confluent para la prueba de 9000 peticiones, así que hoy el tope útil es **6 réplicas** por consumidor. Al ampliar particiones ten presente:
+
+- **Es irreversible** — las particiones nunca se pueden reducir (habría que borrar y recrear el topic).
+- Los consumer groups **rebalancean** al instante (pausa breve; puede re-entregar mensajes sin offset commiteado, que la idempotencia del outbox rechaza con `23505` — ruido esperado).
+- El **orden por clave se rompe en la transición**: el productor enruta por `hash(key) % particiones`, así que mensajes con la misma clave producidos antes y después del cambio pueden caer en particiones distintas.
+- Los mensajes ya encolados **no se redistribuyen** — quedan en las particiones originales.
+- La config de la app queda **desalineada**: los `application.yml` (y el parche de env vars de `customer-service`) declaran `num-of-partitions: 3`. No rompe nada (el `KafkaAdmin` de Spring nunca reduce particiones existentes), pero si un topic se recreara nacería con 3 — conviene alinear a 6.
 
 ```mermaid
 flowchart LR
@@ -1149,7 +1339,7 @@ flowchart LR
     P2 --> R3
 ```
 
-> ¿Necesitas más de 3 consumidores? Primero habría que aumentar las particiones en Confluent (nunca se pueden reducir después). Con este stack (0.5 vCPU, BD B1ms) es casi seguro que el cuello de botella esté en otra parte — agota primero la BD y las réplicas HTTP.
+> ¿Necesitas más de 6 consumidores? Habría que volver a aumentar las particiones en Confluent (recuerda: nunca se pueden reducir después). Con este stack (0.5 vCPU por réplica) es casi seguro que el cuello de botella esté en otra parte — agota primero la BD y las réplicas HTTP.
 
 ### Escalado MANUAL: fijar réplicas
 
@@ -1171,6 +1361,150 @@ done
 
 - `--min-replicas ≥ 1` durante la prueba elimina el cold start (con 0, las primeras peticiones medirían el arranque del contenedor, no el rendimiento).
 - **Escalado vertical** (opcional): si una réplica se satura de CPU, sube el tamaño en vez de solo añadir réplicas: `az containerapp update -g dns-student-rg -n document-service --cpu 1.0 --memory 2.0Gi` (duplica el consumo de capa gratuita por réplica).
+
+#### Escenario aplicado: document 2 · generator 5 · notification 5
+
+Configuración usada en una prueba real, con las variables de [`.env-cloud`](../document-notification-system/.env-cloud). Como la BD sigue en `B1ms`, los servicios de 5 réplicas bajan su pool a **2** para respetar el presupuesto de conexiones: `2×3 (document) + 1×3 (customer) + 5×2 (generator) + 5×2 (notification) = 29 ≤ 45`.
+
+```bash
+# document-service: 2 réplicas fijas
+az containerapp update -g dns-student-rg -n document-service \
+  --min-replicas 2 --max-replicas 2 \
+  --set-env-vars APP_LOG_LEVEL=INFO
+
+# generator-service: 5 réplicas fijas, todas corriendo
+# (los topics tienen 3 particiones: solo 3 réplicas consumen, las otras 2 quedan ociosas)
+az containerapp update -g dns-student-rg -n generator-service \
+  --min-replicas 5 --max-replicas 5 \
+  --set-env-vars APP_LOG_LEVEL=INFO SPRING_DATASOURCE_HIKARI_MAXIMUMPOOLSIZE=2
+
+# notification-service: 5 réplicas fijas, correo hacia Mailpit (el default de este escenario:
+# sin cuota, ideal para pruebas de carga — requiere Mailpit desplegado, sección siguiente)
+az containerapp update -g dns-student-rg -n notification-service \
+  --min-replicas 5 --max-replicas 5 \
+  --set-env-vars MAIL_PROVIDER=smtp MAIL_HOST=mailpit MAIL_PORT=1025 \
+    MAIL_SMTP_AUTH=false MAIL_SMTP_STARTTLS_ENABLE=false MAIL_SMTP_STARTTLS_REQUIRED=false \
+    MAIL_RATE_LIMIT_TOKENS=100 MAIL_RATE_LIMIT_REFILL_MS=1000 \
+    APP_LOG_LEVEL=INFO SPRING_DATASOURCE_HIKARI_MAXIMUMPOOLSIZE=2
+
+# Verificar que todas las réplicas levantaron:
+for s in document-service generator-service notification-service; do
+  az containerapp replica list -g dns-student-rg -n $s \
+    --query "[].{name:name, state:properties.runningState}" -o table
+done
+```
+
+> Para enviar correos reales, cambia el proveedor a ACS con los valores de [`.env-cloud`](../document-notification-system/.env-cloud) (`MAIL_PROVIDER=azure`, cuota 10/hora sobre dominio administrado — el comando de vuelta está en el paso 6 de la sección de Mailpit). Y recuerda revertir al modo ahorro al terminar (`--min-replicas 0 --max-replicas 1`, comando de arriba).
+
+#### Escenario aplicado (9000 peticiones): document 3 · generator 6 · notification 6
+
+Evolución del escenario anterior, usada el 2026-08-31 para una prueba de 9000 peticiones. Cambios de infraestructura previos: **topics ampliados a 6 particiones** en Confluent (regla de oro de arriba) y **BD subida a `Standard_B4ms`** (4 vCPU, 16 GB) con `max_connections` en su default de SKU (**1718**) — con ese techo, las conexiones dejan de ser el límite y los pools pueden volver a 5:
+
+```bash
+# BD: alinear max_connections al default del SKU (parámetro estático: exige reiniciar)
+az postgres flexible-server parameter set -g dns-student-rg --server-name dns-student-pg \
+  --name max_connections --value 1718
+az postgres flexible-server restart -g dns-student-rg -n dns-student-pg
+
+# document-service: 3 réplicas (entrada HTTP de la prueba)
+az containerapp update -g dns-student-rg -n document-service \
+  --min-replicas 3 --max-replicas 3 \
+  --set-env-vars APP_LOG_LEVEL=WARN SPRING_DATASOURCE_HIKARI_MAXIMUMPOOLSIZE=5 \
+    OUTBOX_SCHEDULER_FIXED_RATE=30000 \
+    KAFKAPRODUCERCONFIG_BATCHSIZEBOOSTFACTOR=1 KAFKAPRODUCERCONFIG_COMPRESSIONTYPE=lz4
+
+# generator y notification: 6 réplicas fijas (= 6 particiones, todas consumen)
+for s in generator-service notification-service; do
+  az containerapp update -g dns-student-rg -n $s \
+    --min-replicas 6 --max-replicas 6 \
+    --set-env-vars APP_LOG_LEVEL=WARN SPRING_DATASOURCE_HIKARI_MAXIMUMPOOLSIZE=5 \
+      OUTBOX_SCHEDULER_FIXED_RATE=30000 \
+      KAFKAPRODUCERCONFIG_BATCHSIZEBOOSTFACTOR=1 KAFKAPRODUCERCONFIG_COMPRESSIONTYPE=lz4
+done
+
+# customer-service también produce a Kafka: mismo tuning de producer
+az containerapp update -g dns-student-rg -n customer-service --set-env-vars \
+  KAFKAPRODUCERCONFIG_BATCHSIZEBOOSTFACTOR=1 KAFKAPRODUCERCONFIG_COMPRESSIONTYPE=lz4
+```
+
+Presupuesto de conexiones: `3×5 (document) + 1×3 (customer) + 6×5 (generator) + 6×5 (notification) = 78 ≤ 1713`. Las tres env vars de tuning existen porque los defaults horneados fallan bajo carga — el porqué está en los modos de fallo 5 y 6 de la sección siguiente.
+
+> ⚠️ Al terminar: además del checklist de réplicas, **devolver la BD a `B1ms`** (fuera de Burstable pequeño se cobra en serio) y, si se bajó de SKU, recordar que `max_connections=1718` no cabe en B1ms — volver a ponerlo en 50 o resetearlo antes de bajar.
+
+#### Cómo falla al escalar y cómo diagnosticarlo
+
+Los cuatro modos de fallo vistos en la práctica con este escenario, del más benigno al más grave:
+
+1. **Reinicios transitorios durante el rollout.** Al cambiar réplicas o variables, Container Apps crea una revisión nueva mientras la vieja retiene sus conexiones a la BD — la demanda de conexiones **se duplica** unos minutos y alguna réplica nueva puede reiniciar 1-2 veces hasta que la revisión vieja libera las suyas. Se recupera solo; si el `restartCount` sigue subiendo pasados ~5 min, es el caso 2 o 3.
+
+2. **Conexiones de BD agotadas** (`FATAL: too many connections` / `remaining connection slots are reserved`, y en los servicios `Unable to determine Dialect without JDBC metadata` — Hibernate no logró abrir la conexión). La cuenta que debe cumplirse en `B1ms`: `Σ (réplicas × pool) ≤ 45`. Se corrige bajando `SPRING_DATASOURCE_HIKARI_MAXIMUMPOOLSIZE` (es lo que hace el escenario de arriba con pool 2), bajando réplicas, o subiendo la BD de tamaño (sección anterior).
+
+3. **Revisiones zombis reteniendo conexiones.** Caso real: en modo multi-revisión, las revisiones viejas quedan **activas con sus réplicas** aunque reciban 0% del tráfico — cada una conserva su pool completo contra la BD. Tras varios `az containerapp update` seguidos, una revisión vieja de `notification-service` (5 réplicas) y otra de `customer-service` seguían vivas y la BD llegó a las 50 conexiones, tumbando réplicas nuevas con el error del punto 2. Diagnóstico y arreglo (comandos ejecutados):
+
+   ```bash
+   # Detectar: revisiones activas con réplicas y 0% de tráfico
+   az containerapp revision list -g dns-student-rg -n notification-service \
+     --query "[?properties.active].{revision:name, replicas:properties.replicas, traffic:properties.trafficWeight}" -o table
+
+   # Arreglar: desactivar la revisión vieja (libera sus conexiones al instante)
+   az containerapp revision deactivate -g dns-student-rg -n notification-service \
+     --revision <revision-vieja>
+   ```
+
+4. **Configuración faltante en la imagen** (crash loop permanente, `restartCount` en cientos). Caso real: `customer-service:1.0` se construyó **antes** de que su `application.yml` tuviera las secciones `kafka-config` y `kafka-producer-config`, y moría en cada arranque con `NullPointerException ... getBatchSize() is null` (396 reinicios acumulados). El diagnóstico siempre empieza por los logs:
+
+   ```bash
+   az containerapp logs show -g dns-student-rg -n customer-service --type console --tail 40
+   az containerapp replica list -g dns-student-rg -n customer-service \
+     --query "[].{replica:name, state:properties.runningState, restarts:properties.containers[0].restartCount}" -o table
+   ```
+
+   **Parche sin reconstruir la imagen** — como las clases de configuración son `@ConfigurationProperties`, Spring acepta los valores por variables de entorno (relaxed binding: mayúsculas, sin guiones, `_` entre prefijo y propiedad). Comando ejecutado:
+
+   ```bash
+   az containerapp update -g dns-student-rg -n customer-service --set-env-vars \
+     KAFKACONFIG_BOOTSTRAPSERVERS='pkc-56d1g.eastus.azure.confluent.cloud:9092' \
+     KAFKACONFIG_SCHEMAREGISTRYURLKEY='schema.registry.url' \
+     KAFKACONFIG_SCHEMAREGISTRYURL='https://psrc-zj7wewy.eastus.azure.confluent.cloud' \
+     KAFKACONFIG_NUMOFPARTITIONS=3 KAFKACONFIG_REPLICATIONFACTOR=3 \
+     KAFKACONFIG_SECURITYPROTOCOL=SASL_SSL KAFKACONFIG_SASLMECHANISM=PLAIN \
+     KAFKACONFIG_SASLJAASCONFIG=secretref:kafkajaas \
+     KAFKACONFIG_SCHEMAREGISTRYBASICAUTHCREDENTIALSSOURCE=USER_INFO \
+     KAFKACONFIG_SCHEMAREGISTRYBASICAUTHUSERINFO=secretref:srauth \
+     KAFKAPRODUCERCONFIG_KEYSERIALIZERCLASS='org.apache.kafka.common.serialization.StringSerializer' \
+     KAFKAPRODUCERCONFIG_VALUESERIALIZERCLASS='io.confluent.kafka.serializers.KafkaAvroSerializer' \
+     KAFKAPRODUCERCONFIG_COMPRESSIONTYPE=none KAFKAPRODUCERCONFIG_ACKS=all \
+     KAFKAPRODUCERCONFIG_BATCHSIZE=16384 KAFKAPRODUCERCONFIG_BATCHSIZEBOOSTFACTOR=100 \
+     KAFKAPRODUCERCONFIG_LINGERMS=5 KAFKAPRODUCERCONFIG_REQUESTTIMEOUTMS=60000 \
+     KAFKAPRODUCERCONFIG_RETRYCOUNT=5
+   ```
+
+   **Fix definitivo**: reconstruir y publicar `customer-service:1.1` con el código actual (paso 4 de esta guía) y actualizar la app con `az containerapp update --image dnsstudentacr.azurecr.io/customer-service:1.1`; después se pueden retirar estas variables (`--remove-env-vars`).
+
+5. **Tormenta del producer: `BufferExhaustedException` + duplicados masivos** (caso real de la prueba de 9000). Dos defaults horneados en los `application.yml` se retroalimentan bajo carga:
+
+   - `batch-size-boost-factor: 100` infla el batch del producer a `16384 × 100 = 1.6 MB` **por partición**, contra un `buffer.memory` de 32 MB (default de Kafka, **no configurable** en esta app — `KafkaProducerConfigData` no expone la propiedad). Caben ~20 batches y el buffer se agota: `BufferExhaustedException: Failed to allocate ... within the configured max blocking time 60000 ms`, con cada envío bloqueando 60 s.
+   - El scheduler del outbox (`OUTBOX_SCHEDULER_FIXED_RATE`, default 10 s) relee **todas** las filas `STARTED` en cada tick — sin límite de batch ni marca de "en vuelo" — y las re-encola completas. Si los acks tardan más que el tick (red lenta, buffer lleno), cada mensaje se reenvía varias veces antes de marcarse `COMPLETED`: el buffer se llena de duplicados, los servicios downstream se inundan de `23505` (la idempotencia rechazándolos) y el pipeline avanza a cuentagotas mientras se retroalimenta.
+
+   **Mitigación sin código** (la del escenario 3/6/6): `KAFKAPRODUCERCONFIG_BATCHSIZEBOOSTFACTOR=1`, `KAFKAPRODUCERCONFIG_COMPRESSIONTYPE=lz4` y `OUTBOX_SCHEDULER_FIXED_RATE=30000`. **Fix real (código)**: límite de batch por tick en los `OutboxScheduler` y un estado intermedio (`PROCESSING`) para no reenviar lo pendiente de ack; idealmente exponer `buffer.memory` en `KafkaProducerConfigData`.
+
+6. **Timeouts de conexión a brokers específicos de Confluent** (`Disconnecting from node N due to socket connection setup timeout`, y al superar los 120 s `TimeoutException: Expiring N record(s) for <topic>-<partición>`). Los brokers están sanos (un `Test-NetConnection bN-pkc-....confluent.cloud -Port 9092` desde fuera responde) — el problema es el camino de salida del entorno de Container Apps: throttling de intentos de conexión de Confluent o presión SNAT, típicamente tras varios rolling restarts seguidos (cada uno reconecta *todos* los clientes Kafka de golpe). Como el particionado es por clave, los mensajes de las particiones cuyo líder está en el broker inalcanzable quedan atascados (el outbox los reintenta; no se pierden). Mitigación: dejar de generar rollouts en cadena, esperar a que el backoff se enfríe y, si persiste, `az containerapp revision restart` del servicio afectado para forzar conexiones TCP nuevas.
+
+#### Escalar a más réplicas
+
+Para ir más allá del escenario 3/6/6, en este orden:
+
+1. **Consumidores (`generator`, `notification`) por encima de las réplicas útiles** (= particiones actuales, hoy **6**): primero subir las particiones de los topics en Confluent (nunca se pueden reducir después) — sin eso, las réplicas extra quedan ociosas.
+2. **Presupuesto de BD**: recalcular `Σ (réplicas × pool) ≤ 45` en `B1ms`; si no alcanza, subir la BD (`Standard_D2s_v3`, sección anterior — recordar volver a `B1ms` al terminar) o bajar los pools.
+3. **Fijar las réplicas** (mismo patrón de comandos del escenario):
+
+   ```bash
+   az containerapp update -g dns-student-rg -n <servicio> \
+     --min-replicas <N> --max-replicas <N> \
+     --set-env-vars SPRING_DATASOURCE_HIKARI_MAXIMUMPOOLSIZE=<pool>
+   ```
+
+4. **Verificar** con `az containerapp replica list` que todas queden en `Running` con `restarts` estable en 0.
 
 ### Escalado AUTOMÁTICO: reglas KEDA
 
@@ -1207,7 +1541,7 @@ az containerapp update -g dns-student-rg -n generator-service \
   --scale-rule-name kafka-lag \
   --scale-rule-type kafka \
   --scale-rule-metadata \
-      bootstrapServers='pkc-xxxxx.eastus.azure.confluent.cloud:9092' \
+      bootstrapServers='pkc-56d1g.eastus.azure.confluent.cloud:9092' \
       consumerGroup='generator-topic-consumer' \
       topic='generator-request' \
       lagThreshold='100' \
@@ -1222,31 +1556,123 @@ az containerapp update -g dns-student-rg -n generator-service \
 
 ### Pruebas de carga: Mailpit en vez de correos reales
 
-Para una prueba masiva **no uses el correo real**: usa **Mailpit**, un servidor SMTP falso en un contenedor que acepta cualquier correo, no entrega ninguno, y los muestra en una interfaz web (para contarlos y verificar el flujo de punta a punta). El manifiesto ya está en el repo: [`document-notification-system/azure/mailpit.yaml`](../document-notification-system/azure/mailpit.yaml).
+Para una prueba masiva **no uses el correo real**: la cuota de ACS sobre dominio administrado es de 10 correos/hora (paso 7), así que 10.000 documentos tardarían ~42 días. **Mailpit** es un servidor SMTP falso en un contenedor: acepta cualquier correo, no entrega ninguno, y los muestra en una UI web para contarlos y verificar el flujo de punta a punta. Sin cuota.
+
+#### Dónde encaja Mailpit en el flujo
+
+Mailpit **no cambia nada del sistema salvo el último salto**. Todo el pipeline sigue igual; solo cambia a dónde entrega `notification-service`:
+
+```
+POST /documents → document-service → Kafka (generator-request)
+                → generator-service → Kafka (notification-request)
+                → notification-service ──┬─→ ACS Email  (MAIL_PROVIDER=azure, 10/hora)
+                                         └─→ mailpit:1025  (MAIL_PROVIDER=smtp, sin límite)
+```
+
+El cambio es **solo de variables de entorno**, sin recompilar: el adaptador SMTP ya está en la imagen.
+
+#### 1) Desplegar Mailpit
+
+> ⚠️ El manifiesto [`azure/mailpit.yaml`](../document-notification-system/azure/mailpit.yaml) documenta la configuración, pero `az containerapp create --yaml` lo rechaza con `The JSON value could not be converted to System.Boolean. Path: $ | LineNumber: 0` — es un **bug del CLI**, no del manifiesto (el YAML parsea bien). Despliega con flags:
 
 ```bash
-# 1. Poner el ID del environment en el yaml y desplegar:
-az containerapp env show -g dns-student-rg -n dns-student-env --query id -o tsv
-#    → cópialo en <ENVIRONMENT_ID> de azure/mailpit.yaml
-az containerapp create -g dns-student-rg -n mailpit --yaml document-notification-system/azure/mailpit.yaml
+az containerapp create -g dns-student-rg -n mailpit --environment dns-student-env \
+  --image docker.io/axllent/mailpit:latest \
+  --target-port 8025 --ingress external --transport http \
+  --cpu 0.25 --memory 0.5Gi --min-replicas 1 --max-replicas 1 \
+  --env-vars MP_MAX_MESSAGES=20000
+```
 
-# 2. Apuntar notification-service a Mailpit y liberar el rate limiter:
+#### 2) Abrir el puerto SMTP 1025
+
+Los flags solo configuran **un** puerto (el 8025 de la UI). El 1025 que usa `notification-service` se añade como *additional port mapping*, y eso hoy solo se puede por API:
+
+```bash
+SUB=$(az account show --query id -o tsv)
+ID="/subscriptions/$SUB/resourceGroups/dns-student-rg/providers/Microsoft.App/containerApps/mailpit"
+cat > patch.json <<'JSON'
+{"properties":{"configuration":{"ingress":{"external":true,"targetPort":8025,"transport":"Http",
+"additionalPortMappings":[{"external":false,"targetPort":1025,"exposedPort":1025}]}}}}
+JSON
+az rest --method patch --url "https://management.azure.com${ID}?api-version=2024-03-01" --body @patch.json
+```
+
+El `external: false` del 1025 es deliberado: **SMTP solo debe ser alcanzable dentro del environment**, nunca desde internet. La UI (8025) sí es pública.
+
+Verifica que quedó:
+
+```bash
+az containerapp show -g dns-student-rg -n mailpit \
+  --query "{ui:properties.configuration.ingress.fqdn, smtp:properties.configuration.ingress.additionalPortMappings}" -o json
+```
+
+#### 3) Apuntar `notification-service` a Mailpit
+
+`MAIL_PROVIDER=smtp` es imprescindible: el default de la aplicación es `azure`.
+
+```bash
 az containerapp update -g dns-student-rg -n notification-service \
   --set-env-vars MAIL_PROVIDER=smtp MAIL_HOST=mailpit MAIL_PORT=1025 \
     MAIL_SMTP_AUTH=false MAIL_SMTP_STARTTLS_ENABLE=false MAIL_SMTP_STARTTLS_REQUIRED=false \
     MAIL_RATE_LIMIT_TOKENS=100 MAIL_RATE_LIMIT_REFILL_MS=1000
+```
 
-# 3. UI web para ver los correos capturados:
+#### 4) Comandos útiles para ver los correos
+
+La UI web es pública; sácale el FQDN y ábrela en el navegador:
+
+```bash
 az containerapp show -g dns-student-rg -n mailpit --query properties.configuration.ingress.fqdn -o tsv
+```
 
-# 4. Al terminar: volver a ACS y borrar Mailpit:
+Ahí ves cada correo renderizado, sus adjuntos (el PDF generado), cabeceras y el fuente crudo. Desde terminal, la API vive en el mismo dominio:
+
+```bash
+MP="https://mailpit.<dominio>.eastus.azurecontainerapps.io"
+
+curl -s "$MP/api/v1/info"                  # totales + stats SMTP (aceptados / rechazados / ignorados)
+curl -s "$MP/api/v1/messages?limit=20"     # listado, paginable con &start=
+curl -s "$MP/api/v1/message/<ID>"          # un correo completo con su cuerpo
+curl -s "$MP/api/v1/search?query=texto"    # busqueda
+curl -X DELETE "$MP/api/v1/messages"       # vaciar la bandeja
+```
+
+Resumen legible de los últimos correos:
+
+```bash
+curl -s "$MP/api/v1/messages?limit=5" | python -c "
+import json,sys
+for m in json.load(sys.stdin)['messages']:
+    print('%s -> %s | %s | adjuntos=%d' % (m['Created'][11:19], m['To'][0]['Address'], m['Subject'][:50], m['Attachments']))"
+```
+
+#### 5) Medir la prueba
+
+**Vacía la bandeja justo antes de disparar la carga**, así el conteo final es solo el de la prueba:
+
+```bash
+curl -X DELETE "$MP/api/v1/messages"
+# ... corre JMeter (ver docs/BATCHTEST.md) ...
+curl -s "$MP/api/v1/info"
+```
+
+En la salida, `SMTPAccepted` contra el número de documentos creados te da la **tasa de entrega real del pipeline**. Si creaste 10.000 documentos y `SMTPAccepted` da 10.000 con `SMTPRejected: 0`, el flujo completo (API → Kafka → generator → Kafka → notification → SMTP) funcionó sin pérdidas.
+
+La carga se genera desde **tu PC** contra la URL pública de `document-service`, no desde dentro del environment.
+
+#### 6) Al terminar: volver a ACS y borrar Mailpit
+
+```bash
 az containerapp update -g dns-student-rg -n notification-service \
-  --set-env-vars MAIL_PROVIDER=azure MAIL_FROM='donotreply@<guid>.azurecomm.net' \
+  --set-env-vars MAIL_PROVIDER=azure MAIL_FROM=donotreply@9d0daf71-78e9-4ee0-b251-5e2929db499e.azurecomm.net \
     MAIL_RATE_LIMIT_TOKENS=20 MAIL_RATE_LIMIT_REFILL_MS=1000
 az containerapp delete -g dns-student-rg -n mailpit --yes
 ```
 
-Verificación de punta a punta: si creaste 500 documentos y la bandeja de Mailpit muestra 500 correos, el flujo completo (API → Kafka → generator → Kafka → notification → SMTP) funcionó sin pérdidas. La carga se genera con k6 o JMeter contra la URL pública de `document-service`, desde tu PC (no desde el mismo environment).
+#### Dos límites de Mailpit que conviene conocer
+
+- **`MP_MAX_MESSAGES`** es el tope de correos retenidos. El manifiesto trae `10000`, que para una prueba de exactamente 10.000 queda justo en el borde: Mailpit empieza a descartar los más viejos. Por eso arriba se despliega con `20000`.
+- **No hay volumen persistente.** Mailpit guarda todo en `/tmp/mailpit-*.db` dentro del contenedor; si la réplica se reinicia, los correos se pierden. Sirve para medir durante la ventana de prueba, no como archivo histórico.
 
 ### Cuánto crédito consume una sesión de prueba
 
@@ -1323,7 +1749,8 @@ Todo lo demás de esta guía (comandos, variables, secretos, escalado) aplica ig
 - [ ] PostgreSQL exactamente en `Standard_B1ms / Burstable / 32 GB` (lo que cubre la capa gratuita).
 - [ ] Confluent Cloud registrado **directo** (no por Marketplace).
 - [ ] Recurso ACS creado y `notification-service` con `ACS_CONNECTION_STRING` (secreto) y `MAIL_FROM` del dominio verificado.
-- [ ] `SQL_INIT_MODE=never` en todos los servicios después de la primera inicialización.
+- [ ] `init-db.sql` ejecutado (paso 5) y verificado: `customer.customers` y `"document".customers` con el mismo conteo.
+- [ ] `SQL_INIT_MODE=never` en los 4 servicios (nunca `always`).
 - [ ] Contraseñas siempre como secretos (`secretref:`), nunca en texto plano en `--env-vars`.
 - [ ] `min-replicas 0` en todos los servicios cuando no estés haciendo demos.
 - [ ] Base de datos pausada (`flexible-server stop`) entre sesiones.

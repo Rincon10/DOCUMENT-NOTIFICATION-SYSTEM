@@ -48,6 +48,17 @@ public class DocumentOutboxRepositoryImpl implements DocumentOutboxRepository {
     }
 
     @Override
+    public boolean existsByTypeAndSagaIdAndNotificationStatus(String type, UUID sagaId,
+                                                             NotificationStatus notificationStatus) {
+        return documentOutboxRepository.existsByTypeAndSagaIdAndNotificationStatus(type, sagaId, notificationStatus);
+    }
+
+    @Override
+    public void deleteById(UUID id) {
+        documentOutboxRepository.deleteById(id);
+    }
+
+    @Override
     public void deleteByTypeAndOutboxStatus(String type, OutboxStatus status) {
         documentOutboxRepository.deleteByTypeAndOutboxStatus(type, status);
     }

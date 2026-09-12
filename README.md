@@ -52,7 +52,10 @@ DOCUMENT-NOTIFICATION-SYSTEM/
 │   ├── 03-AZURE-ESTUDIANTE-PASO-A-PASO.md   # Guía única de despliegue y escalado en Azure
 │   ├── 04-DIAGRAMAS-AZURE.md                # Diagramas de la arquitectura en la nube
 │   ├── BATCHTEST.md                         # Pruebas de carga en ambientes de nube
-│   └── jmeter/create-document.jmx           # Plan de JMeter para POST /documents
+│   ├── jmeter/create-document.jmx           # Plan de JMeter para POST /documents
+│   └── pruebas/                             # Resultados reales de la escalera de carga (500 / 9000 / 20000)
+│       ├── 0N-<total>-Summary-.png          # Captura del Summary Report de JMeter (y Mailpit)
+│       └── 0N-<total>-request.csv           # Muestras crudas exportadas por JMeter (una fila por petición)
 │
 ├── document-notification-system/            # Proyecto principal Maven multi-módulo
 │   ├── document-service/                    # Bounded Context: Gestión de documentos
@@ -338,6 +341,390 @@ flowchart LR
     P2 --> R3
 ```
 
+#### Prueba de rendimiento: subir capacidad
+
+El `Standard_B1ms` de la capa gratuita trae `max_connections = 50` y 1 vCPU. Como cada réplica abre un pool
+de 5 conexiones, con los consumidores en 3 réplicas ya se llega al tope — y un rolling restart **duplica**
+la demanda, porque la revisión vieja retiene sus conexiones mientras la nueva arranca. Por eso la BD se
+sube **antes** de escalar los servicios:
+
+```bash
+# 1. Subir la BD (reinicia el servidor, ~5 min; ~859 conexiones y 2 vCPU)
+az postgres flexible-server update -g dns-student-rg -n dns-student-pg \
+  --sku-name Standard_D2s_v3 --tier GeneralPurpose
+
+# 2. Requisitos previos en los 4 servicios
+for s in document-service customer-service generator-service notification-service; do
+  az containerapp update -g dns-student-rg -n $s \
+    --set-env-vars SQL_INIT_MODE=never APP_LOG_LEVEL=WARN JPA_SHOW_SQL=false
+done
+
+# 3. Escalar. Máximo 3 réplicas en los consumidores: los topics tienen 3 particiones
+#    y las réplicas de más quedan ociosas
+az containerapp update -g dns-student-rg -n document-service     --min-replicas 2 --max-replicas 3
+az containerapp update -g dns-student-rg -n generator-service    --min-replicas 2 --max-replicas 3
+az containerapp update -g dns-student-rg -n notification-service --min-replicas 2 --max-replicas 3
+```
+
+Con la carga en marcha, el plan de JMeter y las verificaciones aguas abajo están en
+[`docs/BATCHTEST.md`](docs/BATCHTEST.md); la configuración por escalones (500 → 20000) está en
+[Escalera de carga con JMeter](#escalera-de-carga-con-jmeter-500--20000) y los resultados medidos en
+[Resultados obtenidos](#resultados-obtenidos-9-de-septiembre-de-2026).
+
+#### Escenario aplicado: document 2 · generator 5 · notification 5
+
+Configuración usada en una prueba real, con las variables de
+[`.env-cloud`](document-notification-system/.env-cloud). Manteniendo la BD en `B1ms`, los servicios de
+5 réplicas bajan su pool a **2** para respetar el presupuesto de conexiones
+(`2×3 + 1×3 + 5×2 + 5×2 = 29 ≤ 45`):
+
+```bash
+# document-service: 2 réplicas fijas
+az containerapp update -g dns-student-rg -n document-service \
+  --min-replicas 2 --max-replicas 2 \
+  --set-env-vars APP_LOG_LEVEL=INFO
+
+# generator-service: 5 réplicas fijas, todas corriendo
+# (los topics tienen 3 particiones: solo 3 réplicas consumen, las otras 2 quedan ociosas)
+az containerapp update -g dns-student-rg -n generator-service \
+  --min-replicas 5 --max-replicas 5 \
+  --set-env-vars APP_LOG_LEVEL=INFO SPRING_DATASOURCE_HIKARI_MAXIMUMPOOLSIZE=2
+
+# notification-service: 5 réplicas fijas, correo hacia Mailpit (el default de este escenario:
+# sin cuota, ideal para pruebas de carga — requiere Mailpit desplegado, sección siguiente)
+az containerapp update -g dns-student-rg -n notification-service \
+  --min-replicas 5 --max-replicas 5 \
+  --set-env-vars MAIL_PROVIDER=smtp MAIL_HOST=mailpit MAIL_PORT=1025 \
+    MAIL_SMTP_AUTH=false MAIL_SMTP_STARTTLS_ENABLE=false MAIL_SMTP_STARTTLS_REQUIRED=false \
+    MAIL_RATE_LIMIT_TOKENS=100 MAIL_RATE_LIMIT_REFILL_MS=1000 \
+    APP_LOG_LEVEL=INFO SPRING_DATASOURCE_HIKARI_MAXIMUMPOOLSIZE=2
+
+# Verificar que todas las réplicas levantaron:
+for s in document-service generator-service notification-service; do
+  az containerapp replica list -g dns-student-rg -n $s \
+    --query "[].{name:name, state:properties.runningState}" -o table
+done
+```
+
+> Para enviar correos reales, cambia el proveedor a ACS con los valores de `.env-cloud`
+> (`MAIL_PROVIDER=azure`, cuota 10/hora sobre dominio administrado — comando en el paso 6 de la
+> sección de Mailpit). Al terminar la prueba vuelve al modo ahorro con los comandos de
+> [Apagar todo](#apagar-todo-y-volver-a-la-bd-barata).
+
+**Cómo falla al escalar.** Los cuatro modos de fallo vistos en la práctica, con su síntoma:
+
+| Modo de fallo | Síntoma | Arreglo |
+|---|---|---|
+| Rollout transitorio | 1-2 reinicios que se estabilizan en ~5 min | Ninguno — se recupera solo |
+| Conexiones BD agotadas | `remaining connection slots are reserved` / `Unable to determine Dialect without JDBC metadata` | Bajar `SPRING_DATASOURCE_HIKARI_MAXIMUMPOOLSIZE`, bajar réplicas o subir la BD (`Σ réplicas × pool ≤ 45` en B1ms) |
+| Revisiones zombis | Revisiones viejas activas con réplicas y 0% de tráfico reteniendo su pool contra la BD | `az containerapp revision deactivate --revision <vieja>` |
+| Config faltante en la imagen | Crash loop permanente (`restartCount` en cientos), NPE en beans de configuración | Parche por env vars (relaxed binding) o reconstruir la imagen |
+
+El diagnóstico siempre empieza igual: `az containerapp replica list` (estados y reinicios) y
+`az containerapp logs show --type console` (la excepción real). Para **escalar a más réplicas** que
+el escenario 2/5/5: consumidores >3 requieren más particiones en Confluent primero; recalcular el
+presupuesto de conexiones o subir la BD; y verificar con `replica list` que todo quede en `Running`
+con reinicios estables. Los comandos completos de cada caso están en la
+[guía de Azure](docs/03-AZURE-ESTUDIANTE-PASO-A-PASO.md#cómo-falla-al-escalar-y-cómo-diagnosticarlo).
+
+#### Correo en pruebas de carga: Mailpit
+
+**Cuándo usarlo.** El proveedor por defecto es Azure Communication Services, y sobre un **Azure Managed
+Domain** su cuota es de **5 correos/minuto y 10/hora por suscripción, no ampliable**. Una prueba de 10.000
+documentos tardaría ~42 días en enviar sus correos y entretanto `notification-service` acumularía 429s.
+
+Mailpit es un servidor SMTP de pruebas: **acepta todo, no entrega nada** y expone una UI web para
+inspeccionar lo capturado. Sin cuota.
+
+**No cambia nada del sistema salvo el último salto.** Todo el pipeline sigue igual; solo cambia a dónde
+entrega `notification-service`, y es un cambio de variables de entorno, sin recompilar:
+
+```
+POST /documents → document-service → Kafka (generator-request)
+                → generator-service → Kafka (notification-request)
+                → notification-service ──┬─→ ACS Email     (MAIL_PROVIDER=azure, 10/hora)
+                                         └─→ mailpit:1025  (MAIL_PROVIDER=smtp, sin límite)
+```
+
+Regla práctica:
+
+| Escenario | Proveedor |
+|---|---|
+| Demo con correos reales (pocos) | ACS (`MAIL_PROVIDER=azure`) |
+| Prueba de carga / batch | **Mailpit** (`MAIL_PROVIDER=smtp`) |
+| Desarrollo local | Mailpit o Gmail vía `docker-compose` |
+
+**1) Desplegar Mailpit.**
+
+> ⚠️ El manifiesto [`azure/mailpit.yaml`](document-notification-system/azure/mailpit.yaml) documenta la
+> configuración, pero `az containerapp create --yaml` la rechaza con
+> `The JSON value could not be converted to System.Boolean` — es un bug del CLI, no del manifiesto. Usa
+> los flags:
+
+```bash
+az containerapp create -g dns-student-rg -n mailpit --environment dns-student-env \
+  --image docker.io/axllent/mailpit:latest \
+  --target-port 8025 --ingress external --transport http \
+  --cpu 0.25 --memory 0.5Gi --min-replicas 1 --max-replicas 1 \
+  --env-vars MP_MAX_MESSAGES=20000
+```
+
+**2) Abrir el puerto SMTP 1025.** Los flags solo configuran un puerto (el 8025 de la UI). El 1025 que usa
+`notification-service` se añade como *additional port mapping*, y eso hoy solo se puede por API:
+
+```bash
+SUB=$(az account show --query id -o tsv)
+ID="/subscriptions/$SUB/resourceGroups/dns-student-rg/providers/Microsoft.App/containerApps/mailpit"
+cat > patch.json <<'JSON'
+{"properties":{"configuration":{"ingress":{"external":true,"targetPort":8025,"transport":"Http",
+"additionalPortMappings":[{"external":false,"targetPort":1025,"exposedPort":1025}]}}}}
+JSON
+az rest --method patch --url "https://management.azure.com${ID}?api-version=2024-03-01" --body @patch.json
+```
+
+El `external: false` del puerto 1025 es deliberado: SMTP solo debe ser alcanzable **dentro** del
+environment, nunca desde internet.
+
+**3) Apuntar `notification-service` a Mailpit.** `MAIL_PROVIDER=smtp` es imprescindible — el default de la
+aplicación es `azure`:
+
+```bash
+az containerapp update -g dns-student-rg -n notification-service \
+  --set-env-vars MAIL_PROVIDER=smtp MAIL_HOST=mailpit MAIL_PORT=1025 \
+    MAIL_SMTP_AUTH=false MAIL_SMTP_STARTTLS_ENABLE=false MAIL_SMTP_STARTTLS_REQUIRED=false \
+    MAIL_RATE_LIMIT_TOKENS=100 MAIL_RATE_LIMIT_REFILL_MS=1000
+```
+
+**4) Ver los correos.** La UI web es pública:
+
+```bash
+az containerapp show -g dns-student-rg -n mailpit --query properties.configuration.ingress.fqdn -o tsv
+```
+
+Ahí ves cada correo renderizado, sus adjuntos (el PDF generado), cabeceras y fuente crudo. Desde terminal,
+la API vive en el mismo dominio:
+
+```bash
+MP="https://mailpit.<dominio>.eastus.azurecontainerapps.io"
+curl -s "$MP/api/v1/info"                 # totales y stats SMTP (aceptados/rechazados)
+curl -s "$MP/api/v1/messages?limit=20"    # listado, paginable con &start=
+curl -s "$MP/api/v1/message/<ID>"         # un correo completo
+curl -s "$MP/api/v1/search?query=texto"   # búsqueda
+curl -X DELETE "$MP/api/v1/messages"      # vaciar la bandeja
+```
+
+**5) Medir la prueba.** Vacía la bandeja **justo antes** de disparar JMeter, así el conteo final es solo el
+de la prueba:
+
+```bash
+curl -X DELETE "$MP/api/v1/messages"
+# ... corre la prueba ...
+curl -s "$MP/api/v1/info"    # SMTPAccepted vs SMTPRejected = tasa de entrega del pipeline
+```
+
+**6) Al terminar: volver a ACS y borrar Mailpit.**
+
+```bash
+az containerapp update -g dns-student-rg -n notification-service \
+  --set-env-vars MAIL_PROVIDER=azure MAIL_FROM='donotreply@<guid>.azurecomm.net' \
+    MAIL_RATE_LIMIT_TOKENS=10 MAIL_RATE_LIMIT_REFILL_MS=3600000
+az containerapp delete -g dns-student-rg -n mailpit --yes
+```
+
+**Dos límites que conviene conocer:**
+
+- `MP_MAX_MESSAGES` es el tope de correos retenidos. Con el valor del manifiesto (`10000`) una prueba de
+  10.000 queda justo en el borde y Mailpit empieza a descartar los más viejos; por eso arriba va `20000`.
+- Mailpit guarda todo en `/tmp/mailpit-*.db` **sin volumen persistente**. Si la réplica se reinicia, los
+  correos se pierden. Sirve para medir durante la ventana de prueba, no como archivo.
+
+El paso a paso completo, con la verificación de cada comando, está en la
+[guía de Azure](docs/03-AZURE-ESTUDIANTE-PASO-A-PASO.md#pruebas-de-carga-mailpit-en-vez-de-correos-reales).
+
+#### Escalera de carga con JMeter: 500 → 20000
+
+Configuración recomendada para el plan [`docs/jmeter/create-document.jmx`](docs/jmeter/create-document.jmx)
+sobre el escenario **document 3 · generator 6 · notification 6** (BD en `Standard_B4ms`). Con 3 réplicas de
+`document-service` a 0.5 vCPU y pool Hikari de 5, el API atiende cómodo unas 15-20 peticiones en vuelo:
+más hilos no suben el throughput, solo hacen cola y generan timeouts. Por eso la escalera crece sobre
+todo en `loops` y mantiene la concurrencia acotada (`total = threads × loops`).
+
+| Total | `threads` | `rampUp` (s) | `loops` | Duración estimada | Qué mide |
+|---|---|---|---|---|---|
+| 500 | 10 | 20 | 50 | 1-2 min | Calentamiento y línea base de latencia |
+| 1000 | 20 | 30 | 50 | 2-3 min | Primer nivel de concurrencia real |
+| 2000 | 20 | 40 | 100 | 4-6 min | Estabilidad sostenida con la misma concurrencia |
+| 5000 | 25 | 60 | 200 | 10-15 min | Presión sobre el pipeline Kafka y el outbox |
+| 9000 | 30 | 90 | 300 | 20-30 min | Corrida objetivo |
+| 20000 | 40 | 120 | 500 | 45-60 min | Techo con 3 réplicas de `document-service`; exige `MP_MAX_MESSAGES` ≥ 30000 y espera de drenaje de 60 min |
+
+La duración real depende de la latencia que midas en el primer escalón: con p95 de 500 ms y 20 hilos el
+sistema rinde ~40 peticiones/s. En la [corrida real](#resultados-obtenidos-9-de-septiembre-de-2026) las
+duraciones fueron mucho menores que estas estimaciones (9000 en 2,5 min y 20000 en 3,5 min), así que
+tómalas como cota superior.
+
+**Parámetros fijos en todos los escalones:**
+
+- `thinkTime=0` — la pausa aleatoria de hasta 100 ms que ya trae el plan basta para desincronizar hilos.
+- `connectTimeout=10000` y `responseTimeout=60000` — bajar el de respuesta cuenta como error peticiones
+  que el backend sí procesó.
+- Mismo `customerId` semilla (`550e8400-e29b-41d4-a716-446655440001`).
+- Heap de JMeter para 9000 muestras: `export HEAP="-Xms1g -Xmx2g"` antes de lanzar.
+
+**Dos reglas entre escalones:** (1) esperar a que Mailpit alcance el total del escalón — si no, el
+siguiente arranca con backlog en el outbox y en Kafka y mide dos cargas mezcladas; (2) vaciar la bandeja
+para que el conteo del siguiente sea limpio. Este script aplica la escalera completa con ambas reglas:
+
+```bash
+BASE_URL="https://document-service.<dominio>.azurecontainerapps.io"
+MP="https://mailpit.<dominio>.azurecontainerapps.io"
+CUSTOMER_ID=550e8400-e29b-41d4-a716-446655440001
+export HEAP="-Xms1g -Xmx2g"
+
+# total:threads:rampUp:loops
+for step in 500:10:20:50 1000:20:30:50 2000:20:40:100 5000:25:60:200 9000:30:90:300; do
+  IFS=: read total threads ramp loops <<< "$step"
+  echo "=== Escalón $total ($threads x $loops, rampUp $ramp s) ==="
+  curl -s -X DELETE "$MP/api/v1/messages" > /dev/null
+  rm -rf "target/jmeter/$total"
+  jmeter -n -t docs/jmeter/create-document.jmx \
+    -JbaseUrl="$BASE_URL" -JcustomerId="$CUSTOMER_ID" \
+    -Jthreads=$threads -JrampUp=$ramp -Jloops=$loops \
+    -l "target/jmeter/$total/results.jtl" -e -o "target/jmeter/$total/report"
+
+  # Esperar a que el pipeline drene: correos en Mailpit == total (máx 20 min)
+  for i in $(seq 1 80); do
+    got=$(curl -s "$MP/api/v1/info" | python -c 'import json,sys; print(json.load(sys.stdin)["Messages"])')
+    echo "  correos: $got / $total"
+    [ "$got" -ge "$total" ] && break
+    sleep 15
+  done
+  curl -s "$MP/api/v1/info" | python -c 'import json,sys; d=json.load(sys.stdin); print("  ", d["RuntimeStats"])'
+done
+```
+
+**Criterio para pasar al siguiente escalón** (reporte en `target/jmeter/<total>/report/index.html` y
+salida del script):
+
+- Error rate < 1 % y ningún timeout.
+- p95 que no haya crecido más del doble respecto al escalón anterior. Si se dispara, en el siguiente
+  escalón no subas `threads`, solo `loops`.
+- `SMTPAccepted` igual al total y `SMTPRejected` en 0. Si Mailpit se queda corto pasados 20 min, hay
+  filas atascadas en el outbox: revisar los logs de `generator-service` y `notification-service` antes de
+  seguir.
+
+Si a 25 hilos el p95 ya se degrada, para 9000 usa `threads=25 loops=360` en vez de `30 × 300`. Si todo va
+holgado, el techo razonable con estas réplicas es 40 hilos; más allá conviene subir `document-service` a
+1 vCPU o a más réplicas, no más hilos.
+
+#### Resultados obtenidos (9 de septiembre de 2026)
+
+Corrida real sobre el escenario **document 3 · generator 6 · notification 6**, BD en `Standard_B4ms`,
+correo hacia Mailpit. Los archivos están en [`docs/pruebas/`](docs/pruebas/): una captura del Summary
+Report por escalón y el CSV crudo de JMeter con una fila por petición, listo para abrir en Excel (ver
+[cómo exportar](#exportar-resultados-de-jmeter)). Los percentiles de la tabla se calcularon sobre esos CSV.
+
+| Escalón | `threads` | Duración | Throughput | Promedio | Mediana | p90 | p95 | p99 | Máx | Errores | Correos en Mailpit |
+|---|---|---|---|---|---|---|---|---|---|---|---|
+| 500 | 10 | 30 s | 16,9 req/s | 200 ms | 134 ms | 362 ms | 437 ms | 669 ms | 1.715 ms | 0 % | — |
+| 9000 | 30 | 2 min 27 s | 61 req/s | 161 ms | 124 ms | 250 ms | 331 ms | 595 ms | 1.652 ms | 0 % | **9.049** |
+| 20000 | 40 | 3 min 24 s | 97 req/s | 143 ms | 113 ms | 185 ms | 312 ms | 664 ms | 2.252 ms | 0 % | **22.278** |
+
+| 500 | 9000 | 20000 |
+|---|---|---|
+| ![500](docs/pruebas/01-500-Summary-.png) | ![9000](docs/pruebas/02-9000-Summary-.png) | ![20000](docs/pruebas/03-20000-Summary-.png) |
+
+**Lecturas:**
+
+- **El API no es el cuello de botella.** Las 29.500 peticiones respondieron `200` sin un solo error ni
+  timeout, y la latencia **bajó** al subir la concurrencia (p95 de 437 → 331 → 312 ms) porque los
+  contenedores ya estaban calientes. Con 40 hilos el throughput llegó a 97 req/s, así que el techo de
+  "15-20 peticiones en vuelo" estimado arriba es conservador para 3 réplicas: las duraciones reales fueron
+  entre 6 y 8 veces menores que las estimadas en la tabla de la escalera.
+- **El pipeline aguas abajo sí duplica.** Mailpit recibió **49 correos de más** en el escalón de 9000
+  (0,5 %) y **2.278 de más** en el de 20000 (11,4 %). El exceso crece con la carga porque nace de la
+  contención: el scheduler del outbox reenvía las filas `STARTED` cuyo ack de Kafka no llegó antes del
+  siguiente tick, el scheduler de `generator-service` no usa `SKIP LOCKED` y cada réplica republica las
+  mismas filas, el chequeo de idempotencia republica la respuesta en vez de solo saltarla, y el reintento
+  SMTP tras un timeout de 5 s vuelve a entregar un correo que Mailpit ya había aceptado. Los índices
+  únicos evitan filas duplicadas en BD, pero no efectos secundarios que ocurren antes del `INSERT`
+  (generar el contenido, publicar a Kafka, enviar el correo). El detalle y el orden de corrección están en
+  la [guía de Azure, sección de diagnóstico](docs/03-AZURE-ESTUDIANTE-PASO-A-PASO.md).
+- **Criterio de aceptación para la próxima corrida**: `SMTPAccepted == total`. Mientras Mailpit reciba
+  más correos que peticiones, el sistema es "al menos una vez" en el envío y el conteo de la bandeja no
+  sirve como medida de éxito.
+
+> Las tres corridas se lanzaron desde la GUI de JMeter (se ve en las capturas). Para los números de latencia
+> es válido porque el cliente no saturó, pero para 20000 o más conviene el modo CLI (`jmeter -n`) que se
+> describe arriba: la GUI consume memoria por cada muestra y puede distorsionar el máximo.
+
+#### Exportar resultados de JMeter
+
+El archivo que JMeter escribe con `-l` (`.jtl`) **ya es CSV** aunque la extensión diga otra cosa; los de
+`docs/pruebas/*-request.csv` son exactamente eso. Tres formas de sacar los datos a Excel u otro formato:
+
+1. **Crudo, una fila por petición.** Abrir el `.jtl`/`.csv` desde Excel con *Datos → Desde texto/CSV*. El
+   `timeStamp` es epoch en milisegundos; en Excel: `=A2/86400000 + DATE(1970,1,1)` con formato de fecha.
+   Para que salga listo desde el inicio (extensión `.csv`, punto y coma, fecha legible):
+
+   ```bash
+   jmeter -n -t docs/jmeter/create-document.jmx \
+     -Jjmeter.save.saveservice.output_format=csv \
+     -Jjmeter.save.saveservice.default_delimiter=";" \
+     -Jjmeter.save.saveservice.timestamp_format="yyyy-MM-dd HH:mm:ss" \
+     -l target/jmeter/results.csv -e -o target/jmeter/report
+   ```
+
+2. **Tabla resumen (percentiles, throughput, errores).** En la GUI, cargar el `.jtl` en un *Aggregate Report*
+   (botón *Browse*) y pulsar **Save Table Data**. Sin GUI, con el plugin *Command-Line Graph Plotting Tool*:
+
+   ```bash
+   JMeterPluginsCMD --generate-csv target/jmeter/aggregate.csv \
+     --input-jtl target/jmeter/results.jtl --plugin-type AggregateReport
+   ```
+
+3. **Desde el reporte HTML que ya generas.** `target/jmeter/report/statistics.json` trae la misma tabla del
+   dashboard. A CSV en una línea de PowerShell, útil para consolidar un archivo por escalón:
+
+   ```powershell
+   $s = Get-Content target/jmeter/report/statistics.json | ConvertFrom-Json
+   $s.PSObject.Properties.Value |
+     Select-Object transaction, sampleCount, errorCount, errorPct, meanResTime, pct1ResTime, pct2ResTime, pct3ResTime, throughput |
+     Export-Csv target/jmeter/statistics.csv -NoTypeInformation
+   ```
+
+JMeter no genera `.xlsx` directo: la ruta es CSV → Excel, o `pandas.read_csv(...).to_excel(...)`. Para ver
+métricas en vivo, agregar un *Backend Listener* hacia InfluxDB/Grafana. Evitar `output_format=xml` en
+corridas grandes: solo sirve si se necesita request/response completos y multiplica el tamaño del archivo.
+
+#### Apagar todo y volver a la BD barata
+
+⚠️ **Ejecútalo el mismo día de la prueba.** Fuera del `Standard_B1ms` se cobra ~$115/mes; el
+`Standard_D2s_v3` cuesta ~$0.16/hora mientras siga encendido.
+
+```bash
+# 1. Servicios al modo ahorro (scale-to-zero: dejan de cobrar cuando nadie los llama)
+for s in document-service customer-service generator-service notification-service; do
+  az containerapp update -g dns-student-rg -n $s --min-replicas 0 --max-replicas 1
+done
+
+# 2. BD de vuelta al tamaño gratuito
+az postgres flexible-server update -g dns-student-rg -n dns-student-pg \
+  --sku-name Standard_B1ms --tier Burstable
+
+# 3. Pausar la BD hasta la próxima sesión
+az postgres flexible-server stop -g dns-student-rg -n dns-student-pg
+```
+
+Para verificar que no quedó nada encendido:
+
+```bash
+az containerapp list -g dns-student-rg \
+  --query "[].{name:name, min:properties.template.scale.minReplicas, max:properties.template.scale.maxReplicas}" -o table
+az postgres flexible-server show -g dns-student-rg -n dns-student-pg \
+  --query "{sku:sku.name, tier:sku.tier, state:state}" -o table
+```
+
 El detalle de escalado (requisitos previos, límites de la BD, Mailpit para pruebas de carga y costos por sesión) está en la [sección de escalado de la guía](docs/03-AZURE-ESTUDIANTE-PASO-A-PASO.md#escalado-múltiples-instancias-manual-y-automático).
 
 ## Tecnologías y patterns recomendados
@@ -346,7 +733,7 @@ El detalle de escalado (requisitos previos, límites de la BD, Mailpit para prue
 
 | Categoría | Tecnología | Uso |
 |-----------|------------|-----|
-| **Lenguaje** | Java 17+ | Desarrollo de servicios |
+| **Lenguaje** | Java 19 | Desarrollo de servicios |
 | **Framework** | Spring Boot 3.x | Contenedor de aplicación |
 | **Build** | Maven | Gestión de dependencias y build |
 | **Persistencia** | PostgreSQL | Base de datos relacional |
@@ -377,7 +764,7 @@ El detalle de escalado (requisitos previos, límites de la BD, Mailpit para prue
 ## Cómo empezar (resumen)
 
 ### Prerrequisitos
-- Java 17 o superior
+- Java 19 (el `maven-compiler-plugin` usa `<release>19</release>`; con 17 el build falla)
 - Maven 3.8+
 - Docker y Docker Compose (para infraestructura)
 - Git

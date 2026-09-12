@@ -9,7 +9,7 @@ Para levantar y probar el sistema **en local**, usa
 | Documento | [`commands/01-LOCAL-EXECUTION.md`](../document-notification-system/commands/01-LOCAL-EXECUTION.md) | este archivo |
 | Base URL | `http://localhost:8181` | `https://document-service.<dominio>.eastus.azurecontainerapps.io` |
 | Kafka | docker-compose (zookeeper + cluster) | Confluent Cloud |
-| Correo | Mailpit | Azure Communication Services |
+| Correo | Mailpit (sin cuota) | ACS — **5/min y 10/hora**, no ampliable en dominio administrado |
 
 ---
 
@@ -101,11 +101,97 @@ Respuesta esperada: **200** con
 ```
 
 `PENDING` es correcto: la generación y la notificación son asíncronas vía Kafka. No confundas
-"200 PENDING" con "el correo ya salió" — eso se verifica en el paso 5.
+"200 PENDING" con "el correo ya salió" — eso se verifica en el paso 6.
 
 ---
 
-## 4. Prueba de carga con JMeter
+## 4. Subir los recursos de la base de datos
+
+El `Standard_B1ms` de la capa gratuita trae **`max_connections = 50`** y **1 vCPU**. Como cada réplica abre
+un pool de HikariCP, la cuenta que decide si la prueba arranca o revienta es:
+
+```
+Σ (réplicas × pool)  +  ~5 reservadas (superusuario + monitoreo de Azure)  ≤  max_connections
+```
+
+| Configuración | Conexiones | ¿Cabe en B1ms? |
+|---|---|---|
+| 4 servicios × 1 réplica × pool 5 | 20 | ✅ |
+| 4 servicios × 3 réplicas × pool 3 | 36 | ✅ (ajustado) |
+| 4 servicios × 3 réplicas × pool 5 | 60 | ❌ |
+| 4 servicios × 3 réplicas × pool 10 | 120 | ❌ |
+
+> ⚠️ **Un rolling restart duplica la demanda**: la revisión vieja retiene sus conexiones mientras la nueva
+> arranca. Si en régimen ya estás en el tope, el despliegue es lo que te tumba, no la carga.
+>
+> Cuando falta cupo, el log **engaña**: dice `Unable to determine Dialect without JDBC metadata`, que parece
+> un error de configuración de Hibernate. No lo es — Hibernate 6.5 tiene un bug donde el
+> `NullPointerException` de `JdbcIsolationDelegate.sqlExceptionHelper()` se come la `SQLException` real del
+> "too many connections". Si dos revisiones con imagen y variables idénticas se comportan distinto,
+> sospecha del cupo, no del código.
+
+### Subir la BD (antes de escalar los servicios)
+
+```bash
+az postgres flexible-server update -g dns-student-rg -n dns-student-pg \
+  --sku-name Standard_D2s_v3 --tier GeneralPurpose
+```
+
+Reinicia el servidor (~5 min). Pasa a **2 vCPU, 8 GB y ~859 conexiones**, con lo que puedes ir a 3 réplicas
+con pool 10 sin acercarte al límite. Cuesta **~$0.16/hora** mientras siga encendido.
+
+Verifica que quedó aplicado:
+
+```bash
+az postgres flexible-server show -g dns-student-rg -n dns-student-pg \
+  --query "{sku:sku.name, tier:sku.tier, state:state}" -o table
+```
+
+### Alternativa barata: subir solo `max_connections`
+
+No cambia de SKU, así que **no arregla la CPU** — y en una prueba masiva el único núcleo del B1ms es el
+cuello de botella real. Además la RAM es el techo: cada backend de Postgres cuesta ~9 MB, así que en 2 GB no
+conviene pasar de ~150.
+
+```bash
+az postgres flexible-server parameter set -g dns-student-rg --server-name dns-student-pg \
+  --name max_connections --value 200
+az postgres flexible-server restart -g dns-student-rg -n dns-student-pg
+```
+
+El `restart` es **obligatorio**: `max_connections` es un parámetro estático (`isDynamicConfig: false`).
+
+### Revertir a la BD barata (¡el mismo día!)
+
+> ⚠️ Fuera del `Standard_B1ms` se cobra **~$115/mes**. Este es el comando que se olvida y el que cuesta
+> dinero.
+
+```bash
+# 1. Servicios al modo ahorro
+for s in document-service customer-service generator-service notification-service; do
+  az containerapp update -g dns-student-rg -n $s --min-replicas 0 --max-replicas 1
+done
+
+# 2. BD de vuelta al tamaño gratuito
+az postgres flexible-server update -g dns-student-rg -n dns-student-pg \
+  --sku-name Standard_B1ms --tier Burstable
+
+# 3. Pausar la BD hasta la próxima sesión
+az postgres flexible-server stop -g dns-student-rg -n dns-student-pg
+```
+
+Confirma que no quedó nada encendido:
+
+```bash
+az containerapp list -g dns-student-rg \
+  --query "[].{app:name, min:properties.template.scale.minReplicas}" -o table
+az postgres flexible-server show -g dns-student-rg -n dns-student-pg \
+  --query "{sku:sku.name, tier:sku.tier, state:state}" -o table
+```
+
+---
+
+## 5. Prueba de carga con JMeter
 
 El plan está en [`jmeter/create-document.jmx`](jmeter/create-document.jmx). Incluye un
 `setUp Thread Group` que valida el health check antes de arrancar (si no da `UP`, aborta el test en vez
@@ -167,7 +253,23 @@ done
 
 ---
 
-## 5. Qué verificar después de la carga
+## 6. Qué verificar después de la carga
+
+> ⚠️ **Antes de correr una prueba masiva: cambia el proveedor de correo a Mailpit.**
+> ACS Email sobre un **Azure Managed Domain** admite **5 correos/minuto y 10/hora por suscripción**, y
+> esos límites **no son ampliables** ([Microsoft solo sube cuota a dominios propios verificados](03-AZURE-ESTUDIANTE-PASO-A-PASO.md#76-opcional-dominio-propio-subir-la-cuota-de-10hora-a-100hora)). Con
+> 10.000 documentos, `notification-service` acumularía 429s durante ~42 días. El proveedor SMTP no tiene
+> esa cuota:
+>
+> ```bash
+> az containerapp create -g "$RESOURCE_GROUP" -n mailpit --yaml document-notification-system/azure/mailpit.yaml
+> az containerapp update -g "$RESOURCE_GROUP" -n notification-service >   --set-env-vars MAIL_PROVIDER=smtp MAIL_HOST=mailpit MAIL_PORT=1025 >     MAIL_SMTP_AUTH=false MAIL_SMTP_STARTTLS_ENABLE=false MAIL_SMTP_STARTTLS_REQUIRED=false >     MAIL_RATE_LIMIT_TOKENS=100 MAIL_RATE_LIMIT_REFILL_MS=1000
+> ```
+>
+> Al terminar, volver a ACS con `MAIL_PROVIDER=azure` y `MAIL_RATE_LIMIT_TOKENS=10
+> MAIL_RATE_LIMIT_REFILL_MS=3600000`, y borrar Mailpit. El detalle está en la
+> [sección de escalado de la guía](03-AZURE-ESTUDIANTE-PASO-A-PASO.md#escalado-múltiples-instancias-manual-y-automático).
+
 
 Un 200 solo confirma que el request se aceptó. El flujo completo se valida aguas abajo:
 
@@ -182,7 +284,8 @@ Un 200 solo confirma que el request se aceptó. El flujo completo se valida agua
 2. **Eventos en Kafka** — en la consola de Confluent, los topics `generator-request` y
    `notification-request` deben mostrar los mensajes entrando, cada uno con su `sagaId`.
 
-3. **Correos enviados** — logs de `notification-service`, buscando
+3. **Correos enviados** — si apuntaste a Mailpit, revisa su UI web. Si dejaste ACS (solo válido para
+   una prueba pequeña, dentro de los 10/hora), busca en los logs de `notification-service`
    `Email sent successfully to: ... | MessageId: ...`:
 
    ```bash
@@ -197,7 +300,7 @@ Un 200 solo confirma que el request se aceptó. El flujo completo se valida agua
 
 ---
 
-## 6. Problemas comunes
+## 7. Problemas comunes
 
 | Síntoma | Causa |
 |---|---|
@@ -209,7 +312,7 @@ Un 200 solo confirma que el request se aceptó. El flujo completo se valida agua
 
 ---
 
-## 7. Alternativa: Postman / Newman
+## 8. Alternativa: Postman / Newman
 
 La colección de Postman está en
 [`commands/postman/create-document-collection.json`](../document-notification-system/commands/postman/create-document-collection.json)
@@ -223,4 +326,4 @@ newman run create-document-collection.json -n 500 \
 ```
 
 Newman sirve para validar aserciones funcionales en volumen; para métricas de carga (percentiles,
-throughput, concurrencia real) usa el plan de JMeter del paso 4.
+throughput, concurrencia real) usa el plan de JMeter del paso 5.

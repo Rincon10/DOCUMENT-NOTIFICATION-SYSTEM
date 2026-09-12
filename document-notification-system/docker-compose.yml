@@ -268,6 +268,10 @@ services:
       MAIL_PORT: ${MAIL_PORT:-587}
       MAIL_USERNAME: ${MAIL_USERNAME:-no-reply@example.com}
       MAIL_PASSWORD: ${MAIL_PASSWORD:-}
+      # En local el proveedor es SMTP (Mailpit/Gmail): sin la cuota de ACS,
+      # el rate limiter se relaja para no frenar el desarrollo.
+      MAIL_RATE_LIMIT_TOKENS: ${MAIL_RATE_LIMIT_TOKENS:-100}
+      MAIL_RATE_LIMIT_REFILL_MS: ${MAIL_RATE_LIMIT_REFILL_MS:-1000}
       # Solo con MAIL_PROVIDER=azure:
       ACS_CONNECTION_STRING: ${ACS_CONNECTION_STRING:-}
     networks:

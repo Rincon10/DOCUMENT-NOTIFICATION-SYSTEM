@@ -18,5 +18,10 @@ public interface DocumentOutboxRepository {
                                                                                              NotificationStatus notificationStatus,
                                                                                              OutboxStatus outboxStatus);
 
+    boolean existsByTypeAndSagaIdAndNotificationStatus(String type, UUID sagaId,
+                                                      NotificationStatus notificationStatus);
+
+    void deleteById(UUID id);
+
     void deleteByTypeAndOutboxStatus(String type, OutboxStatus status);
 }
