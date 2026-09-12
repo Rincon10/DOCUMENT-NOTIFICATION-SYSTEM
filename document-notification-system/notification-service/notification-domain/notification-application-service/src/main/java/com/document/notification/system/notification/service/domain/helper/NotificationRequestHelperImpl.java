@@ -1,5 +1,6 @@
 package com.document.notification.system.notification.service.domain.helper;
 
+import com.document.notification.system.domain.utils.DateUtils;
 import com.document.notification.system.notification.service.domain.dto.NotificationRequest;
 import com.document.notification.system.notification.service.domain.entity.DocumentNotification;
 import com.document.notification.system.notification.service.domain.event.NotificationEvent;
@@ -12,14 +13,15 @@ import com.document.notification.system.notification.service.domain.ports.output
 import com.document.notification.system.notification.service.domain.service.INotificationDomainService;
 import com.document.notification.system.notification.service.domain.valueobject.NotificationData;
 import com.document.notification.system.notification.service.domain.valueobject.NotificationStatus;
-import com.document.notification.system.outbox.OutboxStatus;
 import lombok.AllArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.ArrayList;
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -33,7 +35,16 @@ public class NotificationRequestHelperImpl implements NotificationRequestHelper 
     private final DocumentOutboxHelper documentOutboxHelper;
     private final NotificationResponseMessagePublisher notificationResponseMessagePublisher;
 
-    @Transactional
+    /**
+     * Deliberadamente SIN {@code @Transactional}: el envio del correo no es transaccional y no debe quedar
+     * dentro de una transaccion de BD. El orden es "reservar, actuar, confirmar":
+     * <ol>
+     *   <li>claim: fila de outbox en PENDING con el indice unico de la saga (transaccion propia, commit ya)</li>
+     *   <li>envio del correo, fuera de transaccion</li>
+     *   <li>complete: la misma fila pasa a SENT/FAILED y se guarda el historial</li>
+     * </ol>
+     * Las guardas que solo miran filas escritas DESPUES del envio no pueden evitar un correo duplicado.
+     */
     @Override
     public void persistNotificationOnHistoryRecords(NotificationRequest notificationRequest) {
         if (publishIfOutboxMessageProcessedForNotification(notificationRequest, NotificationStatus.NOTIFICATION_SENT)) {
@@ -42,41 +53,60 @@ public class NotificationRequestHelperImpl implements NotificationRequestHelper 
             return;
         }
 
-        // Segunda guarda de idempotencia: la de arriba solo detecta trabajo COMPLETED. Si una redelivery de
-        // Kafka llega mientras la fila anterior sigue en STARTED, sin este chequeo se enviaria el correo por
-        // segunda vez y se insertaria una fila duplicada que despues no puede pasar a COMPLETED (choca con el
-        // indice unico), dejando al consumidor en un bucle infinito de reintentos.
-        if (documentOutboxHelper.existsDocumentOutboxMessage(UUID.fromString(notificationRequest.getSagaId()),
-                NotificationStatus.NOTIFICATION_SENT)) {
-            log.info("Notification for saga id: {} is already in progress, skipping duplicate delivery.",
-                    notificationRequest.getSagaId());
+        UUID sagaId = UUID.fromString(notificationRequest.getSagaId());
+
+        // Redelivery de una saga ya reclamada (PENDING = en curso) o ya terminada (SENT/FAILED): descartar.
+        if (documentOutboxHelper.existsDocumentOutboxMessage(sagaId)) {
+            log.info("Notification for saga id: {} is already claimed or processed, skipping duplicate delivery.",
+                    sagaId);
             return;
         }
 
         log.info("Received notification event for document id: {}", notificationRequest.getDocumentId());
 
-        ArrayList<String> failureMessages = new ArrayList<>();
-
         DocumentNotification documentNotification = notificationDataMapper
                 .notificationRequestToDocumentNotification(notificationRequest);
+        documentNotification.initializeNotification();
 
+        // 1. Claim ANTES de enviar. Si dos hilos/replicas llegan a la vez con la misma saga, el indice unico del
+        //    outbox decide quien envia; el que pierde recibe la violacion de unicidad y sale sin tocar el correo.
+        try {
+            documentOutboxHelper.claimDocumentOutboxMessage(pendingPayload(documentNotification), sagaId);
+        } catch (DataIntegrityViolationException e) {
+            log.info("Notification for saga id: {} was claimed concurrently by another consumer, skipping duplicate delivery.",
+                    sagaId);
+            return;
+        }
+
+        // 2. Envio, fuera de transaccion (no retiene conexion del pool mientras espera rate limiter / SMTP).
+        ArrayList<String> failureMessages = new ArrayList<>();
         NotificationData notificationData = getNotificationData(notificationRequest);
 
         NotificationEvent notificationEvent = notificationDomainService
                 .validateAndSendNotification(documentNotification, failureMessages, notificationData);
 
+        // 3. Complete: la fila PENDING pasa al estado final y el scheduler la publica; luego el historial.
+        DocumentEventPayload documentEventPayload = notificationDataMapper
+                .notificationEventToDocumentEventPayload(notificationEvent);
+        documentOutboxHelper.completeDocumentOutboxMessage(documentEventPayload,
+                notificationEvent.getDocumentNotification().getNotificationStatus(), sagaId);
+
         documentNotificationRepository.save(documentNotification);
         log.info("Document notification saved with id: {}", documentNotification.getId().getValue());
 
-        DocumentEventPayload documentEventPayload = notificationDataMapper
-                .notificationEventToDocumentEventPayload(notificationEvent);
-        documentOutboxHelper.saveDocumentOutboxMessage(
-                documentEventPayload,
-                notificationEvent.getDocumentNotification().getNotificationStatus(),
-                OutboxStatus.STARTED,
-                UUID.fromString(notificationRequest.getSagaId()));
-
         log.info("Notification processing completed for document id: {}", notificationRequest.getDocumentId());
+    }
+
+    private DocumentEventPayload pendingPayload(DocumentNotification documentNotification) {
+        return DocumentEventPayload.builder()
+                .notificationId(documentNotification.getId().getValue().toString())
+                .customerId(documentNotification.getCustomerId().getValue().toString())
+                .documentId(documentNotification.getDocumentId().getValue().toString())
+                .recipientId(documentNotification.getRecipient().getTarget())
+                .createdAt(DateUtils.getZoneDateTimeByUTCZoneId())
+                .notificationStatus(NotificationStatus.NOTIFICATION_PENDING.name())
+                .failureMessages(List.of())
+                .build();
     }
 
     private NotificationData getNotificationData(NotificationRequest notificationRequest) {

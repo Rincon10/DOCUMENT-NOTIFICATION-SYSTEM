@@ -25,7 +25,9 @@ public class DocumentOutboxRepositoryImpl implements DocumentOutboxRepository {
     public DocumentOutboxMessage save(DocumentOutboxMessage documentOutboxMessage) {
         DocumentOutboxEntity documentOutboxEntity = documentOutboxDataAccessMapper
                 .mapDocumentOutboxMessageToDocumentOutboxEntity(documentOutboxMessage);
-        DocumentOutboxEntity savedEntity = documentOutboxRepository.save(documentOutboxEntity);
+        // saveAndFlush: el INSERT (y una eventual violacion del indice unico) ocurre aqui y no en el commit,
+        // para que el claim del envio reciba la DataIntegrityViolationException de forma deterministica.
+        DocumentOutboxEntity savedEntity = documentOutboxRepository.saveAndFlush(documentOutboxEntity);
         return documentOutboxDataAccessMapper.mapDocumentOutboxEntityToDocumentOutboxMessage(savedEntity);
     }
 
@@ -48,9 +50,19 @@ public class DocumentOutboxRepositoryImpl implements DocumentOutboxRepository {
     }
 
     @Override
-    public boolean existsByTypeAndSagaIdAndNotificationStatus(String type, UUID sagaId,
-                                                             NotificationStatus notificationStatus) {
-        return documentOutboxRepository.existsByTypeAndSagaIdAndNotificationStatus(type, sagaId, notificationStatus);
+    public Optional<List<DocumentOutboxMessage>> findByTypeAndOutboxStatusAndNotificationStatusNot(String type,
+                                                                                                 OutboxStatus outboxStatus,
+                                                                                                 NotificationStatus notificationStatus) {
+        return documentOutboxRepository
+                .findByTypeAndOutboxStatusAndNotificationStatusNot(type, outboxStatus, notificationStatus)
+                .map(entities -> entities.stream()
+                        .map(documentOutboxDataAccessMapper::mapDocumentOutboxEntityToDocumentOutboxMessage)
+                        .toList());
+    }
+
+    @Override
+    public boolean existsByTypeAndSagaId(String type, UUID sagaId) {
+        return documentOutboxRepository.existsByTypeAndSagaId(type, sagaId);
     }
 
     @Override
