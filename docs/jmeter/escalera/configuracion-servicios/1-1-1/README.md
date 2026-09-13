@@ -20,7 +20,7 @@ Kafka en Confluent Cloud; `notification-request` tiene 6 particiones y cada rép
 
 | document | generator | notification | Mailpit |
 |---|---|---|---|
-| ![document 1 instancia](01-document-1-instancia.png) | ![generator 1 instancia](02-generator-1-instancia.png) | ![notification 1 instancia](03-notification-1-instancia.png) | ![Mailpit tras la prueba](04-prueba-mailpit.png) |
+| ![document 1 instancia](01-document-1-instancia.png) | ![generator 1 instancia](02-generator-1-instancia.png) | ![notification 1 instancia](03-notification-1-instancia.png) | ![Mailpit tras la prueba de 500](500/04-prueba-mailpit.png) |
 
 ## Resultados
 
@@ -33,8 +33,8 @@ calculados sobre el CSV de cada corrida (`elapsed` de las muestras `POST /docume
 | **5000** | 25 × 200 | 103 s | 48,6 req/s | 119 ms | 219 ms | 270 ms | 588 ms | 1.443 ms | 0 | **5000 / 5000** | 113 s |
 | 20000, intento 1 | 40 × 500 | 557 s | — | 122 ms | — | 279 ms | 480 ms | 1.529 ms | 7.718 (38,6 %) | 12.293 / 12.282 llegadas | — |
 
-Archivos por escalón: `<num>-<total>-1-1-1-<fecha>.csv` (una fila por petición, abrir en Excel),
-`<total>/report/index.html` (reporte de JMeter) y `<total>/results.jtl`.
+Archivos por escalón, dentro de su carpeta `<total>/`: `<num>-<total>-1-1-1-<fecha>.csv` (una fila por petición, abrir en Excel),
+`report/index.html` (reporte de JMeter), `results.jtl` y las capturas de esa corrida.
 
 ### Lecturas
 
@@ -57,9 +57,8 @@ El PC que corría JMeter perdió la red entre el segundo 60 y el 450 de la prueb
 no salió ni una muestra, y al volver la conexión 7.705 peticiones fallaron con `UnknownHostException` (DNS)
 y 13 con `Connection reset`. Solo 12.282 peticiones recibieron 200. Mailpit terminó en 12.293: las 12.282
 exitosas más 11 de las 13 que el servidor sí procesó aunque el cliente viera el reset. No hay duplicados,
-pero el escalón no mide el sistema, así que se repite. Los archivos quedan como
-`04-20000-1-1-1-<fecha>-intento1-caida-red-cliente.csv` y `20000-intento1-caida-red-cliente/` para
-referencia.
+pero el escalón no mide el sistema, así que se repite. Los archivos quedan en
+`20000-intento1-caida-red-cliente/` para referencia.
 
 ## Cómo se corrió
 

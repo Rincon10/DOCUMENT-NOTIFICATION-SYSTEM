@@ -709,7 +709,7 @@ holgado, el techo razonable con estas réplicas es 40 hilos; más allá conviene
 #### Resultados obtenidos (9 de septiembre de 2026)
 
 Corrida real sobre el escenario **document 3 · generator 6 · notification 6**, BD en `Standard_B4ms`,
-correo hacia Mailpit. Los archivos están en [`docs/pruebas/`](docs/pruebas/): una captura del Summary
+correo hacia Mailpit. Los archivos están en [`docs/pruebas-rendimiento/`](docs/pruebas-rendimiento/): una captura del Summary
 Report por escalón y el CSV crudo de JMeter con una fila por petición, listo para abrir en Excel (ver
 [cómo exportar](#exportar-resultados-de-jmeter)). Los percentiles de la tabla se calcularon sobre esos CSV.
 
@@ -721,7 +721,7 @@ Report por escalón y el CSV crudo de JMeter con una fila por petición, listo p
 
 | 500 | 9000 | 20000 |
 |---|---|---|
-| ![500](docs/pruebas/01-500-Summary-.png) | ![9000](docs/pruebas/02-9000-Summary-.png) | ![20000](docs/pruebas/03-20000-Summary-.png) |
+| ![500](docs/pruebas-rendimiento/01-500-Summary-.png) | ![9000](docs/pruebas-rendimiento/02-9000-Summary-.png) | ![20000](docs/pruebas-rendimiento/03-20000-Summary-.png) |
 
 **Lecturas:**
 
@@ -758,7 +758,7 @@ Report por escalón y el CSV crudo de JMeter con una fila por petición, listo p
 #### Exportar resultados de JMeter
 
 El archivo que JMeter escribe con `-l` (`.jtl`) **ya es CSV** aunque la extensión diga otra cosa; los de
-`docs/pruebas/*-request.csv` son exactamente eso. Tres formas de sacar los datos a Excel u otro formato:
+`docs/pruebas-rendimiento/*-request.csv` son exactamente eso. Tres formas de sacar los datos a Excel u otro formato:
 
 1. **Crudo, una fila por petición.** Abrir el `.jtl`/`.csv` desde Excel con *Datos → Desde texto/CSV*. El
    `timeStamp` es epoch en milisegundos; en Excel: `=A2/86400000 + DATE(1970,1,1)` con formato de fecha.

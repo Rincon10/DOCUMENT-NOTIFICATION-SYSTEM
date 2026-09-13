@@ -14,7 +14,7 @@
 #   4. imprime SMTPAccepted/SMTPRejected y cuenta filas PENDING atascadas si hay psql y DB_URL
 #
 # Todo queda dentro del repo, en docs/jmeter/escalera/configuracion-servicios/ (junto a las capturas de cada topologia):
-#   configuracion-servicios/<config>/<num>-<total>-<config>-<fecha>.csv   una fila por peticion (lo escribe el plan; abrir en Excel)
+#   configuracion-servicios/<config>/<total>/<num>-<total>-<config>-<fecha>.csv   una fila por peticion (lo escribe el plan; abrir en Excel)
 #   configuracion-servicios/<config>/<total>/results.jtl                    crudo de JMeter
 #   configuracion-servicios/<config>/<total>/report/index.html              reporte HTML
 #   configuracion-servicios/escalera.csv                                    una fila por escalon (resumen)
@@ -53,7 +53,7 @@ jmeter -n -t "$HERE/$JMX" \
   -l "$OUT/results.jtl" -e -o "$OUT/report"
 jm_end=$(date +%s)
 echo "-- JMeter termino en $((jm_end - start)) s. Reporte: $OUT/report/index.html"
-echo "   CSV para Excel: $(ls -t "$RESULTS_DIR/$CONFIG"/*.csv 2>/dev/null | head -1)"
+echo "   CSV para Excel: $(ls -t "$OUT"/*.csv 2>/dev/null | head -1)"
 
 echo "-- esperando drenaje del pipeline (correos en Mailpit == $total, max 20 min)"
 got=0

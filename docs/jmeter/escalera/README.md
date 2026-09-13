@@ -28,8 +28,8 @@ Heap de JMeter: `export HEAP="-Xms1g -Xmx2g"` (el script ya lo hace).
 El Summary Report de cada plan escribe su propio archivo, una fila por petición, sin pasar `-l`:
 
 ```
-configuracion-servicios/<config>/<num>-<total>-<config>-<fecha>.csv
-p. ej. configuracion-servicios/1-1-1/03-5000-1-1-1-20260913-120904.csv
+configuracion-servicios/<config>/<total>/<num>-<total>-<config>-<fecha>.csv
+p. ej. configuracion-servicios/1-1-1/5000/03-5000-1-1-1-20260913-120904.csv
 ```
 
 - `config` identifica la topología y es el nombre de su carpeta (`-Jconfig=2-2-2`; por defecto `1-1-1`). Así el mismo plan de
