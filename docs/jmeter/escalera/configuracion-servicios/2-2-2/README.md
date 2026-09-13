@@ -74,6 +74,8 @@ Archivos por escalón, dentro de su carpeta `<total>/`: `<num>-<total>-2-2-2-<fe
   El API apenas cambia porque a 25 hilos sigue sin saturar; la mejora es toda del pipeline, que es lo que
   esta topología debía demostrar.
 
+  ![Mailpit tras la prueba de 5000](5000/04-prueba-mailpit.png)
+
   ![Mailpit tras la prueba de 2000](2000/04-prueba-mailpit.png)
 
 ## Cómo se corrió
