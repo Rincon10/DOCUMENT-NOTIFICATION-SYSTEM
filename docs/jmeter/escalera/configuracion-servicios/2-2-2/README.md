@@ -80,40 +80,34 @@ Archivos por escalón, dentro de su carpeta `<total>/`: `<num>-<total>-2-2-2-<fe
   Mailpit ya tenía 9.097 correos, más que todo lo que llegó en el intento bloqueado de 1-1-1, y el drenaje
   sostuvo ~68 correos/s hasta 19.998 en 161 s. Donde una réplica de document-service se quedó sin brokers y
   expiró lotes, dos réplicas repartieron las conexiones y Kafka aguantó: solo una desconexión por servicio
-  en los logs y ningún `Expiring`. Faltaron **2 correos**, y son el mismo defecto que en el 2000 de 1-1-1.
+  en los logs y ningún `Expiring`. Faltaron **2 correos**: dos documentos quedaron en `PENDING` por el
+  bloqueo optimista en document-service, el mismo caso que en el 2000 de 1-1-1 (detalle abajo).
 
   ![Mailpit tras la prueba de 5000](5000/04-prueba-mailpit.png)
 
   ![Mailpit tras la prueba de 2000](2000/04-prueba-mailpit.png)
 
-### 20000: dos sagas perdidas por el lock optimista tragado en document-service
+### 20000: dos documentos sin correo por el bloqueo optimista
 
-Con Log Analytics (los logs en vivo de Container Apps solo conservan las últimas 300 líneas) se ve la
-secuencia completa entre las 22:26:25 y las 22:27:48 UTC, 90 segundos en mitad del drenaje:
+Los dos correos que faltan corresponden a dos documentos que quedaron en `PENDING` en document-service.
+Con Log Analytics (los logs en vivo de Container Apps solo conservan las últimas 300 líneas) se ve que, en
+mitad del drenaje, `GenerationResponseKafkaListener` capturó una `ObjectOptimisticLockingFailureException`
+al procesar la respuesta del generador para esos documentos: la actualización de la fila de
+`generation_outbox` chocó por `@Version` con el callback del scheduler del outbox, que la marcaba como
+`COMPLETED` en ese mismo instante. La saga hizo rollback, el listener trató la excepción como "otro hilo ya
+terminó el trabajo", hizo log y commiteó el offset. Nunca se creó la fila de `notification_outbox`, así que
+no hubo solicitud de notificación ni correo, y ningún componente lo reintenta: el outbox ya está
+`COMPLETED` y Kafka ya entregó el mensaje.
 
-- Los tres servicios pierden un broker cada uno (`Disconnecting from node 13/14 due to socket connection
-  setup timeout`), sin llegar a expirar lotes.
-- El scheduler del outbox de document-service republica todo lo que no tiene ack en su tick de 30 s:
-  generator-service rechaza **7.284 solicitudes de generación duplicadas** con `23505` durante la prueba, un
-  36 % de las 20.000. La guarda del generador funciona, pero cada rechazo republica la respuesta.
-- document-service registra **9 `Caught optimistic locking exception`** en `GenerationResponseKafkaListener`,
-  sobre 9 documentos distintos. Siete fueron colisiones benignas (la respuesta duplicada llegó cuando la
-  saga ya había terminado; el rollback no perdió nada). **Dos** chocaron con el callback del scheduler que
-  marcaba `generation_outbox` como `COMPLETED` mientras la saga procesaba la respuesta real: la saga hizo
-  rollback, el listener tragó la excepción y commiteó el offset, y nunca se creó la fila de
-  `notification_outbox`. Dos documentos en `PENDING` sin correo, exactamente como en el 2000 de 1-1-1.
-
-El listener no distingue los dos casos porque en ambos la excepción es la misma; la diferencia está en si la
-saga ya estaba completada o no. Relanzar la excepción para que Kafka reentregue resuelve ambos: en el caso
-benigno la guarda de saga descarta el mensaje, en el malo la saga se completa al segundo intento. Y el
-estado "en vuelo" en el scheduler del outbox eliminaría la causa de las 7.284 republicaciones.
+Es el mismo defecto observado en el 2000 de [1-1-1](../1-1-1/README.md) y es independiente del número de
+réplicas. El fix pendiente en document-service es relanzar la excepción para que Kafka reentregue el mensaje
+y la saga se complete al segundo intento; la guarda de saga hace idempotente el reproceso.
 
 Lo que esta topología demostró frente a 1-1-1 con el mismo tamaño: el API pasó de 91,3 a 94,1 req/s (el
 cliente sigue siendo el límite), y el pipeline pasó de bloquearse en 8.318 a entregar 19.998 en poco más de
-6 minutos. La pérdida de 2 sagas es independiente del número de réplicas: es el defecto del listener, y
-aparece cada vez que Kafka parpadea con un backlog grande.
+6 minutos.
 
-Recuperación manual de las dos sagas, la misma que en 1-1-1:
+Recuperación manual de los dos documentos, la misma que en 1-1-1:
 
 ```sql
 UPDATE "document".generation_outbox SET outbox_status = 'STARTED'
