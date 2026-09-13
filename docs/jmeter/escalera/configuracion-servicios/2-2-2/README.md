@@ -33,6 +33,7 @@ calculados sobre el CSV de cada corrida (`elapsed` de las muestras `POST /docume
 | Escalón | threads × loops | Duración API | Throughput | Mediana | p90 | p95 | p99 | Máx | Errores | Correos en Mailpit | Drenaje tras JMeter | Total escalón |
 |---|---|---|---|---|---|---|---|---|---|---|---|---|
 | **500** | 10 × 50 | 31,6 s | 15,8 req/s | 140 ms | 360 ms | 458 ms | 793 ms | 1.320 ms | 0 | **500 / 500** | 48 s | **1 min 28 s** |
+| **2000** | 20 × 100 | 56,3 s | 35,5 req/s | 114 ms | 189 ms | 260 ms | 389 ms | 607 ms | 0 | **2000 / 2000** | 81 s | **2 min 33 s** |
 
 ### Tiempos por tamaño
 
@@ -42,6 +43,7 @@ en entregar el último correo después de que JMeter termina, *total* la suma.
 | Tamaño | JMeter | Drenaje | Total | Mismo tamaño en 1-1-1 |
 |---|---|---|---|---|
 | 500 | 40 s | 48 s | **88 s** (1 min 28 s) | 35 s + 78 s = 113 s |
+| 2000 | 72 s | 81 s | **153 s** (2 min 33 s) | 110 s + 112 s = 222 s, y 2 correos nunca llegaron |
 
 Archivos por escalón, dentro de su carpeta `<total>/`: `<num>-<total>-2-2-2-<fecha>.csv` (una fila por petición, abrir en Excel),
 `report/index.html` (reporte de JMeter), `results.jtl` y las capturas de esa corrida.
@@ -57,6 +59,12 @@ Archivos por escalón, dentro de su carpeta `<total>/`: `<num>-<total>-2-2-2-<fe
   schedulers. Es el efecto esperado de duplicar consumidores: los correos empezaron a salir en el segundo
   tick y el pipeline vació 500 en dos ticks en vez de tres. A 500 el drenaje sigue dominado por el intervalo
   del scheduler; la diferencia real se verá en 5000 y 20000.
+- **2000: la corrida limpia que en 1-1-1 no se tuvo.** Allí el 2000 se lanzó con las JVM recién reiniciadas
+  (p95 de 1.094 ms) y perdió dos sagas por el lock optimista tragado en document-service. Aquí, con
+  contenedores calientes y dos réplicas: 35,5 req/s, p95 de 260 ms, máximo 607 ms, y **2.000 correos
+  exactos**. Es el primer escalón de 2000 completo de la escalera. Drenaje de 81 s, unos 25 correos por
+  segundo, con Mailpit en 30 al terminar JMeter: el pipeline arranca al ritmo de los ticks y luego sostiene
+  ~35 correos/s.
 
 ## Cómo se corrió
 
@@ -64,6 +72,7 @@ Archivos por escalón, dentro de su carpeta `<total>/`: `<num>-<total>-2-2-2-<fe
 export PATH="/c/apache-jmeter-5.6.3/apache-jmeter-5.6.3/bin:$PATH"
 cd docs/jmeter/escalera
 ./run-escalon.sh 2-2-2 01-500-create-document.jmx
+./run-escalon.sh 2-2-2 02-2000-create-document.jmx
 ```
 
 El resumen de todos los escalones de todas las topologías está en [`../escalera.csv`](../escalera.csv).
