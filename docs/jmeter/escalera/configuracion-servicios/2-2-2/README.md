@@ -35,6 +35,7 @@ calculados sobre el CSV de cada corrida (`elapsed` de las muestras `POST /docume
 | **500** | 10 × 50 | 31,6 s | 15,8 req/s | 140 ms | 360 ms | 458 ms | 793 ms | 1.320 ms | 0 | **500 / 500** | 48 s | **1 min 28 s** |
 | **2000** | 20 × 100 | 56,3 s | 35,5 req/s | 114 ms | 189 ms | 260 ms | 389 ms | 607 ms | 0 | **2000 / 2000** | 81 s | **2 min 33 s** |
 | **5000** | 25 × 200 | 95,9 s | 52,1 req/s | 112 ms | 184 ms | 262 ms | 579 ms | 1.499 ms | 0 | **5000 / 5000** | 64 s | **2 min 55 s** |
+| **20000** | 40 × 500 | 212,6 s | **94,1 req/s** | 115 ms | 184 ms | 279 ms | 670 ms | 1.639 ms | 0 | 19.998 / 20.000 | 161 s hasta 19.998; 2 nunca llegaron | 6 min 19 s hasta 19.998 |
 
 ### Tiempos por tamaño
 
@@ -46,6 +47,7 @@ en entregar el último correo después de que JMeter termina, *total* la suma.
 | 500 | 40 s | 48 s | **88 s** (1 min 28 s) | 35 s + 78 s = 113 s |
 | 2000 | 72 s | 81 s | **153 s** (2 min 33 s) | 110 s + 112 s = 222 s, y 2 correos nunca llegaron |
 | 5000 | 111 s | 64 s | **175 s** (2 min 55 s) | 119 s + 113 s = 232 s |
+| 20000 | 218 s | 161 s hasta 19.998 | **379 s** (6 min 19 s) hasta 19.998 | bloqueado en 8.318 tras 12 min (intento 2) |
 
 Archivos por escalón, dentro de su carpeta `<total>/`: `<num>-<total>-2-2-2-<fecha>.csv` (una fila por petición, abrir en Excel),
 `report/index.html` (reporte de JMeter), `results.jtl` y las capturas de esa corrida.
@@ -73,10 +75,56 @@ Archivos por escalón, dentro de su carpeta `<total>/`: `<num>-<total>-2-2-2-<fe
   el pipeline avanza al doble de ritmo mientras la carga aún entra. Durante el drenaje sostuvo ~55 correos/s.
   El API apenas cambia porque a 25 hilos sigue sin saturar; la mejora es toda del pipeline, que es lo que
   esta topología debía demostrar.
+- **20000: el pipeline ya no se bloquea, pero vuelve a perder dos sagas.** API impecable: 20.000 de 20.000
+  en 200, **94,1 req/s** con 40 hilos y p95 de 279 ms, el mejor throughput de la escalera. Al terminar JMeter,
+  Mailpit ya tenía 9.097 correos, más que todo lo que llegó en el intento bloqueado de 1-1-1, y el drenaje
+  sostuvo ~68 correos/s hasta 19.998 en 161 s. Donde una réplica de document-service se quedó sin brokers y
+  expiró lotes, dos réplicas repartieron las conexiones y Kafka aguantó: solo una desconexión por servicio
+  en los logs y ningún `Expiring`. Faltaron **2 correos**, y son el mismo defecto que en el 2000 de 1-1-1.
 
   ![Mailpit tras la prueba de 5000](5000/04-prueba-mailpit.png)
 
   ![Mailpit tras la prueba de 2000](2000/04-prueba-mailpit.png)
+
+### 20000: dos sagas perdidas por el lock optimista tragado en document-service
+
+Con Log Analytics (los logs en vivo de Container Apps solo conservan las últimas 300 líneas) se ve la
+secuencia completa entre las 22:26:25 y las 22:27:48 UTC, 90 segundos en mitad del drenaje:
+
+- Los tres servicios pierden un broker cada uno (`Disconnecting from node 13/14 due to socket connection
+  setup timeout`), sin llegar a expirar lotes.
+- El scheduler del outbox de document-service republica todo lo que no tiene ack en su tick de 30 s:
+  generator-service rechaza **7.284 solicitudes de generación duplicadas** con `23505` durante la prueba, un
+  36 % de las 20.000. La guarda del generador funciona, pero cada rechazo republica la respuesta.
+- document-service registra **9 `Caught optimistic locking exception`** en `GenerationResponseKafkaListener`,
+  sobre 9 documentos distintos. Siete fueron colisiones benignas (la respuesta duplicada llegó cuando la
+  saga ya había terminado; el rollback no perdió nada). **Dos** chocaron con el callback del scheduler que
+  marcaba `generation_outbox` como `COMPLETED` mientras la saga procesaba la respuesta real: la saga hizo
+  rollback, el listener tragó la excepción y commiteó el offset, y nunca se creó la fila de
+  `notification_outbox`. Dos documentos en `PENDING` sin correo, exactamente como en el 2000 de 1-1-1.
+
+El listener no distingue los dos casos porque en ambos la excepción es la misma; la diferencia está en si la
+saga ya estaba completada o no. Relanzar la excepción para que Kafka reentregue resuelve ambos: en el caso
+benigno la guarda de saga descarta el mensaje, en el malo la saga se completa al segundo intento. Y el
+estado "en vuelo" en el scheduler del outbox eliminaría la causa de las 7.284 republicaciones.
+
+Lo que esta topología demostró frente a 1-1-1 con el mismo tamaño: el API pasó de 91,3 a 94,1 req/s (el
+cliente sigue siendo el límite), y el pipeline pasó de bloquearse en 8.318 a entregar 19.998 en poco más de
+6 minutos. La pérdida de 2 sagas es independiente del número de réplicas: es el defecto del listener, y
+aparece cada vez que Kafka parpadea con un backlog grande.
+
+Recuperación manual de las dos sagas, la misma que en 1-1-1:
+
+```sql
+UPDATE "document".generation_outbox SET outbox_status = 'STARTED'
+WHERE saga_id IN (
+  SELECT g.saga_id FROM "document".generation_outbox g
+  JOIN "document".documents d ON d.id = (g.payload::jsonb ->> 'documentId')::uuid
+  WHERE g.outbox_status = 'COMPLETED' AND g.saga_status = 'STARTED'
+    AND d.document_status = 'PENDING' AND g.created_at < now() - interval '10 minutes');
+```
+
+![Mailpit tras la prueba de 20000](20000/04-prueba-mailpit.png)
 
 ## Cómo se corrió
 
@@ -86,6 +134,7 @@ cd docs/jmeter/escalera
 ./run-escalon.sh 2-2-2 01-500-create-document.jmx
 ./run-escalon.sh 2-2-2 02-2000-create-document.jmx
 ./run-escalon.sh 2-2-2 03-5000-create-document.jmx
+./run-escalon.sh 2-2-2 04-20000-create-document.jmx   # 19.998/20.000, ver arriba
 ```
 
 El resumen de todos los escalones de todas las topologías está en [`../escalera.csv`](../escalera.csv).

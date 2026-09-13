@@ -44,7 +44,8 @@ echo "=== [$CONFIG] escalon $total ($threads hilos x $loops loops) -> $OUT ==="
 
 echo "-- vaciando Mailpit"
 curl -s -X DELETE "$MP/api/v1/messages" > /dev/null
-rm -rf "$OUT"; mkdir -p "$OUT"
+# Solo se limpia lo que genera JMeter; las capturas u otros archivos que haya en la carpeta del escalon se conservan.
+rm -rf "$OUT/report" "$OUT/results.jtl"; mkdir -p "$OUT"
 
 start=$(date +%s)
 jmeter -n -t "$HERE/$JMX" \
