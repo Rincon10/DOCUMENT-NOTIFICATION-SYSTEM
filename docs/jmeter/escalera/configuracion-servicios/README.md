@@ -99,6 +99,79 @@ parpadea con backlog grande y el scheduler del outbox republica; es independient
 corrige relanzando la excepción para que Kafka reentregue. Hasta entonces, la consulta de recuperación
 está en los README de 1-1-1 y 2-2-2.
 
+## Qué se probó en cada topología: disponibilidad y rendimiento
+
+Cada topología se sometió a los mismos cuatro tamaños de carga (500, 2000, 5000 y 20000 peticiones) con el
+mismo plan de JMeter, y de paso a los eventos de infraestructura que ocurrieron ese día. Lo que sigue
+separa lo que se observó de **disponibilidad** (¿el sistema siguió atendiendo y entregando cuando algo
+cambió o falló?) de lo que se midió de **rendimiento** (throughput, latencia, drenaje).
+
+### 1-1-1: una instancia por servicio
+
+**Disponibilidad.** Es la topología sin redundancia y lo mostró en cuatro eventos:
+
+- El cambio de SKU de la base (`B1ms` → `B4ms`) dejó los tres servicios sin conexiones durante unos minutos
+  (`HikariPool - Connection is not available`, `Connect timed out`): `/actuator/health` de document-service
+  respondió 503 y los schedulers de outbox fallaron hasta que Postgres volvió a Ready. Con una réplica no hay
+  quien absorba el corte; el sistema se recuperó solo al volver la BD, sin intervención ni datos perdidos.
+- A 20000 peticiones, el único productor Kafka de document-service perdió brokers de Confluent
+  (`socket connection setup timeout`) y expiró lotes: el pipeline se quedó en 8.318 correos y hubo que
+  detener la prueba. Las 11.700 sagas restantes quedaron en `STARTED` en el outbox, recuperables, pero el
+  servicio no se recuperó por sí mismo en 12 minutos.
+- Reiniciar las revisiones (`az containerapp revision restart`, sin cambiar nada) devolvió la conectividad
+  con Kafka. Es la mitigación documentada y funcionó, a costa de arrancar con JVM frías.
+- En el 2000 posterior al reinicio, un documento de cada mil quedó sin correo por la excepción de bloqueo
+  optimista tragada en document-service. El API respondió 200 a todo: la pérdida fue invisible para el
+  cliente y solo la detectó el conteo de Mailpit.
+
+**Rendimiento.** 16-49 req/s según los hilos, p95 entre 270 y 430 ms con contenedores calientes, drenaje de
+78 s (500) y 113 s (5000), unos 40 correos/s con tres hilos de notification. Suficiente hasta 5000; a 20000 el
+cuello no fue CPU ni BD sino la conexión productor → Kafka de una sola réplica bajo backlog.
+
+### 2-2-2: dos instancias por servicio
+
+**Disponibilidad.** El escalado se hizo con `az containerapp update` en caliente: cada servicio creó la
+revisión `--0000004`, las dos réplicas nuevas arrancaron y la vieja se desaprovisionó sin cortar el API. El
+consumer group de notification se rebalanceó y repartió las 6 particiones en 3 + 3, cubriéndolas todas. En el
+20000 los tres servicios perdieron un broker cada uno durante 90 segundos; con dos productores por servicio
+Kafka aguantó sin expirar lotes y el pipeline no se detuvo. Faltaron dos correos por el mismo defecto de
+código del listener, independiente de las réplicas.
+
+**Rendimiento.** Igual throughput de API que 1-1-1 (el límite es el cliente) y drenaje a la mitad: 48 s
+(500), 81 s (2000), 64 s (5000), 161 s hasta 19.998 (20000). Al terminar JMeter ya había el doble de
+correos entregados que en 1-1-1. La mejora la explica notification: seis hilos para seis particiones.
+
+### 3-6-6: document 3 · generator 6 · notification 6
+
+**Disponibilidad.** Escalado en caliente a 15 réplicas sin corte. Durante el rebalance de arranque el
+generador rechazó 278 solicitudes duplicadas con `23505`: la guarda de idempotencia absorbió las
+reentregas sin efectos. No hubo errores de pool (80 conexiones sobre `B4ms`), ni expiraciones Kafka, ni
+sagas perdidas en ninguna corrida. Es la única topología que completó el 20000 y la única sin ningún
+asterisco en la tabla. 12 de los 18 hilos de notification quedaron ociosos: más réplicas de notification
+no añaden disponibilidad ni capacidad mientras el topic tenga 6 particiones.
+
+**Rendimiento.** Mejor p95 en 500 (293 ms) y 20000 (238 ms), mejor drenaje en 2000 (64 s) y 5000 (49 s), y
+20.000 correos en 6 min 31 s. Frente a la misma topología del 9 de septiembre: mismo API, 2.278 correos de
+más menos.
+
+### Conclusión de disponibilidad y rendimiento
+
+- **Rendimiento**: el API rinde igual en las tres topologías (91-95 req/s a 40 hilos); escalar réplicas de
+  document-service no sube el throughput porque el límite es el cliente. Lo que escala es el pipeline
+  asíncrono: pasar de 1 a 2 réplicas recorta el drenaje un 43 % y pasar a 3-6-6 otro 23 %, con la ganancia
+  concentrada en notification hasta cubrir las 6 particiones y luego en generator.
+- **Disponibilidad**: con una réplica cada evento externo (cambio de BD, broker caído) se convierte en
+  indisponibilidad del pipeline y a veces requiere intervención manual; con dos o más, los mismos eventos
+  se absorben sin detener la entrega. Los rollouts de Container Apps no cortaron el API en ninguna
+  topología. El único fallo que ninguna topología evita es el defecto de código del listener de
+  document-service, porque no depende de capacidad sino de cómo se maneja una excepción.
+- **Correctitud bajo carga**: 62.500 peticiones, 0 correos duplicados, 3 documentos sin correo por un
+  defecto conocido y recuperable. El fix cumple su objetivo en las tres topologías y en el escenario de
+  referencia de 20.000.
+- **Recomendación**: 2-2-2 como mínimo operativo (redundancia y la mayor parte de la ganancia), 3-6-6 o
+  equivalente con notification en 2 para picos de 20.000, y corregir el listener antes de dar por cerrada
+  la disponibilidad del pipeline.
+
 ## Conclusión
 
 - **El fix funciona bajo carga real**: 62.500 peticiones en tres topologías sin un solo correo duplicado, y
