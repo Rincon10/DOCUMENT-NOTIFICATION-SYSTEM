@@ -2,10 +2,10 @@
 # Corre UN escalon de la escalera contra Azure y espera a que el pipeline drene.
 #
 # Uso:  ./run-escalon.sh <config> <jmx>
-#   config : etiqueta de la topologia en curso, p. ej. A-1x1x1x1, B-2x2x2, C-3x6x6 (nombra la carpeta de resultados)
+#   config : topologia en curso = nombre de la carpeta en configuracion-servicios/: 1-1-1, 2-2-2, 3-6-6
 #   jmx    : uno de los planes de esta carpeta, p. ej. 01-500-create-document.jmx
 #
-# Ejemplo: ./run-escalon.sh A-1x1x1x1 03-5000-create-document.jmx
+# Ejemplo: ./run-escalon.sh 1-1-1 03-5000-create-document.jmx
 #
 # Que hace, en orden:
 #   1. vacia Mailpit (regla: cada escalon arranca con bandeja limpia)
@@ -13,23 +13,23 @@
 #   3. espera hasta que Mailpit tenga == total (max 20 min), imprimiendo el avance cada 15 s
 #   4. imprime SMTPAccepted/SMTPRejected y cuenta filas PENDING atascadas si hay psql y DB_URL
 #
-# Todo queda dentro del repo, en docs/jmeter/escalera/results/:
-#   results/<config>/<num>-<total>-<config>-<fecha>.csv   una fila por peticion (lo escribe el plan; abrir en Excel)
-#   results/<config>/<total>/results.jtl                    crudo de JMeter
-#   results/<config>/<total>/report/index.html              reporte HTML
-#   results/escalera.csv                                    una fila por escalon (resumen)
+# Todo queda dentro del repo, en docs/jmeter/escalera/configuracion-servicios/ (junto a las capturas de cada topologia):
+#   configuracion-servicios/<config>/<num>-<total>-<config>-<fecha>.csv   una fila por peticion (lo escribe el plan; abrir en Excel)
+#   configuracion-servicios/<config>/<total>/results.jtl                    crudo de JMeter
+#   configuracion-servicios/<config>/<total>/report/index.html              reporte HTML
+#   configuracion-servicios/escalera.csv                                    una fila por escalon (resumen)
 #
 # Criterio de exito del escalon: errores 0 %, p95 < 2x el escalon anterior, correos en Mailpit == total.
 set -euo pipefail
 
-CONFIG="${1:?config (p. ej. A-1x1x1x1)}"
+CONFIG="${1:?config (p. ej. 1-1-1)}"
 JMX="${2:?jmx (p. ej. 01-500-create-document.jmx)}"
 
 HERE="$(cd "$(dirname "$0")" && pwd)"
 BASE_URL="${BASE_URL:-https://document-service.redbush-a66713c9.centralus.azurecontainerapps.io}"
 MP="${MP:-https://mailpit.redbush-a66713c9.centralus.azurecontainerapps.io}"
 CUSTOMER_ID="${CUSTOMER_ID:-550e8400-e29b-41d4-a716-446655440001}"
-RESULTS_DIR="${RESULTS_DIR:-$HERE/results}"
+RESULTS_DIR="${RESULTS_DIR:-$HERE/configuracion-servicios}"
 export HEAP="${HEAP:--Xms1g -Xmx2g}"
 
 # total = threads x loops, leidos de los defaults del jmx
@@ -78,6 +78,6 @@ fi
 
 # una linea por escalon para la tabla final
 SUMMARY="$RESULTS_DIR/escalera.csv"
-[ -f "$SUMMARY" ] || echo "config,total,threads,loops,seg_jmeter,seg_drenaje,correos,fecha" > "$SUMMARY"
-echo "$CONFIG,$total,$threads,$loops,$((jm_end - start)),$((drain_end - jm_end)),$got,$(date +%Y-%m-%dT%H:%M:%S)" >> "$SUMMARY"
+[ -f "$SUMMARY" ] || echo "config,total,threads,loops,seg_jmeter,seg_drenaje,correos,fecha,nota" > "$SUMMARY"
+echo "$CONFIG,$total,$threads,$loops,$((jm_end - start)),$((drain_end - jm_end)),$got,$(date +%Y-%m-%dT%H:%M:%S),${NOTA:-}" >> "$SUMMARY"
 echo "-- fila agregada a $SUMMARY"

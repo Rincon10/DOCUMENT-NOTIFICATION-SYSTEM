@@ -1,0 +1,4 @@
+config,total,threads,loops,seg_jmeter,seg_drenaje,correos,fecha,nota
+1-1-1,500,10,50,35,78,500,2026-09-13T12:05:04,
+1-1-1,5000,25,200,119,113,5000,2026-09-13T12:12:46,
+1-1-1,20000,40,500,557,-,12293,2026-09-13T12:22:40,INVALIDO: caida de red/DNS del PC cliente entre t+60s y t+450s; 7718 peticiones nunca salieron; correos == peticiones que llegaron al servidor

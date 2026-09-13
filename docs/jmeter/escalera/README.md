@@ -1,7 +1,7 @@
 # Escalera de pruebas: topologías × tamaños
 
-Plan compacto para medir escalabilidad y rendimiento en Azure con la BD en `Standard_B1ms`
-(`max_connections = 50`). Tres topologías, cuatro tamaños, **seis corridas** en total: cada topología
+Plan compacto para medir escalabilidad y rendimiento en Azure (BD en `Standard_B4ms` desde el 13 de
+septiembre; con `B1ms` aplica el presupuesto de 45 conexiones). Tres topologías, cuatro tamaños, **seis corridas** en total: cada topología
 solo corre los escalones que aportan información nueva. La última repite la topología de la
 [corrida del 9 de septiembre](../../../README.md#resultados-obtenidos-9-de-septiembre-de-2026) para
 comparar contra sus 22.278 correos.
@@ -28,22 +28,23 @@ Heap de JMeter: `export HEAP="-Xms1g -Xmx2g"` (el script ya lo hace).
 El Summary Report de cada plan escribe su propio archivo, una fila por petición, sin pasar `-l`:
 
 ```
-results/<config>/<num>-<total>-<config>-<fecha>.csv
-p. ej. results/A-1x1x1x1/03-5000-A-1x1x1x1-20260913-114522.csv
+configuracion-servicios/<config>/<num>-<total>-<config>-<fecha>.csv
+p. ej. configuracion-servicios/1-1-1/03-5000-1-1-1-20260913-120904.csv
 ```
 
-- `config` identifica la topología (`-Jconfig=B-2x2x2`; por defecto `A-1x1x1x1`). Así el mismo plan de
+- `config` identifica la topología y es el nombre de su carpeta (`-Jconfig=2-2-2`; por defecto `1-1-1`). Así el mismo plan de
   20000 deja tres archivos distintos al correrlo en A, B y C.
 - `resultsDir` cambia la carpeta base (`-JresultsDir=...`; por defecto `results`, relativa al directorio
-  desde donde se lanza JMeter). `run-escalon.sh` la fija a `docs/jmeter/escalera/results`.
+  desde donde se lanza JMeter). `run-escalon.sh` la fija a `docs/jmeter/escalera/configuracion-servicios`, donde
+  cada topología tiene su carpeta con las capturas de Azure (`1-1-1/`, `2-2-2/`, `3-6-6/`) y un `README.md` con sus resultados.
 - La fecha evita sobrescribir si repites un escalón.
 - Desde la GUI, cambia el valor por defecto de `config` en *User Defined Variables* antes de darle Start,
-  o el archivo se llamará `A-1x1x1x1` aunque estés en otra topología.
+  o el archivo se llamará `1-1-1` aunque estés en otra topología.
 
 El CSV trae `timeStamp, elapsed, label, responseCode, success, Latency, Connect, allThreads, ...`. En Excel:
 `elapsed` es la latencia en ms para percentiles (`=PERCENTIL.INC(B:B;0,95)`), `success` para la tasa de
 error, y `timeStamp` (epoch ms) para el throughput. Es el mismo formato de los CSV de
-[`docs/pruebas/`](../../pruebas/).
+[`docs/pruebas-rendimiento/`](../../pruebas-rendimiento/).
 
 ## Topologías y qué corre cada una
 
@@ -53,9 +54,9 @@ vieja desaparezca** de `az containerapp revision list`.
 
 | Topología | document | generator | notification | customer | Pool | Conexiones | Escalones |
 |---|---|---|---|---|---|---|---|
-| **A** `1x1x1x1` | 1 | 1 | 1 | 1 | 5 | 20 | 500, 5000, 20000 |
-| **B** `2x2x2` | 2 | 2 | 2 | 1 | 5 | 35 | 5000, 20000 |
-| **C** `3x6x6` | 3 | 6 | 6 | 1 | 5 (BD en `B4ms`) | 15+30+30+5 = 80 | 20000 |
+| **A** `1-1-1` | 1 | 1 | 1 | 1 | 5 | 20 | 500, 5000, 20000 |
+| **B** `2-2-2` | 2 | 2 | 2 | 1 | 5 | 35 | 5000, 20000 |
+| **C** `3-6-6` | 3 | 6 | 6 | 1 | 5 (BD en `B4ms`) | 15+30+30+5 = 80 | 20000 |
 
 > El 13 de septiembre la BD se subió a `Standard_B4ms` antes de empezar la escalera, así que el presupuesto
 > de 45 conexiones del `B1ms` ya no aplica y C corre con pool 5, igual que la corrida original. Si vuelves a
@@ -70,10 +71,8 @@ vieja desaparezca** de `az containerapp revision list`.
   notification 6), la que dio 22.278 correos para 20.000 peticiones. Repetirla con el fix es la
   comparación directa: mismo tamaño, misma topología, el conteo de Mailpit debe ser exactamente 20.000.
   Con 6 réplicas de notification hay 18 hilos para 6 particiones; los sobrantes quedan ociosos, así que
-  el drenaje no debería mejorar mucho respecto a B. Diferencia con aquella corrida: la BD estaba en
-  `Standard_B4ms`; aquí sigue en `B1ms` con pool 2 en los consumidores para caber en 45 conexiones. Si
-  quieres comparar también latencias, sube la BD a `B4ms` antes de C y vuelve a `B1ms` el mismo día;
-  para el conteo de duplicados no hace falta.
+  el drenaje no debería mejorar mucho respecto a B. La BD está en `Standard_B4ms` como en aquella corrida,
+  así que la comparación de latencias también es directa.
 
 Escalón 2000 queda como comodín: úsalo en A si 500 salió bien pero 5000 tiene errores, para ubicar el
 punto de quiebre sin gastar una corrida de 20000.
@@ -83,18 +82,18 @@ punto de quiebre sin gastar una corrida de 20000.
 ```bash
 RG=dns-student-rg
 
-# A: 1x1x1x1 (estado actual)
+# A: 1-1-1 (estado actual)
 for s in document-service generator-service notification-service customer-service; do
   az containerapp update -g $RG -n $s --min-replicas 1 --max-replicas 1 \
     --set-env-vars SPRING_DATASOURCE_HIKARI_MAXIMUMPOOLSIZE=5
 done
 
-# B: 2x2x2 (+ customer 1)
+# B: 2-2-2 (+ customer 1)
 for s in document-service generator-service notification-service; do
   az containerapp update -g $RG -n $s --min-replicas 2 --max-replicas 2
 done
 
-# C: 3x6x6 (la topología de la corrida del 9 de septiembre). Con la BD en B4ms el pool se queda en 5.
+# C: 3-6-6 (la topología de la corrida del 9 de septiembre). Con la BD en B4ms el pool se queda en 5.
 az containerapp update -g $RG -n document-service --min-replicas 3 --max-replicas 3
 for s in generator-service notification-service; do
   az containerapp update -g $RG -n $s --min-replicas 6 --max-replicas 6
@@ -115,14 +114,14 @@ cd docs/jmeter/escalera
 chmod +x run-escalon.sh
 
 # A
-./run-escalon.sh A-1x1x1x1 01-500-create-document.jmx
-./run-escalon.sh A-1x1x1x1 03-5000-create-document.jmx
-./run-escalon.sh A-1x1x1x1 04-20000-create-document.jmx
+./run-escalon.sh 1-1-1 01-500-create-document.jmx
+./run-escalon.sh 1-1-1 03-5000-create-document.jmx
+./run-escalon.sh 1-1-1 04-20000-create-document.jmx
 # escalar a B, esperar revisión vieja fuera
-./run-escalon.sh B-2x2x2 03-5000-create-document.jmx
-./run-escalon.sh B-2x2x2 04-20000-create-document.jmx
+./run-escalon.sh 2-2-2 03-5000-create-document.jmx
+./run-escalon.sh 2-2-2 04-20000-create-document.jmx
 # escalar a C
-./run-escalon.sh C-3x6x6 04-20000-create-document.jmx
+./run-escalon.sh 3-6-6 04-20000-create-document.jmx
 ```
 
 Variables opcionales del script: `BASE_URL`, `MP` (URL de Mailpit), `CUSTOMER_ID`, `HEAP`, `RESULTS_DIR`
@@ -136,9 +135,10 @@ de esta carpeta llevan un Header Manager propio en ese sampler con `Accept: appl
 
 ## Qué anotar por corrida
 
-Todo queda versionable dentro de `results/`: `run-escalon.sh` deja una fila por escalón en
-`results/escalera.csv` (`config,total,threads,loops,seg_jmeter,seg_drenaje,correos,fecha`), el reporte HTML
-en `results/<config>/<total>/report/index.html` y el `.jtl` crudo al lado. Para la tabla final:
+Todo queda versionable dentro de `configuracion-servicios/`: `run-escalon.sh` deja una fila por escalón en
+`configuracion-servicios/escalera.csv` (`config,total,threads,loops,seg_jmeter,seg_drenaje,correos,fecha,nota`; la nota
+sale de la variable `NOTA` si la defines), el reporte HTML en `configuracion-servicios/<config>/<total>/report/index.html`
+y el `.jtl` crudo al lado. Para la tabla final:
 
 | Métrica | De dónde | Qué dice |
 |---|---|---|
