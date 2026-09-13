@@ -66,6 +66,8 @@ Archivos por escalón, dentro de su carpeta `<total>/`: `<num>-<total>-2-2-2-<fe
   segundo, con Mailpit en 30 al terminar JMeter: el pipeline arranca al ritmo de los ticks y luego sostiene
   ~35 correos/s.
 
+  ![Mailpit tras la prueba de 2000](2000/04-prueba-mailpit.png)
+
 ## Cómo se corrió
 
 ```bash
