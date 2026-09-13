@@ -40,6 +40,7 @@ calculados sobre el CSV de cada corrida (`elapsed` de las muestras `POST /docume
 | **500** | 10 × 50 | 29,0 s | 17,2 req/s | 123 ms | 221 ms | 293 ms | 790 ms | 2.115 ms | 0 | **500 / 500** | 80 s | **2 min 4 s** |
 | **2000** | 20 × 100 | 58,6 s | 34,2 req/s | 120 ms | 240 ms | 317 ms | 559 ms | 2.082 ms | 0 | **2000 / 2000** | 64 s | **2 min 8 s** |
 | **5000** | 25 × 200 | 96,3 s | 51,9 req/s | 116 ms | 194 ms | 323 ms | 576 ms | 1.972 ms | 0 | **5000 / 5000** | 49 s | **2 min 31 s** |
+| **20000** | 40 × 500 | 209,8 s | **95,3 req/s** | 110 ms | 180 ms | 238 ms | 477 ms | 1.148 ms | 0 | **20000 / 20000** | 175 s | **6 min 31 s** |
 
 ### Tiempos por tamaño
 
@@ -51,6 +52,7 @@ tarda el pipeline en entregar el último correo después de que JMeter termina, 
 | 500 | 44 s | 80 s | **124 s** (2 min 4 s) | 35 + 78 = 113 s | 40 + 48 = 88 s |
 | 2000 | 64 s | 64 s | **128 s** (2 min 8 s) | 110 + 112 = 222 s (1.998 correos) | 72 + 81 = 153 s |
 | 5000 | 102 s | 49 s | **151 s** (2 min 31 s) | 119 + 113 = 232 s | 111 + 64 = 175 s |
+| 20000 | 216 s | 175 s | **391 s** (6 min 31 s) | bloqueado en 8.318 | 218 + 161 = 379 s (19.998 correos) |
 
 Archivos por escalón, dentro de su carpeta `<total>/`: `<num>-<total>-3-6-6-<fecha>.csv` (una fila por petición, abrir en Excel),
 `report/index.html` (reporte de JMeter), `results.jtl` y las capturas de esa corrida.
@@ -84,6 +86,34 @@ Archivos por escalón, dentro de su carpeta `<total>/`: `<num>-<total>-3-6-6-<fe
   aporta esta topología es el generador con 6 réplicas y document con 3.
 
   ![Mailpit tras la prueba de 5000](5000/04-prueba-mailpit.png)
+- **20000: 20.000 correos exactos.** Es el único escalón de 20000 de la escalera que cierra completo: 20.000
+  de 20.000 en 200, **95,3 req/s** con 40 hilos, p95 de 238 ms y máximo de 1,1 s, los mejores números del
+  API en toda la escalera. Al terminar JMeter ya había 8.860 correos entregados y el drenaje sostuvo ~64
+  correos/s durante 175 s. Comparado con la misma topología el 9 de septiembre, sin el fix, ver la sección
+  siguiente.
+
+### 20000: comparación con la corrida del 9 de septiembre
+
+Misma topología (document 3 · generator 6 · notification 6), misma BD (`Standard_B4ms`), mismo plan (40 hilos
+× 500 loops), mismo destino (Mailpit). La única diferencia es la imagen de notification-service: `1.0` sin el
+fix el 9 de septiembre, `1.2` con *claim-then-send* hoy.
+
+| | 9 de septiembre (sin fix) | 13 de septiembre (con fix) |
+|---|---|---|
+| Peticiones OK | 20.000 / 20.000 | 20.000 / 20.000 |
+| Throughput API | 97 req/s | 95,3 req/s |
+| Mediana / p95 / p99 / máx | 113 / 312 / 664 / 2.252 ms | 110 / 238 / 477 / 1.148 ms |
+| **Correos en Mailpit** | **22.278** (2.278 de más, 11,4 %) | **20.000** exactos |
+| `SMTPRejected` | 0 | 0 |
+
+El API se comporta igual; la diferencia está toda en el pipeline: los 2.278 correos duplicados desaparecen
+con el mismo tráfico, la misma contención y las mismas réplicas compitiendo por las particiones. El conteo
+de la bandeja vuelve a servir como medida de éxito, que era el criterio de aceptación pendiente desde la
+corrida anterior.
+
+Los dos documentos que quedaron sin correo en el 20000 de 2-2-2 por el bloqueo optimista de document-service
+no se repitieron aquí; ese defecto sigue abierto y depende de que Kafka parpadee con backlog grande, no de
+la topología.
 
 ## Cómo se corrió
 
@@ -93,6 +123,7 @@ cd docs/jmeter/escalera
 ./run-escalon.sh 3-6-6 01-500-create-document.jmx
 ./run-escalon.sh 3-6-6 02-2000-create-document.jmx
 ./run-escalon.sh 3-6-6 03-5000-create-document.jmx
+./run-escalon.sh 3-6-6 04-20000-create-document.jmx
 ```
 
 El resumen de todos los escalones de todas las topologías está en [`../escalera.csv`](../escalera.csv).

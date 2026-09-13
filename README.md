@@ -778,6 +778,10 @@ El resumen de todos los escalones, una fila por corrida, está en
 topologías es el **tiempo de drenaje** del pipeline tras terminar JMeter; el throughput del API apenas cambia
 porque el límite es el cliente. El criterio de aceptación en todas es `correos en Mailpit == peticiones`.
 
+**Resultado clave:** el escalón de 20000 en `3-6-6`, la misma topología y BD de la corrida del 9 de
+septiembre, terminó con **20.000 correos exactos** (95,3 req/s, p95 238 ms, drenaje de 175 s) frente a los
+22.278 de entonces. Los 2.278 duplicados desaparecen con el fix y el mismo tráfico.
+
 #### Exportar resultados de JMeter
 
 El archivo que JMeter escribe con `-l` (`.jtl`) **ya es CSV** aunque la extensión diga otra cosa; los de
