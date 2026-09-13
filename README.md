@@ -765,7 +765,7 @@ la misma de la corrida del 9 de septiembre), con los tamaños 500, 2000, 5000 y 
 **[`docs/jmeter/escalera/`](docs/jmeter/escalera/README.md)**. Los resultados, con un README por topología
 (configuración, capturas de Azure y Mailpit, percentiles, throughput, tiempos de drenaje y lecturas) y el CSV
 de cada corrida abrible en Excel, están en
-**[`docs/jmeter/escalera/configuracion-servicios/`](docs/jmeter/escalera/configuracion-servicios/)**:
+**[`docs/jmeter/escalera/configuracion-servicios/`](docs/jmeter/escalera/configuracion-servicios/README.md)**, cuyo README reúne la **tabla comparativa, el análisis y la conclusión**:
 
 | Topología | document · generator · notification | Resultados |
 |---|---|---|

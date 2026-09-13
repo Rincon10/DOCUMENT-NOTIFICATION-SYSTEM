@@ -135,6 +135,9 @@ de esta carpeta llevan un Header Manager propio en ese sampler con `Accept: appl
 
 ## Qué anotar por corrida
 
+La tabla comparativa de las tres topologías, con análisis y conclusión, está en
+[`configuracion-servicios/README.md`](configuracion-servicios/README.md).
+
 Todo queda versionable dentro de `configuracion-servicios/`: `run-escalon.sh` deja una fila por escalón en
 `configuracion-servicios/escalera.csv` (`config,total,threads,loops,seg_jmeter,seg_drenaje,correos,fecha,nota`; la nota
 sale de la variable `NOTA` si la defines), el reporte HTML en `configuracion-servicios/<config>/<total>/report/index.html`
