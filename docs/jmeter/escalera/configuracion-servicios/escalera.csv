@@ -6,3 +6,4 @@ config,total,threads,loops,seg_jmeter,seg_drenaje,correos,fecha,nota
 1-1-1,2000,20,100,110,-,1998,2026-09-13T13:18:18,DETENIDA a los 18 min con 1998/2000: 2 sagas perdidas en document-service por ObjectOptimisticLockingFailureException en GenerationResponseKafkaListener (se traga la excepcion y commitea el offset); API 2000/2000 OK a 22.3 req/s pero p95 1094 ms (servicios recien reiniciados, JVM fria)
 1-1-1,2000,20,100,110,1289,0,2026-09-13T13:33:35,
 2-2-2,500,10,50,40,48,500,2026-09-13T13:38:01,
+2-2-2,2000,20,100,72,81,2000,2026-09-13T17:12:13,
