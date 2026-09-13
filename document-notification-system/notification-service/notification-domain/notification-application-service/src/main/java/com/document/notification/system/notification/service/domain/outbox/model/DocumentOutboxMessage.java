@@ -17,9 +17,12 @@ public class DocumentOutboxMessage {
     private UUID id;
     private UUID sagaId;
     private ZonedDateTime createdAt;
+    @Setter
     private ZonedDateTime processedAt;
     private String type;
+    @Setter
     private String payload;
+    @Setter
     private NotificationStatus notificationStatus;
 
     @Setter

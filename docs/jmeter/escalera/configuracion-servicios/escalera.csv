@@ -1,0 +1,15 @@
+config,total,threads,loops,seg_jmeter,seg_drenaje,correos,fecha,nota
+1-1-1,500,10,50,35,78,500,2026-09-13T12:05:04,
+1-1-1,5000,25,200,119,113,5000,2026-09-13T12:12:46,
+1-1-1,20000,40,500,557,-,12293,2026-09-13T12:22:40,INVALIDO: caida de red/DNS del PC cliente entre t+60s y t+450s; 7718 peticiones nunca salieron; correos == peticiones que llegaron al servidor
+1-1-1,20000,40,500,225,-,8318,2026-09-13T13:02:33,DETENIDA a los 12 min: API 20000/20000 OK a 91.3 req/s; pipeline bloqueado por conectividad document-service -> brokers Confluent (records expirados); 8318 correos = 8318 sagas completadas sin duplicados
+1-1-1,2000,20,100,110,-,1998,2026-09-13T13:18:18,DETENIDA a los 18 min con 1998/2000: 2 sagas perdidas en document-service por ObjectOptimisticLockingFailureException en GenerationResponseKafkaListener (se traga la excepcion y commitea el offset); API 2000/2000 OK a 22.3 req/s pero p95 1094 ms (servicios recien reiniciados, JVM fria)
+1-1-1,2000,20,100,110,1289,0,2026-09-13T13:33:35,
+2-2-2,500,10,50,40,48,500,2026-09-13T13:38:01,
+2-2-2,2000,20,100,72,81,2000,2026-09-13T17:12:13,
+2-2-2,5000,25,200,111,64,5000,2026-09-13T17:20:21,
+2-2-2,20000,40,500,218,-,19998,2026-09-13T17:33:00,DETENIDA a los 8 min con 19998/20000: API 20000/20000 OK a 94.1 req/s (p95 279 ms); drenaje 161 s hasta 19998; 2 documentos quedaron en PENDING por ObjectOptimisticLockingFailureException tragada en GenerationResponseKafkaListener
+3-6-6,500,10,50,44,80,500,2026-09-13T17:58:13,
+3-6-6,2000,20,100,64,64,2000,2026-09-13T18:03:40,
+3-6-6,5000,25,200,102,49,5000,2026-09-13T18:08:19,
+3-6-6,20000,40,500,216,175,20000,2026-09-13T18:17:35,

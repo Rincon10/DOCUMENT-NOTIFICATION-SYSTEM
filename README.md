@@ -20,7 +20,9 @@ Un sistema de notificaciones distribuido orientado a documentos, diseñado con p
 - [Grafo de dependencias completo del sistema](#grafo-de-dependencias-completo-del-sistema)
 - [Principios arquitectónicos aplicados](#principios-arquitectónicos-aplicados)
 - [Flujo de notificación (alto nivel)](#flujo-de-notificación-alto-nivel)
+- [Mecanismos contra la duplicidad](#mecanismos-contra-la-duplicidad)
 - [Arquitectura en la nube (Azure)](#arquitectura-en-la-nube-azure)
+  - [Pruebas de escalabilidad por topología (13 de septiembre de 2026)](#pruebas-de-escalabilidad-por-topología-13-de-septiembre-de-2026)
 - [Tecnologías y patterns recomendados](#tecnologías-y-patterns-recomendados)
 - [Cómo empezar](#cómo-empezar-resumen)
 - [Buenas prácticas y recomendaciones](#buenas-prácticas-y-recomendaciones)
@@ -204,6 +206,9 @@ El grafo de dependencias ilustra la estructura interna del servicio:
 
 ### Responsabilidades principales
 - Envío de notificaciones por múltiples canales
+- Envío **exactamente una vez por saga**: reserva la fila de outbox en `NOTIFICATION_PENDING` antes de
+  enviar (claim-then-send) para que redeliveries, rebalances y réplicas concurrentes no dupliquen el correo.
+  Ver [Mecanismos contra la duplicidad](#mecanismos-contra-la-duplicidad)
 - Gestión de preferencias de notificación de usuarios
 - Plantillas de notificaciones personalizables
 - Tracking de estado de entrega y reintentos
@@ -251,6 +256,91 @@ El proyecto está guiado por varias prácticas y patrones de arquitectura limpia
 3. El dominio publica eventos de dominio que son manejados por handlers que encolan mensajes o llaman adaptadores.
 4. Los adaptadores de mensajería entregan las notificaciones a los consumidores interesados (colas, servicios, push, correo).
 5. Mecanismos de reintento y idempotencia aseguran entrega segura en un entorno distribuido.
+
+## Mecanismos contra la duplicidad
+
+Kafka y el patrón outbox garantizan **al menos una vez**: cualquier mensaje puede llegar repetido (redelivery
+tras un rebalance, reenvío del scheduler antes del ack, reintento de un batch fallido). Cada capa del sistema
+tiene un mecanismo que convierte esa repetición en un no-op. Conviene tener claro **qué protege cada uno**,
+porque ninguno por separado cubre todo.
+
+### Inventario por servicio
+
+| Mecanismo | Dónde | Qué resuelve | Qué NO resuelve |
+|---|---|---|---|
+| **Outbox + scheduler** | `*_outbox` de los 3 servicios, `*OutboxScheduler` | Que un cambio en BD y su mensaje a Kafka sean atómicos: nunca se pierde un evento | Duplicados: si el ack no llega antes del siguiente tick, la fila `STARTED` se republica |
+| **Índice único sobre la saga** | `uk_generation_outbox_type_saga_id_saga_status`, `uk_notification_outbox_type_saga_id_saga_status` (document-service); `document_outbox_type_saga_id_notification_status_outbox_status` (notification-service) | Que una respuesta duplicada del generador o del notificador cree dos filas de outbox para la misma saga | Efectos secundarios que ocurren **antes** del `INSERT` (generar contenido, publicar, enviar un correo) |
+| **Guarda de saga** | `DocumentGenerationSaga.execute`, `DocumentNotificationSaga.execute` | Solo actuar si la fila de outbox sigue en el estado esperado (`STARTED` / `PROCESSING`); la segunda entrega no hace nada | Carreras entre dos hilos que leen el mismo estado antes de que el primero haga commit |
+| **Guarda de outbox COMPLETED** | `NotificationRequestHelperImpl`, `GenerationRequestHelperImpl` | Redeliveries que llegan cuando el ciclo ya terminó: se republica la respuesta y se sale | Redeliveries mientras el trabajo está en curso |
+| **Captura de `23505`** | `NotificationRequestKafkaListener`, `DocumentOutboxHelper.updateOutboxMessage` | Que una violación de unicidad no deje al consumidor en bucle infinito de reintentos: se traga, se commitea el offset | Nada de lo que pasó antes de la colisión |
+| **Clave de partición = `sagaId`** | Publicadores Kafka | Orden por saga dentro de una partición | Nada durante un rebalance: el hilo viejo sigue procesando su batch mientras el nuevo arranca |
+| **Claim-then-send** | `NotificationRequestHelperImpl` + `DocumentOutboxHelper.claimDocumentOutboxMessage`, reutilizando el índice único de `document_outbox` | Que dos hilos o réplicas envíen el mismo correo. Es la **única** guarda que corre antes del efecto secundario | Un crash entre el claim y el `complete` deja la fila en `PENDING` y la saga sin respuesta (ver nota al final) |
+
+### Lock optimista vs. lock pesimista
+
+Los dos existen en el repo y protegen cosas distintas.
+
+**Optimista (`@Version`).** La entidad lleva una columna `version` que Hibernate incrementa en cada `UPDATE`
+y compara en el `WHERE`. Si dos transacciones leen la misma fila y ambas intentan escribir, la segunda ve que
+la versión cambió y falla con `ObjectOptimisticLockingFailureException`. No bloquea a nadie: detecta la
+colisión al final. Sirve para evitar el *lost update*, es decir que una escritura tardía pise a otra sin
+enterarse. **No** evita que dos procesos hagan el mismo trabajo, solo que ambos lo persistan.
+
+Dónde se usa (las cuatro entidades de outbox):
+
+- `document-service`: `GenerationOutboxEntity`, `NotificationOutboxEntity`
+- `generator-service`: `DocumentOutboxEntity`
+- `notification-service`: `DocumentOutboxEntity`
+
+**Pesimista (`PESSIMISTIC_WRITE` + `lock.timeout = -2`).** Se bloquea la fila en el momento de leerla con
+`SELECT ... FOR UPDATE`. El hint `-2` lo traduce Hibernate a `SKIP LOCKED` en Postgres: en vez de esperar a que
+otra transacción suelte la fila, la salta. Es lo que permite que varias réplicas del mismo scheduler hagan
+polling a la vez y **se repartan** las filas `STARTED` sin procesar las mismas. El lock dura lo que dura la
+transacción que lo tomó.
+
+Dónde se usa (los finders que alimentan los schedulers):
+
+- `document-service`: `GeneratorOutboxJpaRepository.findByTypeAndOutboxStatusAndSagaStatusIn`,
+  `NotificationOutboxJpaRepository.findByTypeAndOutboxStatusAndSagaStatusIn`
+- `notification-service`: `DocumentOutboxJpaRepository.findByTypeAndOutboxStatusAndNotificationStatusNot`
+- `generator-service`: **no lo usa** en `DocumentOutboxJpaRepository.findByTypeAndOutboxStatus`, por eso con
+  varias réplicas cada una republica las mismas filas (pendiente de alinear)
+
+Límite común a ambos en los outbox schedulers: la publicación a Kafka es asíncrona y el callback que marca
+`COMPLETED` corre **después** de que la transacción del tick cerró y soltó el lock. Si el ack tarda más que el
+tick (10 s por defecto), el siguiente tick vuelve a ver la fila `STARTED` y la republica. El lock protege la
+lectura concurrente, no el intervalo entre lectura y ack.
+
+### Por qué hacía falta el claim-then-send en notification-service
+
+Todos los mecanismos anteriores se evalúan contra filas que se escriben **después** de enviar el correo. La
+secuencia original era *comprobar → enviar → insertar*, así que con dos entregas del mismo `sagaId` en hilos o
+réplicas distintas ambas comprobaban "no hay fila", ambas enviaban, y la segunda chocaba con el índice único al
+insertar. El `23505` se tragaba y el offset se commiteaba: **dos correos, una fila, cero errores en el log**. Es
+el exceso que midió la prueba de carga (49 correos de más en 9000, 2.278 en 20000).
+
+El fix invierte el orden y saca el envío de la transacción, **sin cambios de esquema**: reutiliza la fila de
+`document_outbox` y su índice único `(type, saga_id, notification_status, outbox_status)` como claim.
+
+1. **Claim** (`DocumentOutboxHelper.claimDocumentOutboxMessage`, transacción propia con `REQUIRES_NEW`):
+   `INSERT` de la fila de outbox en `NOTIFICATION_PENDING / STARTED`. Quien gana el `INSERT` es el único
+   autorizado a enviar; los demás reciben `DataIntegrityViolationException`, la ignoran y salen sin tocar el
+   proveedor de correo. Antes del claim, `existsDocumentOutboxMessage` descarta redeliveries de sagas ya
+   reclamadas o ya terminadas, en cualquier estado.
+2. **Envío**, fuera de toda transacción. Así tampoco se retiene una conexión del pool mientras el hilo espera al
+   rate limiter o a los reintentos SMTP.
+3. **Complete** (`DocumentOutboxHelper.completeDocumentOutboxMessage`): la misma fila pasa de `PENDING` al estado
+   final (`SENT`/`FAILED`) con el payload definitivo, sigue en `STARTED` y el scheduler la publica en el siguiente
+   tick. Después se guarda el historial en `document_notification`.
+
+El scheduler del outbox excluye las filas en `NOTIFICATION_PENDING`: son claims de envíos en curso, no
+respuestas publicables.
+
+**Limitación conocida.** Si el proceso muere entre 1 y 3, la fila queda en `PENDING`: las redeliveries se
+descartan, el scheduler no la publica y el documento se queda en `GENERATED`. No hay reaper automático en esta
+versión; se detecta con `SELECT * FROM notification.document_outbox WHERE notification_status = 'NOTIFICATION_PENDING' AND created_at < now() - interval '1 hour'`
+y se resuelve a mano (borrar la fila y reenviar la saga, o marcarla `NOTIFICATION_FAILED` para que la saga
+compense). Un scheduler que haga eso automáticamente es el siguiente paso natural.
 
 ## Arquitectura en la nube (Azure)
 
@@ -620,7 +710,7 @@ holgado, el techo razonable con estas réplicas es 40 hilos; más allá conviene
 #### Resultados obtenidos (9 de septiembre de 2026)
 
 Corrida real sobre el escenario **document 3 · generator 6 · notification 6**, BD en `Standard_B4ms`,
-correo hacia Mailpit. Los archivos están en [`docs/pruebas/`](docs/pruebas/): una captura del Summary
+correo hacia Mailpit. Los archivos están en [`docs/pruebas-rendimiento/`](docs/pruebas-rendimiento/): una captura del Summary
 Report por escalón y el CSV crudo de JMeter con una fila por petición, listo para abrir en Excel (ver
 [cómo exportar](#exportar-resultados-de-jmeter)). Los percentiles de la tabla se calcularon sobre esos CSV.
 
@@ -632,7 +722,7 @@ Report por escalón y el CSV crudo de JMeter con una fila por petición, listo p
 
 | 500 | 9000 | 20000 |
 |---|---|---|
-| ![500](docs/pruebas/01-500-Summary-.png) | ![9000](docs/pruebas/02-9000-Summary-.png) | ![20000](docs/pruebas/03-20000-Summary-.png) |
+| ![500](docs/pruebas-rendimiento/01-500-Summary-.png) | ![9000](docs/pruebas-rendimiento/02-9000-Summary-.png) | ![20000](docs/pruebas-rendimiento/03-20000-Summary-.png) |
 
 **Lecturas:**
 
@@ -650,18 +740,52 @@ Report por escalón y el CSV crudo de JMeter con una fila por petición, listo p
   únicos evitan filas duplicadas en BD, pero no efectos secundarios que ocurren antes del `INSERT`
   (generar el contenido, publicar a Kafka, enviar el correo). El detalle y el orden de corrección están en
   la [guía de Azure, sección de diagnóstico](docs/03-AZURE-ESTUDIANTE-PASO-A-PASO.md).
+- **Corrección aplicada al envío de correo** (rama `feature/fix-duplicity`): notification-service ahora
+  reserva la saga en `document_outbox` con estado `NOTIFICATION_PENDING` **antes** de enviar, usando el índice
+  único como claim, y envía fuera de la transacción. Dos entregas del mismo `sagaId` ya no pueden producir
+  dos correos: la segunda pierde el `INSERT` y se descarta. El detalle está en
+  [Mecanismos contra la duplicidad](#mecanismos-contra-la-duplicidad). Siguen pendientes los reenvíos del
+  scheduler del productor, el `SKIP LOCKED` del generator-service y el reintento SMTP tras timeout, que
+  generan tráfico duplicado pero ya no correos duplicados.
 - **Criterio de aceptación para la próxima corrida**: `SMTPAccepted == total`. Mientras Mailpit reciba
   más correos que peticiones, el sistema es "al menos una vez" en el envío y el conteo de la bandeja no
-  sirve como medida de éxito.
+  sirve como medida de éxito. Con el claim-then-send ese debería ser el resultado; si no lo es, buscar
+  primero filas `NOTIFICATION_PENDING` antiguas en `notification.document_outbox`.
 
 > Las tres corridas se lanzaron desde la GUI de JMeter (se ve en las capturas). Para los números de latencia
 > es válido porque el cliente no saturó, pero para 20000 o más conviene el modo CLI (`jmeter -n`) que se
 > describe arriba: la GUI consume memoria por cada muestra y puede distorsionar el máximo.
 
+#### Pruebas de escalabilidad por topología (13 de septiembre de 2026)
+
+Con el fix *claim-then-send* desplegado (`notification-service:1.2`), la escalera se repitió sobre **tres
+topologías de instancias** para separar lo que aporta cada réplica: `1-1-1`, `2-2-2` y `3-6-6` (esta última,
+la misma de la corrida del 9 de septiembre), con los tamaños 500, 2000, 5000 y 20000 en cada una. El plan, los
+`.jmx` por tamaño, el script que corre un escalón y espera el drenaje, y los criterios de aceptación están en
+**[`docs/jmeter/escalera/`](docs/jmeter/escalera/README.md)**. Los resultados, con un README por topología
+(configuración, capturas de Azure y Mailpit, percentiles, throughput, tiempos de drenaje y lecturas) y el CSV
+de cada corrida abrible en Excel, están en
+**[`docs/jmeter/escalera/configuracion-servicios/`](docs/jmeter/escalera/configuracion-servicios/README.md)**, cuyo README reúne la **tabla comparativa, el análisis y la conclusión**:
+
+| Topología | document · generator · notification | Resultados |
+|---|---|---|
+| `1-1-1` | 1 · 1 · 1 | [README](docs/jmeter/escalera/configuracion-servicios/1-1-1/README.md) |
+| `2-2-2` | 2 · 2 · 2 | [README](docs/jmeter/escalera/configuracion-servicios/2-2-2/README.md) |
+| `3-6-6` | 3 · 6 · 6 | [README](docs/jmeter/escalera/configuracion-servicios/3-6-6/README.md) |
+
+El resumen de todos los escalones, una fila por corrida, está en
+[`escalera.csv`](docs/jmeter/escalera/configuracion-servicios/escalera.csv). La métrica que distingue las
+topologías es el **tiempo de drenaje** del pipeline tras terminar JMeter; el throughput del API apenas cambia
+porque el límite es el cliente. El criterio de aceptación en todas es `correos en Mailpit == peticiones`.
+
+**Resultado clave:** el escalón de 20000 en `3-6-6`, la misma topología y BD de la corrida del 9 de
+septiembre, terminó con **20.000 correos exactos** (95,3 req/s, p95 238 ms, drenaje de 175 s) frente a los
+22.278 de entonces. Los 2.278 duplicados desaparecen con el fix y el mismo tráfico.
+
 #### Exportar resultados de JMeter
 
 El archivo que JMeter escribe con `-l` (`.jtl`) **ya es CSV** aunque la extensión diga otra cosa; los de
-`docs/pruebas/*-request.csv` son exactamente eso. Tres formas de sacar los datos a Excel u otro formato:
+`docs/pruebas-rendimiento/*-request.csv` son exactamente eso. Tres formas de sacar los datos a Excel u otro formato:
 
 1. **Crudo, una fila por petición.** Abrir el `.jtl`/`.csv` desde Excel con *Datos → Desde texto/CSV*. El
    `timeStamp` es epoch en milisegundos; en Excel: `=A2/86400000 + DATE(1970,1,1)` con formato de fecha.

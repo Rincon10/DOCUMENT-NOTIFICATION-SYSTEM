@@ -12,6 +12,7 @@ import lombok.AllArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Component;
+import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
@@ -33,10 +34,52 @@ public class DocumentOutboxHelper {
                 SAGA_NAME, sagaId, notificationStatus, OutboxStatus.COMPLETED);
     }
 
+    /**
+     * True si la saga ya tiene fila de outbox en cualquier estado: PENDING (envio en curso), SENT o FAILED
+     * (ya procesada). En todos los casos una redelivery se descarta sin volver a enviar.
+     */
     @Transactional(readOnly = true)
-    public boolean existsDocumentOutboxMessage(UUID sagaId, NotificationStatus notificationStatus) {
-        return documentOutboxRepository.existsByTypeAndSagaIdAndNotificationStatus(SAGA_NAME, sagaId,
-                notificationStatus);
+    public boolean existsDocumentOutboxMessage(UUID sagaId) {
+        return documentOutboxRepository.existsByTypeAndSagaId(SAGA_NAME, sagaId);
+    }
+
+    /**
+     * Claim del envio (patron "reservar antes de actuar"): inserta la fila de outbox en
+     * {@code NOTIFICATION_PENDING / STARTED} ANTES de enviar el correo, en transaccion propia con commit
+     * inmediato. El indice unico {@code (type, saga_id, notification_status, outbox_status)} garantiza que
+     * solo un hilo/replica gana el INSERT; el resto recibe {@link org.springframework.dao.DataIntegrityViolationException}
+     * y debe salir sin enviar. Es la unica guarda que corre antes del efecto secundario, por eso es la unica
+     * que evita correos duplicados.
+     *
+     * <p>{@code REQUIRES_NEW}: el claim tiene que ser visible para los demas hilos antes de empezar a enviar,
+     * y la excepcion debe salir de aqui para que el llamador la capture sin quedar en rollback-only.
+     */
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
+    public void claimDocumentOutboxMessage(DocumentEventPayload pendingPayload, UUID sagaId) {
+        saveDocumentOutboxMessage(pendingPayload, NotificationStatus.NOTIFICATION_PENDING, OutboxStatus.STARTED,
+                sagaId);
+    }
+
+    /**
+     * Cierra el claim tras el envio: la misma fila pasa de PENDING al estado final (SENT/FAILED) con el payload
+     * definitivo. Sigue en STARTED, asi que el scheduler la publica en el siguiente tick.
+     */
+    @Transactional
+    public void completeDocumentOutboxMessage(DocumentEventPayload finalPayload,
+                                              NotificationStatus finalStatus,
+                                              UUID sagaId) {
+        DocumentOutboxMessage claimed = documentOutboxRepository.findByTypeAndSagaIdAndNotificationStatusAndOutboxStatus(
+                        SAGA_NAME, sagaId, NotificationStatus.NOTIFICATION_PENDING, OutboxStatus.STARTED)
+                .orElseThrow(() -> new NotificationDomainException(
+                        "Claimed (PENDING) outbox message not found for saga id: " + sagaId));
+
+        claimed.setNotificationStatus(finalStatus);
+        claimed.setPayload(JsonSerializationUtil.toJson(finalPayload,
+                "Could not create DocumentEventPayload for notification id: " + finalPayload.getNotificationId()));
+        claimed.setProcessedAt(DateUtils.getZoneDateTimeByUTCZoneId());
+        save(claimed);
+        log.info("Outbox message id: {} for saga id: {} completed with notification status: {}",
+                claimed.getId(), sagaId, finalStatus);
     }
 
     /**
@@ -95,7 +138,11 @@ public class DocumentOutboxHelper {
         log.info("DocumentOutboxMessage is saved with id: {}", documentOutboxMessage.getId());
     }
 
+    /**
+     * Excluye NOTIFICATION_PENDING: esas filas son claims de envios en curso, no respuestas publicables.
+     */
     public Optional<List<DocumentOutboxMessage>> getDocumentOutboxMessageByOutboxStatus(OutboxStatus outboxStatus) {
-        return documentOutboxRepository.findByTypeAndOutboxStatus(SAGA_NAME, outboxStatus);
+        return documentOutboxRepository.findByTypeAndOutboxStatusAndNotificationStatusNot(SAGA_NAME, outboxStatus,
+                NotificationStatus.NOTIFICATION_PENDING);
     }
 }

@@ -26,12 +26,20 @@ public interface DocumentOutboxJpaRepository extends JpaRepository<DocumentOutbo
                                                                                             OutboxStatus outboxStatus);
 
     /**
-     * True si ya existe una fila para esa saga y estado de notificacion, sin importar el outbox_status.
-     * Sirve para detectar trabajo YA en curso (STARTED) y no crear un duplicado que despues no podra
-     * pasar a COMPLETED por el indice unico (type, saga_id, notification_status, outbox_status).
+     * Filas listas para publicar: STARTED pero NO en NOTIFICATION_PENDING. Las PENDING son el "claim" del
+     * envio en curso (ver NotificationRequestHelperImpl) y no deben salir a Kafka.
      */
-    boolean existsByTypeAndSagaIdAndNotificationStatus(String type, UUID sagaId,
-                                                      NotificationStatus notificationStatus);
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @QueryHints({@jakarta.persistence.QueryHint(name = "jakarta.persistence.lock.timeout", value = "-2")})
+    Optional<List<DocumentOutboxEntity>> findByTypeAndOutboxStatusAndNotificationStatusNot(String type,
+                                                                                         OutboxStatus outboxStatus,
+                                                                                         NotificationStatus notificationStatus);
+
+    /**
+     * True si ya existe una fila para esa saga, en cualquier estado (PENDING = envio en curso,
+     * SENT/FAILED = ya procesada). Sirve para descartar redeliveries sin volver a enviar.
+     */
+    boolean existsByTypeAndSagaId(String type, UUID sagaId);
 
     void deleteByTypeAndOutboxStatus(String type, OutboxStatus outboxStatus);
 }
