@@ -37,12 +37,17 @@ echo "-- vaciando Mailpit"
 curl -s -X DELETE "$MP/api/v1/messages" > /dev/null
 rm -rf "$OUT"; mkdir -p "$OUT"
 
+# El Summary Report del plan escribe su propio CSV (uno por corrida, abrible en Excel) en
+# $RESULTS_DIR/$CONFIG/<num>-<total>-<config>-<fecha>.csv; -l deja ademas el .jtl para el reporte HTML.
+RESULTS_DIR="${RESULTS_DIR:-$HERE/results}"
 start=$(date +%s)
 jmeter -n -t "$HERE/$JMX" \
   -JbaseUrl="$BASE_URL" -JcustomerId="$CUSTOMER_ID" \
+  -Jconfig="$CONFIG" -JresultsDir="$RESULTS_DIR" \
   -l "$OUT/results.jtl" -e -o "$OUT/report"
 jm_end=$(date +%s)
 echo "-- JMeter termino en $((jm_end - start)) s. Reporte: $OUT/report/index.html"
+echo "   CSV para Excel: $(ls -t "$RESULTS_DIR/$CONFIG"/*.csv 2>/dev/null | head -1)"
 
 echo "-- esperando drenaje del pipeline (correos en Mailpit == $total, max 20 min)"
 got=0

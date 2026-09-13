@@ -250,7 +250,7 @@
             <connectTime>true</connectTime>
           </value>
         </objProp>
-        <stringProp name="filename"></stringProp>
+        <stringProp name="filename">${__P(resultsDir,results)}/${__P(config,A-1x1x1x1)}/03-5000-${__P(config,A-1x1x1x1)}-${__time(yyyyMMdd-HHmmss)}.csv</stringProp>
       </ResultCollector>
       <hashTree/>
     </hashTree>

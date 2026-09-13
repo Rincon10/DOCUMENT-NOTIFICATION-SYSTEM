@@ -23,6 +23,28 @@ sobreescribir.
 Fijos en todos: `thinkTime=0`, `connectTimeout=10000`, `responseTimeout=60000`, mismo `customerId`.
 Heap de JMeter: `export HEAP="-Xms1g -Xmx2g"` (el script ya lo hace).
 
+### Un CSV por corrida, abrible en Excel
+
+El Summary Report de cada plan escribe su propio archivo, una fila por petición, sin pasar `-l`:
+
+```
+results/<config>/<num>-<total>-<config>-<fecha>.csv
+p. ej. results/A-1x1x1x1/03-5000-A-1x1x1x1-20260913-114522.csv
+```
+
+- `config` identifica la topología (`-Jconfig=B-2x2x2`; por defecto `A-1x1x1x1`). Así el mismo plan de
+  20000 deja tres archivos distintos al correrlo en A, B y C.
+- `resultsDir` cambia la carpeta base (`-JresultsDir=...`; por defecto `results`, relativa al directorio
+  desde donde se lanza JMeter). `run-escalon.sh` la fija a `docs/jmeter/escalera/results`.
+- La fecha evita sobrescribir si repites un escalón.
+- Desde la GUI, cambia el valor por defecto de `config` en *User Defined Variables* antes de darle Start,
+  o el archivo se llamará `A-1x1x1x1` aunque estés en otra topología.
+
+El CSV trae `timeStamp, elapsed, label, responseCode, success, Latency, Connect, allThreads, ...`. En Excel:
+`elapsed` es la latencia en ms para percentiles (`=PERCENTIL.INC(B:B;0,95)`), `success` para la tasa de
+error, y `timeStamp` (epoch ms) para el throughput. Es el mismo formato de los CSV de
+[`docs/pruebas/`](../../pruebas/).
+
 ## Topologías y qué corre cada una
 
 Presupuesto de conexiones: `Σ réplicas × pool ≤ 45` (5 reservadas). El rolling restart duplica la
