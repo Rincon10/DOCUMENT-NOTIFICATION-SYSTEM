@@ -39,6 +39,7 @@ calculados sobre el CSV de cada corrida (`elapsed` de las muestras `POST /docume
 |---|---|---|---|---|---|---|---|---|---|---|---|---|
 | **500** | 10 × 50 | 29,0 s | 17,2 req/s | 123 ms | 221 ms | 293 ms | 790 ms | 2.115 ms | 0 | **500 / 500** | 80 s | **2 min 4 s** |
 | **2000** | 20 × 100 | 58,6 s | 34,2 req/s | 120 ms | 240 ms | 317 ms | 559 ms | 2.082 ms | 0 | **2000 / 2000** | 64 s | **2 min 8 s** |
+| **5000** | 25 × 200 | 96,3 s | 51,9 req/s | 116 ms | 194 ms | 323 ms | 576 ms | 1.972 ms | 0 | **5000 / 5000** | 49 s | **2 min 31 s** |
 
 ### Tiempos por tamaño
 
@@ -49,6 +50,7 @@ tarda el pipeline en entregar el último correo después de que JMeter termina, 
 |---|---|---|---|---|---|
 | 500 | 44 s | 80 s | **124 s** (2 min 4 s) | 35 + 78 = 113 s | 40 + 48 = 88 s |
 | 2000 | 64 s | 64 s | **128 s** (2 min 8 s) | 110 + 112 = 222 s (1.998 correos) | 72 + 81 = 153 s |
+| 5000 | 102 s | 49 s | **151 s** (2 min 31 s) | 119 + 113 = 232 s | 111 + 64 = 175 s |
 
 Archivos por escalón, dentro de su carpeta `<total>/`: `<num>-<total>-3-6-6-<fecha>.csv` (una fila por petición, abrir en Excel),
 `report/index.html` (reporte de JMeter), `results.jtl` y las capturas de esa corrida.
@@ -72,6 +74,12 @@ Archivos por escalón, dentro de su carpeta `<total>/`: `<num>-<total>-3-6-6-<fe
   generator el paso de generación deja de acumular cola, y notification recibe las solicitudes antes. El
   total del escalón baja a 2 min 8 s, un 16 % menos que 2-2-2. El máximo de 2 s vuelve a ser una muestra
   aislada.
+- **5000: el drenaje sigue bajando: 49 s frente a 64 en 2-2-2 y 113 en 1-1-1.** 5.000 correos exactos, 51,9 req/s
+  (52,1 en 2-2-2: el API está en su techo con 25 hilos) y p95 de 323 ms. Al terminar JMeter ya había 1.833
+  correos entregados (1.508 en 2-2-2, 733 en 1-1-1) y el drenaje sostuvo ~65 correos/s. El total del escalón
+  baja a 2 min 31 s, un 14 % menos que 2-2-2 y un 35 % menos que 1-1-1. La ganancia respecto a 2-2-2 es más
+  pequeña que la de 2-2-2 respecto a 1-1-1: notification ya tenía las 6 particiones cubiertas, así que lo que
+  aporta esta topología es el generador con 6 réplicas y document con 3.
 
 ## Cómo se corrió
 
@@ -80,6 +88,7 @@ export PATH="/c/apache-jmeter-5.6.3/apache-jmeter-5.6.3/bin:$PATH"
 cd docs/jmeter/escalera
 ./run-escalon.sh 3-6-6 01-500-create-document.jmx
 ./run-escalon.sh 3-6-6 02-2000-create-document.jmx
+./run-escalon.sh 3-6-6 03-5000-create-document.jmx
 ```
 
 El resumen de todos los escalones de todas las topologías está en [`../escalera.csv`](../escalera.csv).
