@@ -28,7 +28,7 @@ ruido esperado de la guarda de idempotencia.
 
 | document | generator | notification |
 |---|---|---|
-| ![document 3 instancias](01-document-2-instancias.png) | ![generator 6 instancias](02-generator-2-instancias.png) | ![notification 6 instancias](03-notification-2-instancias.png) |
+| ![document 3 instancias](01-document-3-instancias.png) | ![generator 6 instancias](02-generator-6-instancias.png) | ![notification 6 instancias](03-notification-6-instancias.png) |
 
 ## Resultados
 
