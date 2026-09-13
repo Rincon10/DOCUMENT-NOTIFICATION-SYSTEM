@@ -55,7 +55,11 @@ vieja desaparezca** de `az containerapp revision list`.
 |---|---|---|---|---|---|---|---|
 | **A** `1x1x1x1` | 1 | 1 | 1 | 1 | 5 | 20 | 500, 5000, 20000 |
 | **B** `2x2x2` | 2 | 2 | 2 | 1 | 5 | 35 | 5000, 20000 |
-| **C** `3x6x6` | 3 | 6 | 6 | 1 | 2 en consumidores | 15+12+12+5 = 44 | 20000 |
+| **C** `3x6x6` | 3 | 6 | 6 | 1 | 5 (BD en `B4ms`) | 15+30+30+5 = 80 | 20000 |
+
+> El 13 de septiembre la BD se subió a `Standard_B4ms` antes de empezar la escalera, así que el presupuesto
+> de 45 conexiones del `B1ms` ya no aplica y C corre con pool 5, igual que la corrida original. Si vuelves a
+> `B1ms`, baja el pool de los consumidores a 2 en C (`3x5 + 6x2 + 6x2 + 5 = 44`).
 
 - **A** es la referencia: mide el techo de una sola instancia por servicio y el tiempo de drenaje del
   pipeline con un solo consumidor por topic. El escalón de 500 es calentamiento y línea base; se salta
@@ -90,15 +94,13 @@ for s in document-service generator-service notification-service; do
   az containerapp update -g $RG -n $s --min-replicas 2 --max-replicas 2
 done
 
-# C: 3x6x6 (la topología de la corrida del 9 de septiembre), pool 2 en los consumidores
-#    para caber en 45 conexiones con la BD en B1ms: 3x5 + 6x2 + 6x2 + 5 = 44
+# C: 3x6x6 (la topología de la corrida del 9 de septiembre). Con la BD en B4ms el pool se queda en 5.
 az containerapp update -g $RG -n document-service --min-replicas 3 --max-replicas 3
 for s in generator-service notification-service; do
-  az containerapp update -g $RG -n $s --min-replicas 6 --max-replicas 6 \
-    --set-env-vars SPRING_DATASOURCE_HIKARI_MAXIMUMPOOLSIZE=2
+  az containerapp update -g $RG -n $s --min-replicas 6 --max-replicas 6
 done
-# Opcional, para comparar latencias con la corrida original (reinicia la BD, ~5 min):
-# az postgres flexible-server update -g $RG -n dns-student-pg --sku-name Standard_B4ms --tier Burstable
+# Solo si la BD sigue en B1ms (45 conexiones utiles): añadir a los dos consumidores
+#   --set-env-vars SPRING_DATASOURCE_HIKARI_MAXIMUMPOOLSIZE=2
 
 # Verificar antes de lanzar: todas Running, una sola revisión activa por app
 az containerapp list -g $RG --query "[].{n:name, min:properties.template.scale.minReplicas, max:properties.template.scale.maxReplicas, s:properties.runningStatus}" -o table
@@ -123,14 +125,20 @@ chmod +x run-escalon.sh
 ./run-escalon.sh C-3x6x6 04-20000-create-document.jmx
 ```
 
-Variables opcionales del script: `BASE_URL`, `MP` (URL de Mailpit), `CUSTOMER_ID`, `HEAP`, y `DB_URL`
-para que cuente filas `NOTIFICATION_PENDING` atascadas al final de cada escalón si tienes `psql`.
+Variables opcionales del script: `BASE_URL`, `MP` (URL de Mailpit), `CUSTOMER_ID`, `HEAP`, `RESULTS_DIR`
+y `DB_URL` para que cuente filas `NOTIFICATION_PENDING` atascadas al final de cada escalón si tienes `psql`.
+JMeter no está en el `PATH` de esta máquina: `export PATH="/c/apache-jmeter-5.6.3/apache-jmeter-5.6.3/bin:$PATH"`.
+
+**Health check inicial.** El Header Manager global del plan manda `Accept: application/vnd.api.v1+json`, que
+Actuator no puede producir, así que `/actuator/health` respondía 500 y el `setUp` abortaba la prueba. Los planes
+de esta carpeta llevan un Header Manager propio en ese sampler con `Accept: application/json` y el `setUp` en
+`continue`: si el health falla, queda registrado en el CSV pero la carga se ejecuta igual.
 
 ## Qué anotar por corrida
 
-`run-escalon.sh` deja una fila en `target/jmeter/escalera.csv`
-(`config,total,threads,loops,seg_jmeter,seg_drenaje,correos`) y el reporte HTML en
-`target/jmeter/<config>/<total>/report/index.html`. Para la tabla final:
+Todo queda versionable dentro de `results/`: `run-escalon.sh` deja una fila por escalón en
+`results/escalera.csv` (`config,total,threads,loops,seg_jmeter,seg_drenaje,correos,fecha`), el reporte HTML
+en `results/<config>/<total>/report/index.html` y el `.jtl` crudo al lado. Para la tabla final:
 
 | Métrica | De dónde | Qué dice |
 |---|---|---|
