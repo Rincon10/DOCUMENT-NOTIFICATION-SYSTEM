@@ -22,6 +22,7 @@ Un sistema de notificaciones distribuido orientado a documentos, diseñado con p
 - [Flujo de notificación (alto nivel)](#flujo-de-notificación-alto-nivel)
 - [Mecanismos contra la duplicidad](#mecanismos-contra-la-duplicidad)
 - [Arquitectura en la nube (Azure)](#arquitectura-en-la-nube-azure)
+  - [Pruebas de escalabilidad por topología (13 de septiembre de 2026)](#pruebas-de-escalabilidad-por-topología-13-de-septiembre-de-2026)
 - [Tecnologías y patterns recomendados](#tecnologías-y-patterns-recomendados)
 - [Cómo empezar](#cómo-empezar-resumen)
 - [Buenas prácticas y recomendaciones](#buenas-prácticas-y-recomendaciones)
@@ -754,6 +755,28 @@ Report por escalón y el CSV crudo de JMeter con una fila por petición, listo p
 > Las tres corridas se lanzaron desde la GUI de JMeter (se ve en las capturas). Para los números de latencia
 > es válido porque el cliente no saturó, pero para 20000 o más conviene el modo CLI (`jmeter -n`) que se
 > describe arriba: la GUI consume memoria por cada muestra y puede distorsionar el máximo.
+
+#### Pruebas de escalabilidad por topología (13 de septiembre de 2026)
+
+Con el fix *claim-then-send* desplegado (`notification-service:1.2`), la escalera se repitió sobre **tres
+topologías de instancias** para separar lo que aporta cada réplica: `1-1-1`, `2-2-2` y `3-6-6` (esta última,
+la misma de la corrida del 9 de septiembre), con los tamaños 500, 2000, 5000 y 20000 en cada una. El plan, los
+`.jmx` por tamaño, el script que corre un escalón y espera el drenaje, y los criterios de aceptación están en
+**[`docs/jmeter/escalera/`](docs/jmeter/escalera/README.md)**. Los resultados, con un README por topología
+(configuración, capturas de Azure y Mailpit, percentiles, throughput, tiempos de drenaje y lecturas) y el CSV
+de cada corrida abrible en Excel, están en
+**[`docs/jmeter/escalera/configuracion-servicios/`](docs/jmeter/escalera/configuracion-servicios/)**:
+
+| Topología | document · generator · notification | Resultados |
+|---|---|---|
+| `1-1-1` | 1 · 1 · 1 | [README](docs/jmeter/escalera/configuracion-servicios/1-1-1/README.md) |
+| `2-2-2` | 2 · 2 · 2 | [README](docs/jmeter/escalera/configuracion-servicios/2-2-2/README.md) |
+| `3-6-6` | 3 · 6 · 6 | [README](docs/jmeter/escalera/configuracion-servicios/3-6-6/README.md) |
+
+El resumen de todos los escalones, una fila por corrida, está en
+[`escalera.csv`](docs/jmeter/escalera/configuracion-servicios/escalera.csv). La métrica que distingue las
+topologías es el **tiempo de drenaje** del pipeline tras terminar JMeter; el throughput del API apenas cambia
+porque el límite es el cliente. El criterio de aceptación en todas es `correos en Mailpit == peticiones`.
 
 #### Exportar resultados de JMeter
 
