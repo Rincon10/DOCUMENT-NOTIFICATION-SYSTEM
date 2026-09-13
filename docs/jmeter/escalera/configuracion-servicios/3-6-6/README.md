@@ -115,6 +115,8 @@ Los dos documentos que quedaron sin correo en el 20000 de 2-2-2 por el bloqueo o
 no se repitieron aquí; ese defecto sigue abierto y depende de que Kafka parpadee con backlog grande, no de
 la topología.
 
+![Mailpit tras la prueba de 20000: 20.000 correos](20000/04-prueba-mailpit.png)
+
 ## Cómo se corrió
 
 ```bash
