@@ -21,9 +21,9 @@ Escalado con `az containerapp update --min-replicas 2 --max-replicas 2` sobre la
 cambiar imagen ni variables; quedó una única revisión activa `--0000004` por servicio. Una réplica de
 notification tomó las particiones 0, 2 y 5; la otra, 1, 3 y 4.
 
-| document | generator | notification |
-|---|---|---|
-| ![document 2 instancias](01-document-2-instancias.png) | ![generator 2 instancias](02-generator-2-instancias.png) | ![notification 2 instancias](03-notification-2-instancias.png) |
+| document | generator | notification | Mailpit |
+|---|---|---|---|
+| ![document 2 instancias](01-document-2-instancias.png) | ![generator 2 instancias](02-generator-2-instancias.png) | ![notification 2 instancias](03-notification-2-instancias.png) | ![Mailpit tras la prueba de 500](500/04-prueba-mailpit.png) |
 
 ## Resultados
 
