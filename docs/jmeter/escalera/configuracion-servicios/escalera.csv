@@ -9,3 +9,4 @@ config,total,threads,loops,seg_jmeter,seg_drenaje,correos,fecha,nota
 2-2-2,2000,20,100,72,81,2000,2026-09-13T17:12:13,
 2-2-2,5000,25,200,111,64,5000,2026-09-13T17:20:21,
 2-2-2,20000,40,500,218,-,19998,2026-09-13T17:33:00,DETENIDA a los 8 min con 19998/20000: API 20000/20000 OK a 94.1 req/s (p95 279 ms); drenaje 161 s hasta 19998; 2 documentos quedaron en PENDING por ObjectOptimisticLockingFailureException tragada en GenerationResponseKafkaListener
+3-6-6,500,10,50,44,80,500,2026-09-13T17:58:13,
