@@ -34,6 +34,7 @@ calculados sobre el CSV de cada corrida (`elapsed` de las muestras `POST /docume
 |---|---|---|---|---|---|---|---|---|---|---|---|---|
 | **500** | 10 × 50 | 31,6 s | 15,8 req/s | 140 ms | 360 ms | 458 ms | 793 ms | 1.320 ms | 0 | **500 / 500** | 48 s | **1 min 28 s** |
 | **2000** | 20 × 100 | 56,3 s | 35,5 req/s | 114 ms | 189 ms | 260 ms | 389 ms | 607 ms | 0 | **2000 / 2000** | 81 s | **2 min 33 s** |
+| **5000** | 25 × 200 | 95,9 s | 52,1 req/s | 112 ms | 184 ms | 262 ms | 579 ms | 1.499 ms | 0 | **5000 / 5000** | 64 s | **2 min 55 s** |
 
 ### Tiempos por tamaño
 
@@ -44,6 +45,7 @@ en entregar el último correo después de que JMeter termina, *total* la suma.
 |---|---|---|---|---|
 | 500 | 40 s | 48 s | **88 s** (1 min 28 s) | 35 s + 78 s = 113 s |
 | 2000 | 72 s | 81 s | **153 s** (2 min 33 s) | 110 s + 112 s = 222 s, y 2 correos nunca llegaron |
+| 5000 | 111 s | 64 s | **175 s** (2 min 55 s) | 119 s + 113 s = 232 s |
 
 Archivos por escalón, dentro de su carpeta `<total>/`: `<num>-<total>-2-2-2-<fecha>.csv` (una fila por petición, abrir en Excel),
 `report/index.html` (reporte de JMeter), `results.jtl` y las capturas de esa corrida.
@@ -65,6 +67,12 @@ Archivos por escalón, dentro de su carpeta `<total>/`: `<num>-<total>-2-2-2-<fe
   exactos**. Es el primer escalón de 2000 completo de la escalera. Drenaje de 81 s, unos 25 correos por
   segundo, con Mailpit en 30 al terminar JMeter: el pipeline arranca al ritmo de los ticks y luego sostiene
   ~35 correos/s.
+- **5000: el drenaje casi se parte a la mitad.** 5.000 correos exactos, 52,1 req/s en el API (48,6 en 1-1-1,
+  misma latencia: p95 262 frente a 270 ms) y drenaje de **64 s frente a 113 s**, un 43 % menos. Al terminar
+  JMeter Mailpit ya tenía 1.508 correos, contra 733 en 1-1-1: con seis hilos consumiendo las seis particiones
+  el pipeline avanza al doble de ritmo mientras la carga aún entra. Durante el drenaje sostuvo ~55 correos/s.
+  El API apenas cambia porque a 25 hilos sigue sin saturar; la mejora es toda del pipeline, que es lo que
+  esta topología debía demostrar.
 
   ![Mailpit tras la prueba de 2000](2000/04-prueba-mailpit.png)
 
@@ -75,6 +83,7 @@ export PATH="/c/apache-jmeter-5.6.3/apache-jmeter-5.6.3/bin:$PATH"
 cd docs/jmeter/escalera
 ./run-escalon.sh 2-2-2 01-500-create-document.jmx
 ./run-escalon.sh 2-2-2 02-2000-create-document.jmx
+./run-escalon.sh 2-2-2 03-5000-create-document.jmx
 ```
 
 El resumen de todos los escalones de todas las topologías está en [`../escalera.csv`](../escalera.csv).
