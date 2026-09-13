@@ -27,12 +27,28 @@ Kafka en Confluent Cloud; `notification-request` tiene 6 particiones y cada rép
 JMeter 5.6.3 en modo CLI desde un PC en Wi-Fi contra `document-service` en Central US. Percentiles
 calculados sobre el CSV de cada corrida (`elapsed` de las muestras `POST /documents`).
 
-| Escalón | threads × loops | Duración API | Throughput | Mediana | p90 | p95 | p99 | Máx | Errores | Correos en Mailpit | Drenaje tras JMeter |
-|---|---|---|---|---|---|---|---|---|---|---|---|
-| **500** | 10 × 50 | 30,5 s | 16,4 req/s | 224 ms | 371 ms | 428 ms | 740 ms | 1.062 ms | 0 | **500 / 500** | 78 s |
-| **5000** | 25 × 200 | 103 s | 48,6 req/s | 119 ms | 219 ms | 270 ms | 588 ms | 1.443 ms | 0 | **5000 / 5000** | 113 s |
-| 20000, intento 1 | 40 × 500 | 557 s | — | 122 ms | — | 279 ms | 480 ms | 1.529 ms | 7.718 (38,6 %) | 12.293 / 12.282 llegadas | — |
+| Escalón | threads × loops | Duración API | Throughput | Mediana | p90 | p95 | p99 | Máx | Errores | Correos en Mailpit | Drenaje tras JMeter | Total escalón |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| **500** | 10 × 50 | 30,5 s | 16,4 req/s | 224 ms | 371 ms | 428 ms | 740 ms | 1.062 ms | 0 | **500 / 500** | 78 s | **1 min 53 s** |
+| **5000** | 25 × 200 | 103 s | 48,6 req/s | 119 ms | 219 ms | 270 ms | 588 ms | 1.443 ms | 0 | **5000 / 5000** | 113 s | **3 min 52 s** |
+| 20000, intento 1 | 40 × 500 | 557 s | — | 122 ms | — | 279 ms | 480 ms | 1.529 ms | 7.718 (38,6 %) | 12.293 / 12.282 llegadas | — | inválido |
 
+### Tiempos por tamaño
+
+Medidos por `run-escalon.sh` con una instancia por servicio. *JMeter* es el tiempo de pared del cliente (incluye
+arranque de la JVM y generación del reporte, por eso supera a la "duración API" entre primera y última muestra);
+*drenaje* es lo que tarda el pipeline Kafka → generator → notification → Mailpit en entregar el último correo
+después de que JMeter termina; *total* es la suma, del primer `POST` al último correo.
+
+| Tamaño | JMeter | Drenaje | Total | Correos por segundo durante el drenaje |
+|---|---|---|---|---|
+| 500 | 35 s | 78 s | **113 s** (1 min 53 s) | ~6 /s |
+| 5000 | 119 s | 113 s | **232 s** (3 min 52 s) | ~38 /s |
+| 20000 | 557 s (intento 1, inválido) | — | — | — |
+
+El drenaje no crece linealmente con el tamaño porque mientras JMeter sigue enviando, el pipeline ya está
+procesando: en el escalón de 5.000, Mailpit tenía 733 correos cuando JMeter terminó. La cifra de correos por
+segundo del escalón de 500 está dominada por el tick de 30 s de los schedulers de outbox, no por la capacidad.
 Archivos por escalón, dentro de su carpeta `<total>/`: `<num>-<total>-1-1-1-<fecha>.csv` (una fila por petición, abrir en Excel),
 `report/index.html` (reporte de JMeter), `results.jtl` y las capturas de esa corrida.
 
