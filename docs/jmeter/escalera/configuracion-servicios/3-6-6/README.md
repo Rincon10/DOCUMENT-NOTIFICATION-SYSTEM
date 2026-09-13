@@ -38,6 +38,7 @@ calculados sobre el CSV de cada corrida (`elapsed` de las muestras `POST /docume
 | Escalón | threads × loops | Duración API | Throughput | Mediana | p90 | p95 | p99 | Máx | Errores | Correos en Mailpit | Drenaje tras JMeter | Total escalón |
 |---|---|---|---|---|---|---|---|---|---|---|---|---|
 | **500** | 10 × 50 | 29,0 s | 17,2 req/s | 123 ms | 221 ms | 293 ms | 790 ms | 2.115 ms | 0 | **500 / 500** | 80 s | **2 min 4 s** |
+| **2000** | 20 × 100 | 58,6 s | 34,2 req/s | 120 ms | 240 ms | 317 ms | 559 ms | 2.082 ms | 0 | **2000 / 2000** | 64 s | **2 min 8 s** |
 
 ### Tiempos por tamaño
 
@@ -47,6 +48,7 @@ tarda el pipeline en entregar el último correo después de que JMeter termina, 
 | Tamaño | JMeter | Drenaje | Total | 1-1-1 | 2-2-2 |
 |---|---|---|---|---|---|
 | 500 | 44 s | 80 s | **124 s** (2 min 4 s) | 35 + 78 = 113 s | 40 + 48 = 88 s |
+| 2000 | 64 s | 64 s | **128 s** (2 min 8 s) | 110 + 112 = 222 s (1.998 correos) | 72 + 81 = 153 s |
 
 Archivos por escalón, dentro de su carpeta `<total>/`: `<num>-<total>-3-6-6-<fecha>.csv` (una fila por petición, abrir en Excel),
 `report/index.html` (reporte de JMeter), `results.jtl` y las capturas de esa corrida.
@@ -64,6 +66,12 @@ Archivos por escalón, dentro de su carpeta `<total>/`: `<num>-<total>-3-6-6-<fe
   schedulers. A 500 peticiones el drenaje lo dicta el intervalo de 30 s del outbox y la alineación con el
   arranque, no el número de consumidores. Los 12 hilos ociosos de notification tampoco aportan. La
   comparación útil de esta topología es a 5000 y 20000.
+- **2000: el mejor total de la escalera a este tamaño.** 2.000 correos exactos, 34,2 req/s (35,5 en 2-2-2,
+  misma latencia dentro del ruido: p95 317 frente a 260 ms) y drenaje de **64 s frente a 81 en 2-2-2 y 112 en
+  1-1-1**. Al terminar JMeter ya había 422 correos entregados, contra 30 en 2-2-2: con 6 réplicas de
+  generator el paso de generación deja de acumular cola, y notification recibe las solicitudes antes. El
+  total del escalón baja a 2 min 8 s, un 16 % menos que 2-2-2. El máximo de 2 s vuelve a ser una muestra
+  aislada.
 
 ## Cómo se corrió
 
@@ -71,6 +79,7 @@ Archivos por escalón, dentro de su carpeta `<total>/`: `<num>-<total>-3-6-6-<fe
 export PATH="/c/apache-jmeter-5.6.3/apache-jmeter-5.6.3/bin:$PATH"
 cd docs/jmeter/escalera
 ./run-escalon.sh 3-6-6 01-500-create-document.jmx
+./run-escalon.sh 3-6-6 02-2000-create-document.jmx
 ```
 
 El resumen de todos los escalones de todas las topologías está en [`../escalera.csv`](../escalera.csv).
