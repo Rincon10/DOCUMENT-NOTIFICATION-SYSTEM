@@ -23,6 +23,7 @@ Un sistema de notificaciones distribuido orientado a documentos, diseñado con p
 - [Mecanismos contra la duplicidad](#mecanismos-contra-la-duplicidad)
 - [Arquitectura en la nube (Azure)](#arquitectura-en-la-nube-azure)
   - [Pruebas de escalabilidad por topología (13 de septiembre de 2026)](#pruebas-de-escalabilidad-por-topología-13-de-septiembre-de-2026)
+  - [Análisis de disponibilidad y eficiencia](docs/05-ANALISIS-DISPONIBILIDAD-EFICIENCIA.md)
 - [Tecnologías y patterns recomendados](#tecnologías-y-patterns-recomendados)
 - [Cómo empezar](#cómo-empezar-resumen)
 - [Buenas prácticas y recomendaciones](#buenas-prácticas-y-recomendaciones)
@@ -781,6 +782,10 @@ porque el límite es el cliente. El criterio de aceptación en todas es `correos
 **Resultado clave:** el escalón de 20000 en `3-6-6`, la misma topología y BD de la corrida del 9 de
 septiembre, terminó con **20.000 correos exactos** (95,3 req/s, p95 238 ms, drenaje de 175 s) frente a los
 22.278 de entonces. Los 2.278 duplicados desaparecen con el fix y el mismo tráfico.
+
+El análisis comparativo de los atributos de **disponibilidad** y **eficiencia de desempeño** sobre estas
+corridas, con tácticas presentes y ausentes, utilización por topología y recomendaciones priorizadas, está en
+[`docs/05-ANALISIS-DISPONIBILIDAD-EFICIENCIA.md`](docs/05-ANALISIS-DISPONIBILIDAD-EFICIENCIA.md).
 
 #### Exportar resultados de JMeter
 
