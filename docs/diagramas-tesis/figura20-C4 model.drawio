@@ -1,0 +1,84 @@
+<mxfile host="app.diagrams.net">
+  <diagram name="Figura 20 - C4 Container View">
+    <mxGraphModel dx="1420" dy="820" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1600" pageHeight="900" math="0" shadow="0">
+      <root>
+        <mxCell id="0"/>
+        <mxCell id="1" parent="0"/>
+
+        <mxCell id="person" value="Usuario / Cliente API&#xa;[Person]&#xa;Inicia solicitudes de documentos y consulta clientes"
+          style="rounded=1;whiteSpace=wrap;html=1;fillColor=#08427B;fontColor=#FFFFFF;strokeColor=#052E56;fontStyle=1;"
+          vertex="1" parent="1">
+          <mxGeometry x="40" y="300" width="190" height="100" as="geometry"/>
+        </mxCell>
+
+        <mxCell id="boundary" value="Document Notification System&#xa;[Software System]"
+          style="swimlane;html=1;rounded=1;startSize=35;horizontal=1;fillColor=#FFFFFF;strokeColor=#1168BD;fontStyle=1;"
+          vertex="1" parent="1">
+          <mxGeometry x="280" y="100" width="900" height="600" as="geometry"/>
+        </mxCell>
+
+        <mxCell id="document" value="Document Service&#xa;[Container: Spring Boot]&#xa;Orquesta el ciclo de generación y notificación"
+          style="rounded=1;whiteSpace=wrap;html=1;fillColor=#438DD5;fontColor=#FFFFFF;strokeColor=#2E6295;"
+          vertex="1" parent="1">
+          <mxGeometry x="350" y="210" width="250" height="105" as="geometry"/>
+        </mxCell>
+
+        <mxCell id="customer" value="Customer Service&#xa;[Container: Spring Boot]&#xa;Gestiona información de clientes"
+          style="rounded=1;whiteSpace=wrap;html=1;fillColor=#438DD5;fontColor=#FFFFFF;strokeColor=#2E6295;"
+          vertex="1" parent="1">
+          <mxGeometry x="350" y="420" width="250" height="105" as="geometry"/>
+        </mxCell>
+
+        <mxCell id="generator" value="Generator Service&#xa;[Container: Spring Boot]&#xa;Genera documentos"
+          style="rounded=1;whiteSpace=wrap;html=1;fillColor=#438DD5;fontColor=#FFFFFF;strokeColor=#2E6295;"
+          vertex="1" parent="1">
+          <mxGeometry x="760" y="210" width="250" height="105" as="geometry"/>
+        </mxCell>
+
+        <mxCell id="notification" value="Notification Service&#xa;[Container: Spring Boot]&#xa;Procesa notificaciones por correo"
+          style="rounded=1;whiteSpace=wrap;html=1;fillColor=#438DD5;fontColor=#FFFFFF;strokeColor=#2E6295;"
+          vertex="1" parent="1">
+          <mxGeometry x="760" y="420" width="250" height="105" as="geometry"/>
+        </mxCell>
+
+        <mxCell id="db" value="PostgreSQL&#xa;[Database]&#xa;Persistencia de estados, SAGA y Outbox"
+          style="shape=cylinder3;whiteSpace=wrap;html=1;boundedLbl=1;backgroundOutline=1;fillColor=#438DD5;fontColor=#FFFFFF;strokeColor=#2E6295;"
+          vertex="1" parent="1">
+          <mxGeometry x="535" y="555" width="200" height="95" as="geometry"/>
+        </mxCell>
+
+        <mxCell id="kafka" value="Confluent Cloud / Apache Kafka&#xa;[External Software System]&#xa;Mensajería asíncrona y eventos"
+          style="rounded=1;whiteSpace=wrap;html=1;fillColor=#999999;fontColor=#FFFFFF;strokeColor=#666666;"
+          vertex="1" parent="1">
+          <mxGeometry x="1230" y="220" width="270" height="105" as="geometry"/>
+        </mxCell>
+
+        <mxCell id="mailpit" value="Mailpit&#xa;[External Software System]&#xa;Captura de correos para pruebas"
+          style="rounded=1;whiteSpace=wrap;html=1;fillColor=#999999;fontColor=#FFFFFF;strokeColor=#666666;"
+          vertex="1" parent="1">
+          <mxGeometry x="1230" y="450" width="270" height="105" as="geometry"/>
+        </mxCell>
+
+        <mxCell id="e1" value="HTTPS / REST" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;" edge="1" parent="1" source="person" target="document"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="e2" value="HTTPS / REST" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;" edge="1" parent="1" source="person" target="customer"><mxGeometry relative="1" as="geometry"/></mxCell>
+
+        <mxCell id="e3" value="Publica / consume eventos" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;" edge="1" parent="1" source="document" target="kafka"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="e4" value="Consume / publica eventos" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;" edge="1" parent="1" source="generator" target="kafka"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="e5" value="Consume / publica eventos" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;" edge="1" parent="1" source="notification" target="kafka"><mxGeometry relative="1" as="geometry"/></mxCell>
+
+        <mxCell id="e6" value="JDBC / SSL" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;" edge="1" parent="1" source="document" target="db"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="e7" value="JDBC / SSL" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;" edge="1" parent="1" source="customer" target="db"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="e8" value="JDBC / SSL" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;" edge="1" parent="1" source="generator" target="db"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="e9" value="JDBC / SSL" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;" edge="1" parent="1" source="notification" target="db"><mxGeometry relative="1" as="geometry"/></mxCell>
+
+        <mxCell id="e10" value="SMTP - entorno experimental" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;" edge="1" parent="1" source="notification" target="mailpit"><mxGeometry relative="1" as="geometry"/></mxCell>
+
+        <mxCell id="legend" value="Leyenda C4&#xa;Azul: Container interno&#xa;Gris: Sistema externo&#xa;Cilindro: almacén de datos&#xa;Flecha: relación / protocolo"
+          style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#666666;fontSize=12;"
+          vertex="1" parent="1">
+          <mxGeometry x="1220" y="620" width="280" height="120" as="geometry"/>
+        </mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>

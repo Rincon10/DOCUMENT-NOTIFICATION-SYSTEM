@@ -1,0 +1,102 @@
+<mxfile host="app.diagrams.net">
+  <diagram name="Figura 21 - C4 Deployment View">
+    <mxGraphModel dx="1500" dy="850" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1700" pageHeight="950">
+      <root>
+        <mxCell id="0"/>
+        <mxCell id="1" parent="0"/>
+
+        <mxCell id="internet" value="Internet&#xa;[External]"
+          style="rounded=1;whiteSpace=wrap;html=1;fillColor=#999999;fontColor=#FFFFFF;strokeColor=#666666;"
+          vertex="1" parent="1">
+          <mxGeometry x="40" y="310" width="180" height="90" as="geometry"/>
+        </mxCell>
+
+        <mxCell id="azure" value="Microsoft Azure&#xa;[Deployment Node]"
+          style="swimlane;html=1;rounded=1;startSize=35;fillColor=#FFFFFF;strokeColor=#1168BD;fontStyle=1;"
+          vertex="1" parent="1">
+          <mxGeometry x="280" y="70" width="1030" height="720" as="geometry"/>
+        </mxCell>
+
+        <mxCell id="aca" value="Azure Container Apps Environment&#xa;[Deployment Node]"
+          style="swimlane;html=1;rounded=1;startSize=35;fillColor=#EAF4FE;strokeColor=#438DD5;fontStyle=1;"
+          vertex="1" parent="1">
+          <mxGeometry x="350" y="150" width="650" height="500" as="geometry"/>
+        </mxCell>
+
+        <mxCell id="doc" value="document-service&#xa;[Container]&#xa;Ingress: EXTERNAL"
+          style="rounded=1;whiteSpace=wrap;html=1;fillColor=#438DD5;fontColor=#FFFFFF;strokeColor=#2E6295;"
+          vertex="1" parent="1">
+          <mxGeometry x="400" y="245" width="220" height="90" as="geometry"/>
+        </mxCell>
+
+        <mxCell id="cust" value="customer-service&#xa;[Container]&#xa;Ingress: EXTERNAL"
+          style="rounded=1;whiteSpace=wrap;html=1;fillColor=#438DD5;fontColor=#FFFFFF;strokeColor=#2E6295;"
+          vertex="1" parent="1">
+          <mxGeometry x="690" y="245" width="220" height="90" as="geometry"/>
+        </mxCell>
+
+        <mxCell id="gen" value="generator-service&#xa;[Container]&#xa;Ingress: INTERNAL"
+          style="rounded=1;whiteSpace=wrap;html=1;fillColor=#438DD5;fontColor=#FFFFFF;strokeColor=#2E6295;"
+          vertex="1" parent="1">
+          <mxGeometry x="400" y="445" width="220" height="90" as="geometry"/>
+        </mxCell>
+
+        <mxCell id="not" value="notification-service&#xa;[Container]&#xa;Ingress: INTERNAL"
+          style="rounded=1;whiteSpace=wrap;html=1;fillColor=#438DD5;fontColor=#FFFFFF;strokeColor=#2E6295;"
+          vertex="1" parent="1">
+          <mxGeometry x="690" y="445" width="220" height="90" as="geometry"/>
+        </mxCell>
+
+        <mxCell id="secret" value="Container Apps Secrets&#xa;[Configuration]&#xa;Credenciales inyectadas como variables de entorno"
+          style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFF2CC;strokeColor=#D6B656;"
+          vertex="1" parent="1">
+          <mxGeometry x="400" y="575" width="510" height="65" as="geometry"/>
+        </mxCell>
+
+        <mxCell id="acr" value="Azure Container Registry&#xa;[Deployment Infrastructure]&#xa;Imágenes Docker"
+          style="rounded=1;whiteSpace=wrap;html=1;fillColor=#85BBF0;strokeColor=#438DD5;"
+          vertex="1" parent="1">
+          <mxGeometry x="1050" y="165" width="210" height="90" as="geometry"/>
+        </mxCell>
+
+        <mxCell id="postgres" value="PostgreSQL Flexible Server&#xa;[Database]"
+          style="shape=cylinder3;whiteSpace=wrap;html=1;boundedLbl=1;backgroundOutline=1;fillColor=#85BBF0;strokeColor=#438DD5;"
+          vertex="1" parent="1">
+          <mxGeometry x="1060" y="360" width="190" height="100" as="geometry"/>
+        </mxCell>
+
+        <mxCell id="confluent" value="Confluent Cloud / Kafka&#xa;[External Deployment Node]"
+          style="rounded=1;whiteSpace=wrap;html=1;fillColor=#999999;fontColor=#FFFFFF;strokeColor=#666666;"
+          vertex="1" parent="1">
+          <mxGeometry x="1390" y="270" width="230" height="95" as="geometry"/>
+        </mxCell>
+
+        <mxCell id="mailpit" value="Mailpit&#xa;[Test Infrastructure]&#xa;Servidor de correo experimental"
+          style="rounded=1;whiteSpace=wrap;html=1;fillColor=#999999;fontColor=#FFFFFF;strokeColor=#666666;"
+          vertex="1" parent="1">
+          <mxGeometry x="1390" y="470" width="230" height="95" as="geometry"/>
+        </mxCell>
+
+        <mxCell id="x1" value="HTTPS 443" style="edgeStyle=orthogonalEdgeStyle;html=1;endArrow=block;" edge="1" parent="1" source="internet" target="doc"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="x2" value="HTTPS 443" style="edgeStyle=orthogonalEdgeStyle;html=1;endArrow=block;" edge="1" parent="1" source="internet" target="cust"><mxGeometry relative="1" as="geometry"/></mxCell>
+
+        <mxCell id="x3" value="Pull imágenes" style="edgeStyle=orthogonalEdgeStyle;html=1;dashed=1;endArrow=block;" edge="1" parent="1" source="acr" target="aca"><mxGeometry relative="1" as="geometry"/></mxCell>
+
+        <mxCell id="x4" value="JDBC + SSL" style="edgeStyle=orthogonalEdgeStyle;html=1;endArrow=block;" edge="1" parent="1" source="aca" target="postgres"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="x5" value="SASL_SSL" style="edgeStyle=orthogonalEdgeStyle;html=1;endArrow=block;" edge="1" parent="1" source="aca" target="confluent"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="x6" value="SMTP / pruebas" style="edgeStyle=orthogonalEdgeStyle;html=1;endArrow=block;" edge="1" parent="1" source="not" target="mailpit"><mxGeometry relative="1" as="geometry"/></mxCell>
+
+        <mxCell id="blocked" value="Sin acceso directo"
+          style="edgeStyle=orthogonalEdgeStyle;html=1;dashed=1;strokeColor=#B85450;fontColor=#B85450;endArrow=none;"
+          edge="1" parent="1" source="internet" target="gen"><mxGeometry relative="1" as="geometry"/></mxCell>
+
+        <mxCell id="legend" value="Leyenda&#xa;Azul: componente desplegado en Azure&#xa;Gris: infraestructura externa&#xa;EXTERNAL: accesible desde Internet&#xa;INTERNAL: acceso restringido al entorno&#xa;Línea punteada roja: acceso no permitido"
+          style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#666666;"
+          vertex="1" parent="1">
+          <mxGeometry x="1350" y="650" width="300" height="145" as="geometry"/>
+        </mxCell>
+
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>
